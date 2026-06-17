@@ -1,6 +1,6 @@
 // @ts-nocheck
 import './ide.css'
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback, startTransition } from 'react'
 import { useWorkspace } from '../../hooks/useWorkspace'
 import {
   detectLang, extractSymbols, generateImport, injectImport,
@@ -1160,7 +1160,7 @@ function GroupEditor({ group, nodes, onClose, onOpenNode }) {
 function MangaNode({
   node, groups, brutal, isJoinSelected, edgeMode, hoveredNodeId, setHoveredNodeId,
   draggingNodeRef, lastMousePos, transform, setNodeColorPicker, handleNodeClickInMode, openNodeInEditor,
-  nodeRunState, onRun, onCtxMenu,
+  nodeRunState, onRun, onCtxMenu, wakePhysicsRef,
 }) {
   const W = node.isMain ? 108 : 90
   const H = node.isMain ? 44 : 36
@@ -1186,8 +1186,8 @@ function MangaNode({
         opacity: dimmed ? 0.22 : 1,
         zIndex: isJoinSelected || isHovered ? 10 : 1,
       }}
-      onPointerEnter={() => !edgeMode && setHoveredNodeId(node.id)}
-      onPointerLeave={() => setHoveredNodeId(null)}
+      onPointerEnter={() => !edgeMode && startTransition(() => setHoveredNodeId(node.id))}
+      onPointerLeave={() => startTransition(() => setHoveredNodeId(null))}
       onContextMenu={e=>{e.preventDefault();e.stopPropagation();onCtxMenu?.(node.id,e.clientX,e.clientY)}}
       onPointerDown={e => {
         e.stopPropagation()
@@ -1196,6 +1196,7 @@ function MangaNode({
         draggingNodeRef.current = { id:node.id, x:node.x, y:node.y, hasDragged:false }
         lastMousePos.current = { x:e.clientX, y:e.clientY }
         e.currentTarget.setPointerCapture(e.pointerId)
+        wakePhysicsRef?.current?.()
       }}
       onPointerMove={e => {
         if (!draggingNodeRef.current || draggingNodeRef.current.id !== node.id) return
@@ -2575,7 +2576,8 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
   const [transform, setTransform] = useState({ x: 300, y: 220, scale: 1 })
   const [isDraggingCanvas, setIsDraggingCanvas] = useState(false)
   const lastMousePos = useRef({ x:0, y:0 })
-  const draggingNodeRef = useRef(null)
+  const draggingNodeRef  = useRef(null)
+  const wakePhysicsRef   = useRef<() => void>(() => {})
   const canvasInputRef = useRef(null)
   const folderInputRef = useRef(null)
 
@@ -2707,6 +2709,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
     setOpenTabs(t=>t.filter(tid=>tid!==nid))
     if (activeTabId===nid) setActiveTabId(null)
     forceRender({})
+    wakePhysicsRef.current()
     addEvent('node-delete', `Deleted ${deletedLabel}`)
     wsHook.deleteNode(nid).catch(()=>{})
   }, [activeTabId, addEvent])
@@ -2870,9 +2873,11 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
     }
   }, [wsHook.loading])
 
-  // Force simulation
+  // Force simulation — stops when settled, restarts via wakePhysicsRef
   useEffect(() => {
-    let rafId
+    let rafId: number
+    let idleFrames = 0
+
     const tick = () => {
       let updated = false
       const nds = nodesRef.current, eds = edgesRef.current
@@ -2899,11 +2904,24 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
         const d=nds.find(n=>n.id===draggingNodeRef.current.id)
         if (d) { d.x=draggingNodeRef.current.x; d.y=draggingNodeRef.current.y; d.vx=0; d.vy=0; updated=true }
       }
-      if (updated) forceRender({})
+      if (updated) { forceRender(); idleFrames=0 }
+      else idleFrames++
+
+      // Keep running while moving or drag active; stop after 8 settled frames
+      if (updated || draggingNodeRef.current || idleFrames < 8) {
+        rafId = requestAnimationFrame(tick)
+      }
+      // RAF stops here when settled — wakePhysicsRef restarts it
+    }
+
+    wakePhysicsRef.current = () => {
+      idleFrames = 0
+      cancelAnimationFrame(rafId)
       rafId = requestAnimationFrame(tick)
     }
+
     rafId = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(rafId)
+    return () => { cancelAnimationFrame(rafId); wakePhysicsRef.current = () => {} }
   }, [])
 
   // Non-passive wheel listener for zoom
@@ -2917,6 +2935,19 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
     el.addEventListener('wheel', handler, { passive:false })
     return () => el.removeEventListener('wheel', handler)
   }, [])
+
+  // ── FOLDER OPEN (sets explorer root) ─────────────────────────
+  const handleOpenFolderForExplorer = useCallback(async () => {
+    const api = (window as any).electronAPI
+    if (!api?.dialog) return
+    const folder = await api.dialog.openFolder()
+    if (!folder) return
+    setExplorerRoot(folder);
+    (window as any).__forbiddenCwd = folder
+    setSidebarMode('files')
+    setSidebarOpen(true)
+    addEvent('import', `Opened folder: ${folder.split('/').pop()}`)
+  }, [addEvent])
 
   // Native menu events (Electron)
   useEffect(() => {
@@ -3112,7 +3143,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
     const x=(Math.random()-.5)*300, y=(Math.random()-.5)*300
     const tempId='n'+Date.now()
     nodesRef.current=[...nodesRef.current,{id:tempId,label,filepath:label,type:isDocType||isMd?'doc':newNodeType,isMain:false,x,y,vx:0,vy:0,themeIdx:isDocType||isMd?11:newNodeColor,classId:null,code,modified:false}]
-    setShowCreateNode(false); setNewNodeName(''); forceRender({})
+    setShowCreateNode(false); setNewNodeName(''); forceRender({}); wakePhysicsRef.current()
     addEvent('node-create', `Created ${label}`, {nodeId:tempId})
     wsHook.createNode(label,{filepath:label,type:newNodeType,x,y,theme_idx:newNodeColor,code}).then(n=>{
       if(n) nodesRef.current=nodesRef.current.map(nd=>nd.id===tempId?{...nd,id:n.id}:nd)
@@ -3236,19 +3267,6 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
     }
   }
 
-  // ── FOLDER OPEN (sets explorer root) ─────────────────────────
-  const handleOpenFolderForExplorer = useCallback(async () => {
-    const api = (window as any).electronAPI
-    if (!api?.dialog) return
-    const folder = await api.dialog.openFolder()
-    if (!folder) return
-    setExplorerRoot(folder);
-    (window as any).__forbiddenCwd = folder
-    setSidebarMode('files')
-    setSidebarOpen(true)
-    addEvent('import', `Opened folder: ${folder.split('/').pop()}`)
-  }, [addEvent])
-
   // ── EXPLORER: open file from tree ─────────────────────────────
   const handleExplorerOpenFile = useCallback(async (node: any) => {
     const api = (window as any).electronAPI
@@ -3316,7 +3334,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
 
     nodesRef.current = [...nodesRef.current, ...newNodes]
     edgesRef.current = [...edgesRef.current, ...newEdges]
-    forceRender({})
+    forceRender({}); wakePhysicsRef.current()
     addEvent('import', `Graph mapped: ${fileCount} files, ${newNodes.length} new nodes, ${newEdges.length} edges`)
   }, [addEvent])
 
@@ -3604,8 +3622,13 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
             <div key={def.key} title={def.tip}
               className={`ide-icon-btn ${sidebarMode===def.key&&sidebarOpen?'active':''}`}
               onClick={()=>{
-                if (sidebarMode===def.key) { setSidebarOpen(o=>!o) }
-                else { setSidebarMode(def.key); setSidebarOpen(true) }
+                if (def.key==='files' && !explorerRoot) {
+                  handleOpenFolderForExplorer()
+                } else if (sidebarMode===def.key) {
+                  setSidebarOpen(o=>!o)
+                } else {
+                  setSidebarMode(def.key); setSidebarOpen(true)
+                }
               }}>
               {def.icon}
               {def.badge>0 && <div className="ide-icon-badge">{def.badge}</div>}
@@ -3836,8 +3859,8 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
                             strokeWidth={isHov?3:brutal?2:1.5}
                             opacity={isHov?1:.65}
                             style={{cursor:edgeMode==='cut'?'pointer':'default',transition:'opacity .15s'}}
-                            onPointerEnter={()=>setHoveredEdgeId(e.id)}
-                            onPointerLeave={()=>setHoveredEdgeId(null)}
+                            onPointerEnter={()=>startTransition(()=>setHoveredEdgeId(e.id))}
+                            onPointerLeave={()=>startTransition(()=>setHoveredEdgeId(null))}
                             onClick={()=>handleEdgeClick(e.id)}
                           />
                           {edgeLabel && (
@@ -3918,6 +3941,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
                     nodeRunState={nodeRunState}
                     onRun={handleRunNode}
                     onCtxMenu={(nid,x,y)=>{setNodeCtxMenu({nodeId:nid,x,y});setNodeColorPicker(null)}}
+                    wakePhysicsRef={wakePhysicsRef}
                   />
                 ))}
               </div>
