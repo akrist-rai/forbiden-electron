@@ -754,16 +754,25 @@ interface GitPanelV2Props {
   cwd: string
   brutal?: boolean
   onOpenFile?: (filepath: string) => void
+  aiProvider?: string
+  aiKeys?: Record<string,string>
+  aiModels?: Record<string,string>
+  onOpenAiSettings?: () => void
+}
+
+const AI_DEFAULT_MODELS: Record<string,string> = {
+  anthropic:'claude-haiku-4-5-20251001', openai:'gpt-4o-mini', gemini:'gemini-2.0-flash', openrouter:'openai/gpt-4o-mini', ollama:'llama3',
 }
 
 // ══════════════════════════════════════════════════════════════
 //  GitPanelV2
 // ══════════════════════════════════════════════════════════════
-export default function GitPanelV2({ cwd, brutal = false, onOpenFile }: GitPanelV2Props) {
+export default function GitPanelV2({ cwd, brutal = false, onOpenFile, aiProvider = 'anthropic', aiKeys = {}, aiModels = {}, onOpenAiSettings }: GitPanelV2Props) {
   const [activeTab, setActiveTab] = useState<'changes' | 'history'>('changes')
   const [status, setStatus] = useState<{ branch: string; files: any[]; error?: string } | null>(null)
   const [log, setLog] = useState<Array<{ hash: string; message: string }>>([])
   const [commitMsg, setCommitMsg] = useState('')
+  const [aiCommitLoading, setAiCommitLoading] = useState(false)
   const [loading, setLoading] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const [commitLoading, setCommitLoading] = useState(false)
@@ -869,6 +878,28 @@ export default function GitPanelV2({ cwd, brutal = false, onOpenFile }: GitPanel
     if (!paths.length) return
     await git.unstage(cwd, paths)
     await loadStatus()
+  }
+
+  const handleAiCommit = async () => {
+    const api = (window as any).electronAPI
+    const activeKey = aiProvider === 'ollama' ? (aiKeys['ollama'] || 'http://localhost:11434') : (aiKeys[aiProvider] || '')
+    if (aiProvider !== 'ollama' && !activeKey) { onOpenAiSettings?.(); return }
+    setAiCommitLoading(true)
+    try {
+      const diffRes = await git?.diff(cwd, '').catch(() => ({ diff: '' }))
+      const statusRes = await git?.status(cwd).catch(() => ({ files: [] }))
+      const diff = (diffRes?.diff || '').slice(0, 6000)
+      const files = (statusRes?.files || []).map((f: any) => f.file || f.path || '').filter(Boolean).join(', ')
+      const model = aiModels[aiProvider] || AI_DEFAULT_MODELS[aiProvider] || ''
+      const result = await api?.ai?.chat?.(
+        [{ role: 'user', content: `Write a concise git commit message for these changes:\n\nChanged files: ${files}\n\nDiff:\n\`\`\`\n${diff}\n\`\`\`` }],
+        activeKey, model,
+        'You are a git commit message writer. Output ONLY the commit message, no explanation, no quotes. Follow conventional commits (feat/fix/refactor/docs/chore/etc).',
+        aiProvider,
+      )
+      if (result?.success && result.content) setCommitMsg(result.content.trim())
+    } catch {}
+    setAiCommitLoading(false)
   }
 
   const handleCommit = async () => {
@@ -1243,8 +1274,32 @@ export default function GitPanelV2({ cwd, brutal = false, onOpenFile }: GitPanel
             marginBottom: 5,
             textTransform: 'uppercase',
             color: text,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
           }}>
-            Commit Message
+            <span>Commit Message</span>
+            <button
+              type="button"
+              onClick={handleAiCommit}
+              disabled={aiCommitLoading}
+              title="Generate commit message with AI"
+              style={{
+                marginLeft: 'auto',
+                background: aiCommitLoading ? 'transparent' : 'rgba(187,154,247,.12)',
+                border: '1px solid rgba(187,154,247,.3)',
+                color: aiCommitLoading ? 'rgba(187,154,247,.4)' : '#bb9af7',
+                fontFamily: "'Oswald', sans-serif",
+                fontWeight: 700,
+                fontSize: '8px',
+                letterSpacing: '.08em',
+                padding: '1px 6px',
+                cursor: aiCommitLoading ? 'default' : 'pointer',
+                transition: 'all .12s',
+              }}
+            >
+              {aiCommitLoading ? '…' : '✦ AI'}
+            </button>
           </div>
           <textarea
             value={commitMsg}

@@ -2699,19 +2699,29 @@ function renderAiMessage(text: string) {
     .replace(/\n/g, '<br/>')
 }
 
-function AiChatPanel({ activeNode, explorerRoot, brutal }: any) {
+const PROVIDER_COLORS: Record<string,string> = {
+  anthropic:'#bb9af7', openai:'#10b981', gemini:'#4285f4', openrouter:'#ffc410', ollama:'#89ddff',
+}
+const PROVIDER_LABELS: Record<string,string> = {
+  anthropic:'Anthropic', openai:'OpenAI', gemini:'Gemini', openrouter:'OpenRouter', ollama:'Ollama',
+}
+const DEFAULT_MODELS: Record<string,string> = {
+  anthropic:'claude-haiku-4-5-20251001', openai:'gpt-4o-mini', gemini:'gemini-2.0-flash', openrouter:'openai/gpt-4o-mini', ollama:'llama3',
+}
+
+function AiChatPanel({ activeNode, explorerRoot, brutal, aiProvider, aiKeys, aiModels, onOpenSettings }: any) {
   const [messages, setMessages] = useState<{role:string,content:string}[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
-  const [apiKey, setApiKey] = useState(() => localStorage.getItem('forbiden_ai_key') || '')
-  const [model, setModel] = useState('claude-haiku-4-5-20251001')
   const [includeFile, setIncludeFile] = useState(true)
-  const [showKeyInput, setShowKeyInput] = useState(false)
   const endRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages, loading])
 
-  const saveKey = (k: string) => { setApiKey(k); localStorage.setItem('forbiden_ai_key', k) }
+  const activeKey = aiProvider === 'ollama' ? (aiKeys['ollama'] || 'http://localhost:11434') : (aiKeys[aiProvider] || '')
+  const activeModel = aiModels[aiProvider] || DEFAULT_MODELS[aiProvider] || ''
+  const hasKey = aiProvider === 'ollama' || !!activeKey
+  const provColor = PROVIDER_COLORS[aiProvider] || '#bb9af7'
 
   const send = async () => {
     const q = input.trim()
@@ -2724,11 +2734,17 @@ function AiChatPanel({ activeNode, explorerRoot, brutal }: any) {
     setLoading(true)
 
     const system = includeFile && activeNode?.code
-      ? `You are an expert programmer assistant in the FORBIDEN IDE. The user has this file open:\n\nFilename: ${activeNode.label}\n\`\`\`\n${activeNode.code.slice(0, 8000)}\n\`\`\`\n\nBe concise, code-focused, and practical. Reference the file when relevant.`
-      : `You are an expert programmer assistant in the FORBIDEN IDE. Be concise, code-focused, and practical.`
+      ? `You are an expert programmer assistant. The user has this file open:\n\nFilename: ${activeNode.label}\n\`\`\`\n${activeNode.code.slice(0, 8000)}\n\`\`\`\n\nBe concise, code-focused, and practical.`
+      : `You are an expert programmer assistant. Be concise, code-focused, and practical.`
 
     const api = (window as any).electronAPI
-    const result = await api?.ai?.chat?.(newMsgs.map(m=>({role:m.role,content:m.content})), apiKey, model, system)
+    const result = await api?.ai?.chat?.(
+      newMsgs.map(m=>({role:m.role,content:m.content})),
+      aiProvider === 'ollama' ? activeKey : activeKey,
+      activeModel,
+      system,
+      aiProvider,
+    )
 
     setLoading(false)
     if (result?.success) {
@@ -2744,27 +2760,21 @@ function AiChatPanel({ activeNode, explorerRoot, brutal }: any) {
   return (
     <div style={{display:'flex',flexDirection:'column',height:'100%',overflow:'hidden'}}>
       {/* Header */}
-      <div style={{padding:'6px 10px',flexShrink:0,borderBottom:'1px solid rgba(255,255,255,.06)',display:'flex',alignItems:'center',gap:6}}>
-        <span style={{fontFamily:"'Oswald',sans-serif",fontWeight:700,fontSize:'10px',letterSpacing:'.12em',color:'#bb9af7'}}>✦ AI ASSISTANT</span>
-        <select value={model} onChange={e=>setModel(e.target.value)}
-          style={{marginLeft:'auto',background:'transparent',border:'1px solid rgba(255,255,255,.1)',color:dimText,fontFamily:"'Share Tech Mono',monospace",fontSize:'9px',padding:'1px 3px',cursor:'pointer',outline:'none'}}>
-          <option value="claude-haiku-4-5-20251001">Haiku (fast)</option>
-          <option value="claude-sonnet-4-6">Sonnet</option>
-        </select>
-        <button onClick={()=>setShowKeyInput(s=>!s)} title="API key settings"
-          style={{background:'transparent',border:'none',color:apiKey?'#10b981':dimText,cursor:'pointer',fontSize:'12px',padding:'0 2px'}}>⚙</button>
+      <div style={{padding:'5px 10px',flexShrink:0,borderBottom:'1px solid rgba(255,255,255,.06)',display:'flex',alignItems:'center',gap:6}}>
+        <span style={{fontFamily:"'Oswald',sans-serif",fontWeight:700,fontSize:'10px',letterSpacing:'.12em',color:provColor}}>✦ AI ASSISTANT</span>
+        <span style={{marginLeft:'auto',fontFamily:"'Share Tech Mono',monospace",fontSize:'9px',color:dimText,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:100}}>{activeModel}</span>
+        <div style={{flexShrink:0,padding:'1px 5px',fontFamily:"'Oswald',sans-serif",fontWeight:700,fontSize:'8px',letterSpacing:'.08em',
+          color:provColor,border:`1px solid ${provColor}44`,background:`${provColor}12`}}>{PROVIDER_LABELS[aiProvider]||aiProvider}</div>
+        <button onClick={onOpenSettings} title="Change provider/key in Settings"
+          style={{background:'transparent',border:'none',color:hasKey?provColor:dimText,cursor:'pointer',fontSize:'12px',padding:'0 2px',flexShrink:0}}>⚙</button>
       </div>
 
-      {/* API key input */}
-      {showKeyInput && (
-        <div style={{padding:'6px 10px',flexShrink:0,borderBottom:'1px solid rgba(255,255,255,.06)',background:'rgba(0,0,0,.25)'}}>
-          <div style={{fontSize:'9px',color:dimText,fontFamily:"'Share Tech Mono',monospace",marginBottom:4}}>ANTHROPIC API KEY</div>
-          <div style={{display:'flex',gap:4}}>
-            <input type="password" value={apiKey} onChange={e=>saveKey(e.target.value)}
-              placeholder="sk-ant-..."
-              style={{flex:1,background:'rgba(255,255,255,.05)',border:'1px solid rgba(255,255,255,.1)',outline:'none',color:text,fontFamily:"'JetBrains Mono',monospace",fontSize:'11px',padding:'3px 6px'}}/>
-            <button onClick={()=>setShowKeyInput(false)} style={{background:'rgba(16,185,129,.15)',border:'1px solid rgba(16,185,129,.3)',color:'#10b981',fontFamily:"'Oswald',sans-serif",fontWeight:700,fontSize:'9px',padding:'3px 8px',cursor:'pointer'}}>OK</button>
-          </div>
+      {/* No-key banner */}
+      {!hasKey && (
+        <div style={{padding:'8px 12px',flexShrink:0,background:'rgba(255,67,90,.08)',borderBottom:'1px solid rgba(255,67,90,.2)',
+          fontFamily:"'Share Tech Mono',monospace",fontSize:'9px',color:'#ff435a',lineHeight:1.8}}>
+          NO API KEY SET FOR {(PROVIDER_LABELS[aiProvider]||aiProvider).toUpperCase()}<br/>
+          <span style={{color:'rgba(255,255,255,.4)'}}>Click ⚙ to open Settings › AI Providers</span>
         </div>
       )}
 
@@ -2772,19 +2782,14 @@ function AiChatPanel({ activeNode, explorerRoot, brutal }: any) {
       <div style={{flex:1,overflowY:'auto',scrollbarWidth:'thin',scrollbarColor:'rgba(255,255,255,.07) transparent',padding:'8px 0'}}>
         {messages.length === 0 && (
           <div style={{padding:'24px 14px',textAlign:'center',color:dimText,fontFamily:"'Share Tech Mono',monospace",fontSize:'10px',lineHeight:2}}>
-            {apiKey ? (
-              <>ASK ANYTHING ABOUT YOUR CODE<br/>
-              <span style={{fontSize:'9px',opacity:.6}}>The current file is included automatically · toggle below</span></>
-            ) : (
-              <>ADD YOUR ANTHROPIC API KEY<br/>
-              <span style={{fontSize:'9px',opacity:.6}}>Click ⚙ above · get one at console.anthropic.com</span></>
-            )}
+            ASK ANYTHING ABOUT YOUR CODE<br/>
+            <span style={{fontSize:'9px',opacity:.6}}>Current file included automatically · toggle below</span>
           </div>
         )}
         {messages.map((m, i) => (
           <div key={i} style={{padding:'6px 12px',borderBottom:'1px solid rgba(255,255,255,.03)'}}>
             <div style={{fontFamily:"'Oswald',sans-serif",fontWeight:700,fontSize:'8px',letterSpacing:'.12em',marginBottom:4,
-              color:m.role==='user'?'#ff435a':'#bb9af7'}}>
+              color:m.role==='user'?'#ff435a':provColor}}>
               {m.role==='user'?'YOU':'✦ AI'}
             </div>
             <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:'11px',lineHeight:1.6,color:text}}
@@ -2793,7 +2798,7 @@ function AiChatPanel({ activeNode, explorerRoot, brutal }: any) {
         ))}
         {loading && (
           <div style={{padding:'8px 12px',display:'flex',alignItems:'center',gap:6}}>
-            <span style={{color:'#bb9af7',fontSize:'11px',opacity:.6,fontFamily:"'Share Tech Mono',monospace",animation:'fpulse 1.2s infinite'}}>✦ thinking…</span>
+            <span style={{color:provColor,fontSize:'11px',opacity:.6,fontFamily:"'Share Tech Mono',monospace"}}>✦ thinking…</span>
           </div>
         )}
         <div ref={endRef}/>
@@ -2816,12 +2821,12 @@ function AiChatPanel({ activeNode, explorerRoot, brutal }: any) {
             placeholder="Ask about your code… (Enter to send, Shift+Enter newline)"
             rows={2}
             style={{flex:1,background:'rgba(255,255,255,.05)',border:'1px solid rgba(255,255,255,.08)',outline:'none',color:text,fontFamily:"'JetBrains Mono',monospace",fontSize:'11px',padding:'5px 7px',resize:'none',lineHeight:1.4}}
-            onFocus={e=>(e.target.style.borderColor='rgba(187,154,247,.4)')}
+            onFocus={e=>(e.target.style.borderColor=provColor+'66')}
             onBlur={e=>(e.target.style.borderColor='rgba(255,255,255,.08)')}/>
-          <button onClick={send} disabled={loading||!input.trim()||!apiKey}
-            style={{background:loading||!apiKey?'transparent':'rgba(187,154,247,.15)',border:`1px solid ${loading||!apiKey?'rgba(255,255,255,.08)':'rgba(187,154,247,.4)'}`,
-              color:loading||!apiKey?dimText:'#bb9af7',fontFamily:"'Oswald',sans-serif",fontWeight:700,fontSize:'10px',
-              letterSpacing:'.08em',padding:'0 10px',cursor:loading||!apiKey?'default':'pointer',transition:'all .12s'}}>
+          <button onClick={send} disabled={loading||!input.trim()||!hasKey}
+            style={{background:loading||!hasKey?'transparent':`${provColor}22`,border:`1px solid ${loading||!hasKey?'rgba(255,255,255,.08)':provColor+'55'}`,
+              color:loading||!hasKey?dimText:provColor,fontFamily:"'Oswald',sans-serif",fontWeight:700,fontSize:'10px',
+              letterSpacing:'.08em',padding:'0 10px',cursor:loading||!hasKey?'default':'pointer',transition:'all .12s'}}>
             {loading?'…':'▶'}
           </button>
         </div>
@@ -2961,6 +2966,33 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
   useEffect(() => {
     if (bottomOpen && bottomTab === 'git') refreshGit()
   }, [bottomOpen, bottomTab])
+
+  const [aiCommitLoading, setAiCommitLoading] = useState(false)
+
+  const handleAiCommitMsg = async () => {
+    const api = (window as any).electronAPI
+    const cwd = (window as any).__forbiddenCwd
+    if (!cwd || !api?.git) return
+    const activeKey = aiProvider === 'ollama' ? (aiKeys['ollama'] || 'http://localhost:11434') : (aiKeys[aiProvider] || '')
+    if (aiProvider !== 'ollama' && !activeKey) {
+      setSidebarMode('settings'); setSidebarOpen(true); return
+    }
+    setAiCommitLoading(true)
+    const diffRes = await api.git.diff(cwd, '').catch(() => ({ diff: '' }))
+    const statusRes = await api.git.status(cwd).catch(() => ({ files: [] }))
+    const diff = (diffRes?.diff || '').slice(0, 6000)
+    const files = (statusRes?.files || []).map((f:any) => f.file || f.path || '').filter(Boolean).join(', ')
+    const activeModel = aiModels[aiProvider] || DEFAULT_MODELS[aiProvider] || ''
+    const result = await api.ai.chat(
+      [{ role: 'user', content: `Write a concise git commit message (50 chars or less for title, then optional body) for these changes:\n\nChanged files: ${files}\n\nDiff:\n\`\`\`\n${diff}\n\`\`\`` }],
+      activeKey,
+      activeModel,
+      'You are a git commit message writer. Output ONLY the commit message, no explanation, no quotes. Follow conventional commits format when applicable (feat/fix/refactor/docs/etc).',
+      aiProvider,
+    )
+    setAiCommitLoading(false)
+    if (result?.success && result.content) setGitCommitMsg(result.content.trim())
+  }
 
   const handleGitCommit = async () => {
     if (!gitCommitMsg.trim()) return
@@ -3399,21 +3431,35 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
       return newT
     })
   }
+  // ── Format-on-save (must be declared before saveNodeToDisk uses it) ──
+  const [formatOnSave, setFormatOnSave] = useState<boolean>(() => localStorage.getItem('forbiden_format_on_save') === 'true')
+
   // ── Disk save helper ─────────────────────────────────────────
-  const saveNodeToDisk = useCallback(async (id: string) => {
+  const saveNodeToDisk = useCallback(async (id: string, skipFormat = false) => {
     const node = nodesRef.current.find(n => n.id === id)
     if (!node) return
-    const fsApi = (window as any).electronAPI?.fs
+    const api = (window as any).electronAPI
+    const fsApi = api?.fs
     if (!fsApi) return
-    // Only write if filepath is absolute (real disk file)
     const fp = node.filepath
     if (!fp || !fp.startsWith('/')) return
-    const res = await fsApi.writeFile(fp, node.code || '')
+    let code = node.code || ''
+    // Format on save when enabled (and not called recursively)
+    if (!skipFormat && formatOnSave && api?.tools?.formatCode) {
+      const ext = (node.label || '').split('.').pop()?.toLowerCase() || ''
+      const fmtLangs = ['js','mjs','jsx','ts','tsx','css','json','html','md','py','go']
+      if (fmtLangs.includes(ext)) {
+        const res = await api.tools.formatCode(code, ext)
+        if (res?.success && res.formatted) code = res.formatted
+        else if (res?.success && res.code) code = res.code
+      }
+    }
+    const res = await fsApi.writeFile(fp, code)
     if (res.success) {
-      nodesRef.current = nodesRef.current.map(n => n.id === id ? { ...n, modified: false } : n)
+      nodesRef.current = nodesRef.current.map(n => n.id === id ? { ...n, code, modified: false } : n)
       forceRender({})
     }
-  }, [forceRender])
+  }, [forceRender, formatOnSave])
 
   const codeEditTimerRef = useRef({})
   const updateNodeCode = (id, code) => {
@@ -3912,6 +3958,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
 
   // ── PHASE 2 STATE ──
   const [showFileFinder, setShowFileFinder] = useState(false)
+  const [showShortcuts, setShowShortcuts] = useState(false)
   const [zenMode, setZenMode] = useState(false)
   const [showJumpLine, setShowJumpLine] = useState(false)
   const [jumpLineTarget, setJumpLineTarget] = useState<number|null>(null)
@@ -3930,7 +3977,6 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
   const [aiModels, setAiModels] = useState<Record<string,string>>(() => {
     try { return JSON.parse(localStorage.getItem('forbiden_ai_models') || '{}') } catch { return {} }
   })
-  const [formatOnSave, setFormatOnSave] = useState<boolean>(() => localStorage.getItem('forbiden_format_on_save') === 'true')
   const [ollamaModels, setOllamaModels] = useState<string[]>([])
 
   const saveAiProvider = (p: string) => { setAiProvider(p); localStorage.setItem('forbiden_ai_provider', p) }
@@ -4344,39 +4390,178 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
               })()}
               {/* ── AI CHAT ── */}
               {sidebarMode==='ai' && (
-                <AiChatPanel activeNode={activeTabNode} explorerRoot={explorerRoot} brutal={brutal}/>
+                <AiChatPanel
+                  activeNode={activeTabNode} explorerRoot={explorerRoot} brutal={brutal}
+                  aiProvider={aiProvider} aiKeys={aiKeys} aiModels={aiModels}
+                  onOpenSettings={()=>{ setSidebarMode('settings'); setSidebarOpen(true) }}
+                />
               )}
 
               {sidebarMode==='settings' && (
-                <div style={{padding:'8px'}}>
-                  <div className="ide-toc-sec">THEME</div>
-                  <div style={{padding:'0 8px 10px'}}>
-                    <button className="ide-btn ide-btn-sm" onClick={()=>setThemeMode(t=>t==='cyber'?'brutal':'cyber')}>
-                      {brutal?'→ CYBER':'→ BRUTAL'}
-                    </button>
-                  </div>
-                  <div className="ide-toc-sec">FONT SCALE</div>
-                  <div style={{padding:'4px 8px 10px',display:'flex',alignItems:'center',gap:8}}>
-                    <button className="ide-btn ide-btn-sm" onClick={()=>setGlobalFontScale(s=>Math.max(.7,+(s-.05).toFixed(2)))}>A−</button>
-                    <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:'11px',opacity:.6,minWidth:32,textAlign:'center'}}>{Math.round(globalFontScale*100)}%</span>
-                    <button className="ide-btn ide-btn-sm" onClick={()=>setGlobalFontScale(s=>Math.min(1.5,+(s+.05).toFixed(2)))}>A+</button>
-                    <button className="ide-btn ide-btn-sm" onClick={()=>setGlobalFontScale(1)} style={{opacity:.5}}>RST</button>
-                  </div>
-                  <div className="ide-toc-sec">PALETTE</div>
-                  {PALETTES.map(p=>(
-                    <div key={p.id} className={`ide-toc-item ${globalEditorPalette.id===p.id?'active':''}`} onClick={()=>setGlobalEditorPalette(p)} style={{gap:8}}>
-                      <div style={{display:'flex',gap:3}}>{p.swatches.map((c,i)=><div key={i} style={{width:7,height:7,borderRadius:'50%',background:c}}/>)}</div>
-                      <span style={{fontFamily:"'Share Tech Mono',monospace",fontSize:'11px',color:p.base}}>{p.name}</span>
+                <div style={{overflowY:'auto',scrollbarWidth:'thin',scrollbarColor:'rgba(255,255,255,.07) transparent',flex:1}}>
+                  <div style={{padding:'8px'}}>
+                    <div className="ide-toc-sec">THEME</div>
+                    <div style={{padding:'0 8px 10px'}}>
+                      <button className="ide-btn ide-btn-sm" onClick={()=>setThemeMode(t=>t==='cyber'?'brutal':'cyber')}>
+                        {brutal?'→ CYBER':'→ BRUTAL'}
+                      </button>
                     </div>
-                  ))}
-                  <div className="ide-toc-sec" style={{marginTop:8}}>AVATAR</div>
-                  <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:4,padding:'0 8px 12px'}}>
-                    {[0,1,2,3,4,5].map(i=>(
-                      <div key={i} onClick={()=>setAvatarIndex(i)}
-                        style={{border:`2px solid ${avatarIndex===i?ACCENTS[i]:'rgba(128,128,128,.15)'}`,cursor:'pointer',overflow:'hidden',aspectRatio:'1'}}>
-                        <img src={`${import.meta.env.BASE_URL}avatars/0xAV0${String(i+1).padStart(2,'0')}s.jpeg`} alt="" style={{width:'100%',height:'100%',objectFit:'cover',display:'block'}}/>
+                    <div className="ide-toc-sec">FONT SCALE</div>
+                    <div style={{padding:'4px 8px 10px',display:'flex',alignItems:'center',gap:8}}>
+                      <button className="ide-btn ide-btn-sm" onClick={()=>setGlobalFontScale(s=>Math.max(.7,+(s-.05).toFixed(2)))}>A−</button>
+                      <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:'11px',opacity:.6,minWidth:32,textAlign:'center'}}>{Math.round(globalFontScale*100)}%</span>
+                      <button className="ide-btn ide-btn-sm" onClick={()=>setGlobalFontScale(s=>Math.min(1.5,+(s+.05).toFixed(2)))}>A+</button>
+                      <button className="ide-btn ide-btn-sm" onClick={()=>setGlobalFontScale(1)} style={{opacity:.5}}>RST</button>
+                    </div>
+                    <div className="ide-toc-sec">EDITOR</div>
+                    <div style={{padding:'0 8px 10px',display:'flex',alignItems:'center',gap:8}}>
+                      <label style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer',fontFamily:"'Share Tech Mono',monospace",fontSize:'10px',color:'rgba(200,200,220,.6)'}}>
+                        <input type="checkbox" checked={formatOnSave} onChange={e=>saveFormatOnSave(e.target.checked)} style={{width:11,height:11}}/>
+                        FORMAT ON SAVE
+                      </label>
+                    </div>
+                    <div className="ide-toc-sec">PALETTE</div>
+                    {PALETTES.map(p=>(
+                      <div key={p.id} className={`ide-toc-item ${globalEditorPalette.id===p.id?'active':''}`} onClick={()=>setGlobalEditorPalette(p)} style={{gap:8}}>
+                        <div style={{display:'flex',gap:3}}>{p.swatches.map((c,i)=><div key={i} style={{width:7,height:7,borderRadius:'50%',background:c}}/>)}</div>
+                        <span style={{fontFamily:"'Share Tech Mono',monospace",fontSize:'11px',color:p.base}}>{p.name}</span>
                       </div>
                     ))}
+                    <div className="ide-toc-sec" style={{marginTop:8}}>AVATAR</div>
+                    <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:4,padding:'0 8px 12px'}}>
+                      {[0,1,2,3,4,5].map(i=>(
+                        <div key={i} onClick={()=>setAvatarIndex(i)}
+                          style={{border:`2px solid ${avatarIndex===i?ACCENTS[i]:'rgba(128,128,128,.15)'}`,cursor:'pointer',overflow:'hidden',aspectRatio:'1'}}>
+                          <img src={`${import.meta.env.BASE_URL}avatars/0xAV0${String(i+1).padStart(2,'0')}s.jpeg`} alt="" style={{width:'100%',height:'100%',objectFit:'cover',display:'block'}}/>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* ── AI PROVIDERS ── */}
+                    <div className="ide-toc-sec" style={{marginTop:8}}>AI PROVIDERS</div>
+                    <div style={{padding:'4px 8px 6px'}}>
+                      <div style={{fontFamily:"'Share Tech Mono',monospace",fontSize:'9px',color:'rgba(200,200,220,.4)',marginBottom:6}}>ACTIVE PROVIDER</div>
+                      <div style={{display:'flex',flexDirection:'column',gap:4}}>
+                        {[
+                          {id:'anthropic',  label:'Anthropic',  color:'#bb9af7', note:'Claude models'},
+                          {id:'openai',     label:'OpenAI',     color:'#10b981', note:'GPT-4o, GPT-4o-mini'},
+                          {id:'gemini',     label:'Google Gemini',color:'#4285f4',note:'Gemini 2.0 Flash, 1.5 Pro'},
+                          {id:'openrouter', label:'OpenRouter', color:'#ffc410', note:'100+ models, one key'},
+                          {id:'ollama',     label:'Ollama (local)',color:'#89ddff',note:'Local models, no key needed'},
+                        ].map(prov=>(
+                          <div key={prov.id} onClick={()=>saveAiProvider(prov.id)}
+                            style={{padding:'6px 10px',cursor:'pointer',background:aiProvider===prov.id?`${prov.color}14`:'transparent',
+                              border:`1px solid ${aiProvider===prov.id?prov.color+'55':'rgba(255,255,255,.07)'}`,
+                              display:'flex',alignItems:'center',gap:8,transition:'all .1s'}}
+                            onMouseEnter={e=>(e.currentTarget.style.background=`${prov.color}0d`)}
+                            onMouseLeave={e=>(e.currentTarget.style.background=aiProvider===prov.id?`${prov.color}14`:'transparent')}>
+                            <div style={{width:6,height:6,borderRadius:'50%',background:aiProvider===prov.id?prov.color:'rgba(255,255,255,.2)',flexShrink:0}}/>
+                            <div style={{flex:1}}>
+                              <div style={{fontFamily:"'Oswald',sans-serif",fontWeight:700,fontSize:'10px',letterSpacing:'.08em',color:aiProvider===prov.id?prov.color:'rgba(200,200,220,.7)'}}>{prov.label}</div>
+                              <div style={{fontFamily:"'Share Tech Mono',monospace",fontSize:'9px',color:'rgba(200,200,220,.3)'}}>{prov.note}</div>
+                            </div>
+                            {aiProvider===prov.id&&<span style={{color:prov.color,fontSize:'10px'}}>✓</span>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Per-provider key inputs */}
+                    {(['anthropic','openai','gemini','openrouter'] as const).map(prov => {
+                      const labels: Record<string,string> = { anthropic:'Anthropic API Key', openai:'OpenAI API Key', gemini:'Google AI API Key', openrouter:'OpenRouter API Key' }
+                      const placeholders: Record<string,string> = { anthropic:'sk-ant-...', openai:'sk-...', gemini:'AIza...', openrouter:'sk-or-...' }
+                      const colors: Record<string,string> = { anthropic:'#bb9af7', openai:'#10b981', gemini:'#4285f4', openrouter:'#ffc410' }
+                      const links: Record<string,string> = {
+                        anthropic:'console.anthropic.com',
+                        openai:'platform.openai.com/api-keys',
+                        gemini:'aistudio.google.com/app/apikey',
+                        openrouter:'openrouter.ai/keys',
+                      }
+                      return (
+                        <div key={prov} style={{padding:'0 8px 10px'}}>
+                          <div style={{fontFamily:"'Share Tech Mono',monospace",fontSize:'9px',color:colors[prov],marginBottom:4,letterSpacing:'.06em'}}>{labels[prov]}</div>
+                          <input type="password" value={aiKeys[prov]||''} onChange={e=>saveAiKey(prov,e.target.value)}
+                            placeholder={placeholders[prov]}
+                            style={{width:'100%',boxSizing:'border-box',background:'rgba(255,255,255,.04)',border:`1px solid ${aiProvider===prov?colors[prov]+'44':'rgba(255,255,255,.08)'}`,
+                              outline:'none',color:'#c0c8d8',fontFamily:"'JetBrains Mono',monospace",fontSize:'10px',padding:'4px 8px'}}
+                            onFocus={e=>(e.target.style.borderColor=colors[prov]+'88')}
+                            onBlur={e=>(e.target.style.borderColor=aiProvider===prov?colors[prov]+'44':'rgba(255,255,255,.08)')}/>
+                          <div style={{fontFamily:"'Share Tech Mono',monospace",fontSize:'9px',color:'rgba(200,200,220,.25)',marginTop:3}}>{links[prov]}</div>
+                        </div>
+                      )
+                    })}
+
+                    {/* Ollama host */}
+                    <div style={{padding:'0 8px 6px'}}>
+                      <div style={{fontFamily:"'Share Tech Mono',monospace",fontSize:'9px',color:'#89ddff',marginBottom:4,letterSpacing:'.06em'}}>OLLAMA HOST (optional)</div>
+                      <input type="text" value={aiKeys['ollama']||''} onChange={e=>saveAiKey('ollama',e.target.value)}
+                        placeholder="http://localhost:11434"
+                        style={{width:'100%',boxSizing:'border-box',background:'rgba(255,255,255,.04)',border:`1px solid ${aiProvider==='ollama'?'rgba(137,221,255,.44)':'rgba(255,255,255,.08)'}`,
+                          outline:'none',color:'#c0c8d8',fontFamily:"'JetBrains Mono',monospace",fontSize:'10px',padding:'4px 8px'}}/>
+                      <button onClick={fetchOllamaModels} style={{marginTop:4,width:'100%',background:'rgba(137,221,255,.08)',border:'1px solid rgba(137,221,255,.2)',
+                        color:'#89ddff',fontFamily:"'Oswald',sans-serif",fontWeight:700,fontSize:'9px',letterSpacing:'.08em',padding:'3px',cursor:'pointer'}}>
+                        ↻ DETECT LOCAL MODELS
+                      </button>
+                      {ollamaModels.length>0 && (
+                        <div style={{marginTop:4,display:'flex',flexDirection:'column',gap:2}}>
+                          {ollamaModels.map(m=>(
+                            <div key={m} onClick={()=>saveAiModel('ollama',m)}
+                              style={{padding:'3px 8px',fontFamily:"'JetBrains Mono',monospace",fontSize:'10px',cursor:'pointer',
+                                color:aiModels['ollama']===m?'#89ddff':'rgba(200,200,220,.5)',
+                                background:aiModels['ollama']===m?'rgba(137,221,255,.1)':'transparent',
+                                border:`1px solid ${aiModels['ollama']===m?'rgba(137,221,255,.3)':'transparent'}`}}>
+                              {m}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Model selector for current provider */}
+                    {aiProvider !== 'ollama' && (()=>{
+                      const modelOpts: Record<string,{value:string,label:string}[]> = {
+                        anthropic:[
+                          {value:'claude-haiku-4-5-20251001',label:'Haiku 4.5 (fast)'},
+                          {value:'claude-sonnet-4-6',label:'Sonnet 4.6'},
+                          {value:'claude-opus-4-8',label:'Opus 4.8 (powerful)'},
+                        ],
+                        openai:[
+                          {value:'gpt-4o-mini',label:'GPT-4o Mini (fast)'},
+                          {value:'gpt-4o',label:'GPT-4o'},
+                          {value:'gpt-4-turbo',label:'GPT-4 Turbo'},
+                        ],
+                        gemini:[
+                          {value:'gemini-2.0-flash',label:'Gemini 2.0 Flash (fast)'},
+                          {value:'gemini-1.5-pro',label:'Gemini 1.5 Pro'},
+                          {value:'gemini-1.5-flash',label:'Gemini 1.5 Flash'},
+                        ],
+                        openrouter:[
+                          {value:'openai/gpt-4o-mini',label:'GPT-4o Mini'},
+                          {value:'anthropic/claude-haiku-4-5',label:'Claude Haiku'},
+                          {value:'google/gemini-flash-1.5',label:'Gemini Flash'},
+                          {value:'meta-llama/llama-3.1-8b-instruct:free',label:'Llama 3.1 8B (free)'},
+                          {value:'mistralai/mistral-7b-instruct:free',label:'Mistral 7B (free)'},
+                        ],
+                      }
+                      const opts = modelOpts[aiProvider] || []
+                      return opts.length>0 ? (
+                        <div style={{padding:'0 8px 12px'}}>
+                          <div style={{fontFamily:"'Share Tech Mono',monospace",fontSize:'9px',color:'rgba(200,200,220,.4)',marginBottom:4,letterSpacing:'.06em'}}>MODEL</div>
+                          <div style={{display:'flex',flexDirection:'column',gap:2}}>
+                            {opts.map(opt=>(
+                              <div key={opt.value} onClick={()=>saveAiModel(aiProvider,opt.value)}
+                                style={{padding:'4px 8px',fontFamily:"'JetBrains Mono',monospace",fontSize:'10px',cursor:'pointer',
+                                  color:( aiModels[aiProvider]||opts[0].value)===opt.value?'#c0c8d8':'rgba(200,200,220,.4)',
+                                  background:(aiModels[aiProvider]||opts[0].value)===opt.value?'rgba(255,255,255,.06)':'transparent',
+                                  border:`1px solid ${(aiModels[aiProvider]||opts[0].value)===opt.value?'rgba(255,255,255,.12)':'transparent'}`}}>
+                                {opt.label}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null
+                    })()}
+
                   </div>
                 </div>
               )}
@@ -5163,6 +5348,10 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
                 cwd={(window as any).__forbiddenCwd || termCwd}
                 brutal={brutal}
                 onOpenFile={handleExplorerOpenFile}
+                aiProvider={aiProvider}
+                aiKeys={aiKeys}
+                aiModels={aiModels}
+                onOpenAiSettings={()=>{ setSidebarMode('settings'); setSidebarOpen(true) }}
               />
             )}
           </div>
