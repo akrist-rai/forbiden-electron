@@ -183,9 +183,10 @@ interface Props {
   onOpenFolder: () => void
   onScanImports: (rootPath: string) => void
   onTerminalCd: (cwd: string) => void
+  refreshKey?: number
 }
 
-export default function FileExplorer({ rootPath, brutal, onOpenFile, onOpenFolder, onScanImports, onTerminalCd }: Props) {
+export default function FileExplorer({ rootPath, brutal, onOpenFile, onOpenFolder, onScanImports, onTerminalCd, refreshKey }: Props) {
   const [tree,         setTree]         = useState<any>(null)
   const [openPaths,    setOpenPaths]    = useState<Set<string>>(new Set())
   const [selectedPath, setSelectedPath] = useState<string | null>(null)
@@ -216,6 +217,7 @@ export default function FileExplorer({ rootPath, brutal, onOpenFile, onOpenFolde
   }, [rootPath, api])
 
   useEffect(() => { if (rootPath) reload(rootPath) }, [rootPath])
+  useEffect(() => { if (rootPath && refreshKey) reload(rootPath) }, [refreshKey])
 
   useEffect(() => { if (newItemState) setTimeout(() => newItemRef.current?.focus(), 50) }, [newItemState])
 

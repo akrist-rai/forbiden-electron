@@ -505,6 +505,250 @@ function BranchDropdown({ cwd, currentBranch, onClose, brutal }: any) {
   )
 }
 
+// ── Lane colors ───────────────────────────────────────────────
+const LANE_COLORS = [
+  '#10b981','#4285f4','#bb9af7','#ffc410','#ff8080',
+  '#28f1c3','#5ccfe6','#e5c07b','#c792ea','#ff1650',
+  '#72f1b8','#89ddff','#ffbd5e','#4ec9b0','#ff435a','#98bb6c',
+]
+const ROW_H = 28
+const LANE_W = 14
+
+// ── Lane-assignment algorithm ─────────────────────────────────
+function computeLanes(commits: any[]) {
+  const laneMap: Record<string, number> = {}
+  const slots: (string | null)[] = []
+
+  return commits.map(commit => {
+    // Find this commit's lane slot
+    let myLane = laneMap[commit.hash]
+    if (myLane === undefined) {
+      const free = slots.indexOf(null)
+      myLane = free === -1 ? slots.length : free
+    }
+
+    // Free the slot
+    slots[myLane] = null
+    delete laneMap[commit.hash]
+
+    // Assign parent lanes
+    const parentLanes: { hash: string; lane: number }[] = []
+    commit.parents.forEach((p: string, pi: number) => {
+      if (laneMap[p] !== undefined) {
+        parentLanes.push({ hash: p, lane: laneMap[p] })
+      } else if (pi === 0) {
+        slots[myLane] = p
+        laneMap[p] = myLane
+        parentLanes.push({ hash: p, lane: myLane })
+      } else {
+        const free = slots.indexOf(null)
+        const newLane = free === -1 ? slots.length : free
+        slots[newLane] = p
+        laneMap[p] = newLane
+        parentLanes.push({ hash: p, lane: newLane })
+      }
+    })
+
+    // Active lanes AFTER assigning parents (for pass-through lines in next row)
+    const activeLanes = slots.map((h, i) => h !== null ? i : -1).filter(i => i >= 0)
+
+    return { ...commit, lane: myLane, parentLanes, activeLanes }
+  })
+}
+
+// ── CommitGraph component ─────────────────────────────────────
+function CommitGraph({ cwd, brutal }: { cwd: string; brutal: boolean }) {
+  const [commits, setCommits] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [selected, setSelected] = useState<string | null>(null)
+  const git = (window as any).electronAPI?.git
+
+  useEffect(() => {
+    if (!git?.logGraph || !cwd) return
+    setLoading(true)
+    git.logGraph(cwd, 80).then((r: any) => {
+      if (r?.success) setCommits(computeLanes(r.commits))
+    }).catch(() => {}).finally(() => setLoading(false))
+  }, [cwd])
+
+  const text = brutal ? '#0f0f0f' : '#c0c8d8'
+  const dim  = brutal ? '#666'    : '#6a6a8a'
+
+  if (loading) {
+    return (
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+          <Spinner />
+          <span style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: '9px', color: dim, letterSpacing: '.1em' }}>
+            LOADING GRAPH…
+          </span>
+        </div>
+      </div>
+    )
+  }
+
+  if (!commits.length) {
+    return (
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.3 }}>
+        <span style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: '10px', color: text }}>
+          NO COMMITS
+        </span>
+      </div>
+    )
+  }
+
+  // Max number of lanes for SVG width
+  const maxLane = commits.reduce((m, c) => Math.max(m, c.lane, ...c.parentLanes.map((p: any) => p.lane)), 0)
+  const svgW = (maxLane + 1) * LANE_W + 8
+  const totalH = commits.length * ROW_H
+
+  // Build hash → index map for connecting lines
+  const hashToIdx: Record<string, number> = {}
+  commits.forEach((c, i) => { hashToIdx[c.hash] = i })
+
+  const selCommit = commits.find(c => c.hash === selected)
+
+  return (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', position: 'relative' }}>
+        {/* Graph SVG + commit rows rendered together */}
+        <div style={{ display: 'flex', minHeight: totalH }}>
+          {/* SVG Graph column */}
+          <div style={{ flexShrink: 0, width: svgW, position: 'relative' }}>
+            <svg width={svgW} height={totalH} style={{ display: 'block', overflow: 'visible' }}>
+              {commits.map((commit, idx) => {
+                const cy = idx * ROW_H + ROW_H / 2
+                const cx = commit.lane * LANE_W + LANE_W / 2
+                const color = LANE_COLORS[commit.lane % LANE_COLORS.length]
+
+                return (
+                  <g key={commit.hash}>
+                    {/* Lines to parents */}
+                    {commit.parentLanes.map((pl: any) => {
+                      const parentIdx = hashToIdx[pl.hash]
+                      if (parentIdx === undefined) return null
+                      const pcy = parentIdx * ROW_H + ROW_H / 2
+                      const pcx = pl.lane * LANE_W + LANE_W / 2
+                      const pColor = LANE_COLORS[pl.lane % LANE_COLORS.length]
+                      if (cx === pcx) {
+                        return <line key={pl.hash} x1={cx} y1={cy} x2={pcx} y2={pcy} stroke={pColor} strokeWidth={1.5} opacity={0.55} />
+                      }
+                      const mid = (cy + pcy) / 2
+                      return (
+                        <path key={pl.hash}
+                          d={`M ${cx} ${cy} C ${cx} ${mid + 6}, ${pcx} ${mid - 6}, ${pcx} ${pcy}`}
+                          stroke={pColor} strokeWidth={1.5} fill="none" opacity={0.55}
+                        />
+                      )
+                    })}
+                    {/* Commit dot */}
+                    <circle cx={cx} cy={cy} r={selected === commit.hash ? 5.5 : 4}
+                      fill={color}
+                      stroke={selected === commit.hash ? '#fff' : 'none'}
+                      strokeWidth={1.5}
+                      style={{ cursor: 'pointer', transition: 'r .1s' }}
+                      onClick={() => setSelected(s => s === commit.hash ? null : commit.hash)}
+                    />
+                    {/* Ring for tagged/branched commits */}
+                    {commit.refs.length > 0 && (
+                      <circle cx={cx} cy={cy} r={7} fill="none" stroke={color} strokeWidth={1} opacity={0.5} />
+                    )}
+                  </g>
+                )
+              })}
+            </svg>
+          </div>
+
+          {/* Commit info column */}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            {commits.map((commit, idx) => {
+              const isSel = selected === commit.hash
+              const headRef = commit.refs.find((r: string) => r.includes('HEAD'))
+              const branchRef = commit.refs.find((r: string) => !r.includes('HEAD') && !r.includes('tag:'))
+              const tagRef = commit.refs.find((r: string) => r.includes('tag:'))
+
+              return (
+                <div
+                  key={commit.hash}
+                  onClick={() => setSelected(s => s === commit.hash ? null : commit.hash)}
+                  style={{
+                    height: ROW_H,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 5,
+                    padding: '0 8px 0 4px',
+                    cursor: 'pointer',
+                    background: isSel
+                      ? brutal ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.07)'
+                      : 'transparent',
+                    borderLeft: isSel ? `2px solid ${LANE_COLORS[commit.lane % LANE_COLORS.length]}` : '2px solid transparent',
+                    overflow: 'hidden',
+                  }}
+                  onMouseEnter={e => { if (!isSel) (e.currentTarget as HTMLElement).style.background = brutal ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.04)' }}
+                  onMouseLeave={e => { if (!isSel) (e.currentTarget as HTMLElement).style.background = 'transparent' }}
+                >
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: '#c792ea', flexShrink: 0, letterSpacing: '.02em' }}>
+                    {commit.hash.slice(0, 7)}
+                  </span>
+                  {headRef && (
+                    <span style={{ fontSize: '8px', padding: '0 4px', background: 'rgba(255,67,90,0.2)', color: '#ff435a', borderRadius: 2, flexShrink: 0, fontFamily: "'Oswald', sans-serif", fontWeight: 700, letterSpacing: '.06em' }}>
+                      HEAD
+                    </span>
+                  )}
+                  {branchRef && (
+                    <span style={{ fontSize: '8px', padding: '0 4px', background: 'rgba(16,185,129,0.15)', color: '#10b981', borderRadius: 2, flexShrink: 0, fontFamily: "'Oswald', sans-serif", fontWeight: 700, letterSpacing: '.06em', maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {branchRef.replace('origin/', '').replace('HEAD -> ', '')}
+                    </span>
+                  )}
+                  {tagRef && (
+                    <span style={{ fontSize: '8px', padding: '0 4px', background: 'rgba(255,196,16,0.15)', color: '#ffc410', borderRadius: 2, flexShrink: 0, fontFamily: "'Oswald', sans-serif", fontWeight: 700, letterSpacing: '.06em' }}>
+                      {tagRef.replace('tag: ', '')}
+                    </span>
+                  )}
+                  <span style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: '10px', color: text, opacity: 0.8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+                    {commit.subject}
+                  </span>
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '8px', color: dim, flexShrink: 0, opacity: 0.6 }}>
+                    {commit.reltime}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Selected commit detail strip */}
+      {selCommit && (
+        <div style={{
+          flexShrink: 0,
+          borderTop: '1px solid rgba(255,255,255,0.08)',
+          padding: '8px 12px',
+          background: brutal ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.03)',
+          fontFamily: "'JetBrains Mono', monospace",
+          fontSize: '10px',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+            <span style={{ color: '#c792ea' }}>{selCommit.hash.slice(0, 12)}</span>
+            <span style={{ color: '#ffc410', opacity: 0.7 }}>{selCommit.author}</span>
+            <span style={{ color: dim, opacity: 0.6 }}>{selCommit.reltime}</span>
+          </div>
+          <div style={{ color: text, opacity: 0.85, lineHeight: 1.4 }}>{selCommit.subject}</div>
+          {selCommit.refs.length > 0 && (
+            <div style={{ marginTop: 4, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+              {selCommit.refs.map((r: string) => (
+                <span key={r} style={{ fontSize: '8px', padding: '1px 5px', background: 'rgba(187,154,247,0.15)', color: '#bb9af7', borderRadius: 2, fontFamily: "'Oswald', sans-serif", letterSpacing: '.05em' }}>
+                  {r}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Props ─────────────────────────────────────────────────────
 interface GitPanelV2Props {
   cwd: string
@@ -516,6 +760,7 @@ interface GitPanelV2Props {
 //  GitPanelV2
 // ══════════════════════════════════════════════════════════════
 export default function GitPanelV2({ cwd, brutal = false, onOpenFile }: GitPanelV2Props) {
+  const [activeTab, setActiveTab] = useState<'changes' | 'history'>('changes')
   const [status, setStatus] = useState<{ branch: string; files: any[]; error?: string } | null>(null)
   const [log, setLog] = useState<Array<{ hash: string; message: string }>>([])
   const [commitMsg, setCommitMsg] = useState('')
@@ -847,6 +1092,32 @@ export default function GitPanelV2({ cwd, brutal = false, onOpenFile }: GitPanel
         </div>
       )}
 
+      {/* ── Tab bar ── */}
+      <div style={{ display: 'flex', flexShrink: 0, borderBottom: `1px solid ${border}` }}>
+        {(['changes', 'history'] as const).map(tab => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            style={{
+              flex: 1,
+              background: 'transparent',
+              border: 'none',
+              borderBottom: activeTab === tab ? '2px solid #ff2a38' : '2px solid transparent',
+              color: activeTab === tab ? text : dim,
+              fontFamily: "'Share Tech Mono', monospace",
+              fontSize: '9px',
+              letterSpacing: '.1em',
+              textTransform: 'uppercase',
+              padding: '6px 0',
+              cursor: 'pointer',
+              transition: 'color .1s, border-color .1s',
+            }}
+          >
+            {tab === 'changes' ? `CHANGES${status?.files.length ? ` (${status.files.length})` : ''}` : 'HISTORY'}
+          </button>
+        ))}
+      </div>
+
       {/* ── Branch selector ── */}
       <div style={{
         display: 'flex',
@@ -889,8 +1160,13 @@ export default function GitPanelV2({ cwd, brutal = false, onOpenFile }: GitPanel
         )}
       </div>
 
-      {/* ── Scrollable content ── */}
-      <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
+      {/* ── History tab: visual commit graph ── */}
+      {activeTab === 'history' && (
+        <CommitGraph cwd={cwd} brutal={brutal} />
+      )}
+
+      {/* ── Changes tab: scrollable content ── */}
+      <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', display: activeTab === 'changes' ? 'block' : 'none' }}>
 
         {/* CHANGES section */}
         {changedFiles.length > 0 && (

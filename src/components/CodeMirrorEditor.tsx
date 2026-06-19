@@ -47,6 +47,7 @@ interface Node {
 interface CodeMirrorEditorProps {
   node: Node
   onChange: (code: string) => void
+  onSave?: () => void
   externalPalette?: Palette
   compact?: boolean  // hide toolbar + status strip (for notebook cells)
   minHeight?: string // e.g. '80px'
@@ -255,7 +256,7 @@ function buildTheme(palette: Palette) {
 //  COMPONENT
 // ══════════════════════════════════════════════════════════════
 
-export default function CodeMirrorEditor({ node, onChange, externalPalette, compact = false, minHeight }: CodeMirrorEditorProps) {
+export default function CodeMirrorEditor({ node, onChange, onSave, externalPalette, compact = false, minHeight }: CodeMirrorEditorProps) {
   const [palette, setPalette] = useState<Palette>(PALETTES[0])
   const [showPaletteMenu, setShowPaletteMenu] = useState(false)
   const [showFind, setShowFind] = useState(false)
@@ -267,6 +268,7 @@ export default function CodeMirrorEditor({ node, onChange, externalPalette, comp
   const containerRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<EditorView | null>(null)
   const onChangeRef = useRef(onChange)
+  const onSaveRef   = useRef(onSave)
   const nodeRef = useRef(node)
   const wordWrapRef = useRef(wordWrap)
   const fontSizeRef = useRef(fontSize)
@@ -274,6 +276,7 @@ export default function CodeMirrorEditor({ node, onChange, externalPalette, comp
 
   // Keep refs current
   useEffect(() => { onChangeRef.current = onChange }, [onChange])
+  useEffect(() => { onSaveRef.current   = onSave   }, [onSave])
   useEffect(() => { nodeRef.current = node }, [node])
   useEffect(() => { wordWrapRef.current = wordWrap }, [wordWrap])
   useEffect(() => { fontSizeRef.current = fontSize }, [fontSize])
@@ -331,7 +334,10 @@ export default function CodeMirrorEditor({ node, onChange, externalPalette, comp
       closeBrackets(),
       autocompletion(),
       search({ top: false }),
-      keymap.of([...defaultKeymap, ...searchKeymap, ...completionKeymap, indentWithTab]),
+      keymap.of([
+        ...defaultKeymap, ...searchKeymap, ...completionKeymap, indentWithTab,
+        { key: 'Mod-s', run: () => { onSaveRef.current?.(); return true } },
+      ]),
       indentOnInput(),
       syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
       updateListener,
@@ -407,7 +413,10 @@ export default function CodeMirrorEditor({ node, onChange, externalPalette, comp
       closeBrackets(),
       autocompletion(),
       search({ top: false }),
-      keymap.of([...defaultKeymap, ...searchKeymap, ...completionKeymap, indentWithTab]),
+      keymap.of([
+        ...defaultKeymap, ...searchKeymap, ...completionKeymap, indentWithTab,
+        { key: 'Mod-s', run: () => { onSaveRef.current?.(); return true } },
+      ]),
       indentOnInput(),
       syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
       updateListener,
@@ -577,7 +586,7 @@ export default function CodeMirrorEditor({ node, onChange, externalPalette, comp
         <button className="ide-tb-btn" onClick={handleDecreaseFontSize} title="Decrease font size">
           A−
         </button>
-        <span style={{ fontSize: '9px', opacity: 0.4, padding: '0 2px', color: palette.base }}>
+        <span style={{ fontSize: '10px', opacity: 0.6, padding: '0 2px', color: palette.base, fontFamily: "'Share Tech Mono', monospace" }}>
           {fontSize}
         </span>
         <button className="ide-tb-btn" onClick={handleIncreaseFontSize} title="Increase font size">
@@ -595,7 +604,7 @@ export default function CodeMirrorEditor({ node, onChange, externalPalette, comp
               {palette.swatches.map((c, i) => (
                 <div
                   key={i}
-                  style={{ width: '6px', height: '6px', borderRadius: '50%', background: c }}
+                  style={{ width: '8px', height: '8px', borderRadius: '2px', background: c }}
                 />
               ))}
             </div>

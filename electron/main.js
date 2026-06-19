@@ -398,6 +398,160 @@ ipcMain.handle('dialog:open-files', async () => {
 ipcMain.handle('get-home-dir', () => os.homedir())
 ipcMain.handle('get-platform', () => process.platform)
 
+// ── Default workspace persistence ────────────────────────────
+const workspaceStatePath = path.join(app.getPath('userData'), 'workspace.json')
+
+function getLastWorkspace() {
+  try { return JSON.parse(fs.readFileSync(workspaceStatePath, 'utf8')).path ?? null } catch { return null }
+}
+function saveLastWorkspace(p) {
+  try { fs.writeFileSync(workspaceStatePath, JSON.stringify({ path: p })) } catch {}
+}
+
+const DEFAULT_WS_FILES = {
+  'main.js': `// FORBIDEN — Main entry point
+const PROJECT = 'FORBIDEN NGO'
+const VERSION  = '2.1.0'
+const MODULES  = ['utils', 'DataPipeline', 'graph']
+
+console.log(\`[BOOT] \${PROJECT} v\${VERSION}\`)
+MODULES.forEach(m => console.log(\`  ↳ loading: \${m}\`))
+
+const uptime = performance.now().toFixed(2)
+console.log(\`[READY] Runtime up — \${uptime}ms\`)
+
+return { project: PROJECT, version: VERSION, modules: MODULES, uptime }`,
+
+  'utils.js': `// Utility helpers
+function capitalize(str) {
+  return str.charAt(0).toUpperCase() + str.slice(1)
+}
+
+function randomId(len = 8) {
+  return Math.random().toString(36).slice(2, 2 + len).toUpperCase()
+}
+
+function clamp(n, min, max) {
+  return Math.min(Math.max(n, min), max)
+}
+
+function debounce(fn, delay) {
+  let t
+  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), delay) }
+}
+
+console.log(capitalize('forbiden'))
+console.log('ID:', randomId())
+console.log('clamp(15, 0, 10):', clamp(15, 0, 10))
+
+return { capitalize, randomId, clamp, debounce }`,
+
+  'DataPipeline.js': `// Composable data pipeline
+class DataPipeline {
+  constructor(name) {
+    this.name = name
+    this.stages = []
+    this.runs = 0
+  }
+
+  pipe(fn) {
+    this.stages.push(fn)
+    return this
+  }
+
+  run(input) {
+    this.runs++
+    return this.stages.reduce((acc, fn) => fn(acc), input)
+  }
+}
+
+const pipeline = new DataPipeline('demo')
+  .pipe(data => data.map(x => x * 2))
+  .pipe(data => data.filter(x => x > 4))
+  .pipe(data => ({
+    values: data,
+    sum: data.reduce((a, b) => a + b, 0),
+    avg: data.reduce((a, b) => a + b, 0) / data.length
+  }))
+
+const result = pipeline.run([1, 2, 3, 4, 5])
+console.log('Pipeline:', pipeline.name)
+console.log('Result:', result)
+console.warn('Runs so far:', pipeline.runs)
+
+return result`,
+
+  'graph.js': `// Graph traversal utilities
+function buildGraph(edges) {
+  const g = {}
+  for (const [from, to] of edges) {
+    ;(g[from] ??= []).push(to)
+    ;(g[to]   ??= [])
+  }
+  return g
+}
+
+function bfs(graph, start) {
+  const visited = new Set([start])
+  const queue = [start]
+  const order = []
+  while (queue.length) {
+    const node = queue.shift()
+    order.push(node)
+    for (const nb of (graph[node] || [])) {
+      if (!visited.has(nb)) { visited.add(nb); queue.push(nb) }
+    }
+  }
+  return order
+}
+
+function pageRank(graph, iters = 20, d = 0.85) {
+  const nodes = Object.keys(graph)
+  const N = nodes.length
+  const rank = Object.fromEntries(nodes.map(n => [n, 1 / N]))
+  for (let i = 0; i < iters; i++) {
+    const next = Object.fromEntries(nodes.map(n => [n, (1 - d) / N]))
+    for (const [src, dsts] of Object.entries(graph)) {
+      for (const dst of dsts) {
+        next[dst] = (next[dst] || 0) + d * (rank[src] / (dsts.length || 1))
+      }
+    }
+    Object.assign(rank, next)
+  }
+  return rank
+}
+
+const edges = [
+  ['main', 'utils'], ['main', 'DataPipeline'],
+  ['utils', 'graph'], ['DataPipeline', 'graph'],
+]
+const G = buildGraph(edges)
+const traversal = bfs(G, 'main')
+const ranks = pageRank(G)
+
+console.log('BFS from main:', traversal)
+console.table(Object.entries(ranks).map(([n,r]) => ({ node:n, rank: r.toFixed(4) })))
+
+return { graph: G, traversal, ranks }`,
+}
+
+ipcMain.handle('fs:ensureDefaultWorkspace', async () => {
+  try {
+    const docsDir = path.join(os.homedir(), 'Documents')
+    const baseDir = fs.existsSync(docsDir) ? docsDir : os.homedir()
+    const wsDir = path.join(baseDir, 'FORBIDEN')
+    fs.mkdirSync(wsDir, { recursive: true })
+    for (const [name, content] of Object.entries(DEFAULT_WS_FILES)) {
+      const fp = path.join(wsDir, name)
+      if (!fs.existsSync(fp)) fs.writeFileSync(fp, content, 'utf8')
+    }
+    return { success: true, path: wsDir }
+  } catch (e) { return { success: false, error: e.message } }
+})
+
+ipcMain.handle('fs:getWorkspace',  () => ({ path: getLastWorkspace() }))
+ipcMain.handle('fs:saveWorkspace', (_e, { workspacePath: p }) => { saveLastWorkspace(p); return { success: true } })
+
 // ── IPC: filesystem operations ───────────────────────────────
 const CODE_EXTS_SCAN = new Set(['js','jsx','ts','tsx','mjs','cjs','py','c','cpp','h','hpp','go','vue','svelte','rs','rb','java','kt','swift','cs'])
 const FS_IGNORE      = new Set(['.git','node_modules','.DS_Store','__pycache__','dist','.next','build','vendor','venv','.venv','.cache','coverage','.parcel-cache','out','release'])
@@ -690,6 +844,38 @@ ipcMain.handle('git-discard', async (_e, { cwd, file }) => {
       gitCmd(`restore -- ${JSON.stringify(file)}`, cwd))
     return { success: true }
   } catch (e) { return { success: false, error: e.message } }
+})
+
+// ── IPC: git log with parent data for visual graph ────────────
+ipcMain.handle('git-log-graph', async (_e, { cwd, limit = 60 }) => {
+  try {
+    const out = await gitCmd(`log --pretty=format:"%H|%P|%D|%s|%an|%ar" -${limit} --all`, cwd)
+    const commits = out.split('\n').filter(Boolean).map(line => {
+      const [hash = '', parentsRaw = '', refsRaw = '', subject = '', author = '', reltime = ''] = line.split('|')
+      return {
+        hash: hash.trim(),
+        parents: parentsRaw.trim() ? parentsRaw.trim().split(' ').filter(Boolean) : [],
+        refs: refsRaw.trim() ? refsRaw.trim().split(',').map(r => r.trim()).filter(Boolean) : [],
+        subject: subject.trim(),
+        author: author.trim(),
+        reltime: reltime.trim(),
+      }
+    }).filter(c => c.hash)
+    return { success: true, commits }
+  } catch (e) { return { success: false, error: e.message, commits: [] } }
+})
+
+// ── IPC: recent workspaces ────────────────────────────────────
+const recentWsPath = path.join(app.getPath('userData'), 'recent-workspaces.json')
+const loadRecentWs = () => { try { return JSON.parse(fs.readFileSync(recentWsPath, 'utf8')) || [] } catch { return [] } }
+const saveRecentWs = (list) => { try { fs.writeFileSync(recentWsPath, JSON.stringify(list)) } catch {} }
+
+ipcMain.handle('fs:getRecentWorkspaces', () => loadRecentWs().slice(0, 10))
+ipcMain.handle('fs:addRecentWorkspace', (_e, { workspacePath: p }) => {
+  const list = loadRecentWs().filter(x => x !== p)
+  list.unshift(p)
+  saveRecentWs(list.slice(0, 10))
+  return { success: true }
 })
 
 // ── Window ────────────────────────────────────────────────────
