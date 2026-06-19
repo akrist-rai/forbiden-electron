@@ -105,7 +105,8 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     flexDirection: 'column',
     width: '100%',
-    height: '100%',
+    flex: 1,
+    minHeight: 0,
     background: '#080810',
     overflow: 'hidden',
     fontFamily: FONT_FAMILY,
@@ -174,6 +175,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   termWrapper: {
     flex: 1,
+    minHeight: 0,
     position: 'relative',
     overflow: 'hidden',
     background: '#080810',
@@ -190,7 +192,8 @@ const styles: Record<string, React.CSSProperties> = {
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    height: '100%',
+    flex: 1,
+    minHeight: 0,
     gap: 12,
     color: '#5a5a7a',
     fontFamily: FONT_FAMILY,
@@ -223,7 +226,7 @@ const XTermPanel: React.FC<XTermPanelProps> = ({
   const hasElectron = typeof window !== 'undefined' && !!window.electronAPI?.pty
 
   // ─── PTY data handler ─────────────────────────────────────────────────────
-  const handlePtyData = useCallback((ev: any, id: string, data: string) => {
+  const handlePtyData = useCallback((id: string, data: string) => {
     const tab = tabsRef.current.get(id)
     if (tab?.terminal) {
       tab.terminal.write(data)
@@ -284,7 +287,9 @@ const XTermPanel: React.FC<XTermPanelProps> = ({
 
       if (hasElectron) {
         const startCwd = cwd || window.electronAPI.homeDir || process.env.HOME || '/'
-        window.electronAPI.pty.create(id, cols, rows, startCwd).catch((err: Error) => {
+        window.electronAPI.pty.create(id, cols, rows, startCwd).then((res: any) => {
+          if (res?.error) term.writeln(`\r\n\x1b[31mFailed to create PTY: ${res.error}\x1b[0m\r\n`)
+        }).catch((err: Error) => {
           term.writeln(`\r\n\x1b[31mFailed to create PTY: ${err.message}\x1b[0m\r\n`)
         })
       }
