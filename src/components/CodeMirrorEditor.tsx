@@ -51,6 +51,7 @@ interface CodeMirrorEditorProps {
   externalPalette?: Palette
   compact?: boolean  // hide toolbar + status strip (for notebook cells)
   minHeight?: string // e.g. '80px'
+  jumpToLine?: number // when changed, scrolls editor to that line
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -256,7 +257,7 @@ function buildTheme(palette: Palette) {
 //  COMPONENT
 // ══════════════════════════════════════════════════════════════
 
-export default function CodeMirrorEditor({ node, onChange, onSave, externalPalette, compact = false, minHeight }: CodeMirrorEditorProps) {
+export default function CodeMirrorEditor({ node, onChange, onSave, externalPalette, compact = false, minHeight, jumpToLine }: CodeMirrorEditorProps) {
   const [palette, setPalette] = useState<Palette>(PALETTES[0])
   const [showPaletteMenu, setShowPaletteMenu] = useState(false)
   const [showFind, setShowFind] = useState(false)
@@ -286,6 +287,21 @@ export default function CodeMirrorEditor({ node, onChange, onSave, externalPalet
   useEffect(() => {
     if (externalPalette) setPalette(externalPalette)
   }, [externalPalette?.id])
+
+  // Jump to line when prop changes
+  useEffect(() => {
+    if (!jumpToLine || !viewRef.current) return
+    const view = viewRef.current
+    const doc = view.state.doc
+    const lineNum = Math.max(1, Math.min(jumpToLine, doc.lines))
+    const line = doc.line(lineNum)
+    view.dispatch({
+      selection: { anchor: line.from },
+      scrollIntoView: true,
+      effects: EditorView.scrollIntoView(line.from, { y: 'center' }),
+    })
+    view.focus()
+  }, [jumpToLine])
 
   // Close palette menu on outside click
   useEffect(() => {

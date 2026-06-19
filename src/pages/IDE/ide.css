@@ -4102,3 +4102,15 @@ body {
 .ide-v2-root ::-webkit-scrollbar-thumb { background: rgba(255,42,56,.25); border-radius: 2px; }
 .ide-v2-root ::-webkit-scrollbar-thumb:hover { background: rgba(255,42,56,.6); }
 
+/* ══════════════════════════════════════════════════════
+   ZEN MODE
+   ══════════════════════════════════════════════════════ */
+.ide-zen-mode .ide-topbar,
+.ide-zen-mode .ide-bottom-panel,
+.ide-zen-mode .ide-icon-bar,
+.ide-zen-mode .ide-sidebar-pane,
+.ide-zen-mode .ide-split-divider {
+  visibility: hidden;
+  pointer-events: none;
+}
+

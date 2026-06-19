@@ -965,40 +965,148 @@ function CodeEditor({ node, onChange, externalPalette }) {
 }
 
 // ══════════════════════════════════════════════════════════════
-//  COMMAND PALETTE
+//  COMMAND PALETTE — with live theme preview
 // ══════════════════════════════════════════════════════════════
 
-function CommandPalette({ isOpen, onClose, onAction }) {
+const EXTENDED_CMD_ITEMS = [
+  // Actions
+  { icon:'F', label:'New file node',           hint:'N',          action:'new-node',    group:'GRAPH' },
+  { icon:'G', label:'New class group',         hint:'G',          action:'new-group',   group:'GRAPH' },
+  { icon:'J', label:'Join nodes (add edge)',   hint:'J',          action:'edge-add',    group:'GRAPH' },
+  { icon:'X', label:'Cut edge',               hint:'X',          action:'edge-cut',    group:'GRAPH' },
+  { icon:'▶', label:'Run active file',         hint:'Ctrl+Enter', action:'run',         group:'RUN'   },
+  { icon:'T', label:'Open terminal',           hint:'`',          action:'terminal',    group:'VIEW'  },
+  { icon:'B', label:'Open kanban board',       hint:'',           action:'board',       group:'VIEW'  },
+  { icon:'⌚', label:'Show timeline',           hint:'',           action:'timeline',    group:'VIEW'  },
+  { icon:'⎇', label:'Toggle Git panel',        hint:'',           action:'git',         group:'VIEW'  },
+  { icon:'◉', label:'Toggle sidebar',          hint:'',           action:'sidebar',     group:'VIEW'  },
+  { icon:'/', label:'Toggle line comment',     hint:'Ctrl+/',     action:'comment',     group:'EDIT'  },
+  { icon:'⤢', label:'Toggle word wrap',        hint:'',           action:'wordwrap',    group:'EDIT'  },
+  { icon:'⊞', label:'Zoom in',                hint:'',           action:'zoom-in',     group:'VIEW'  },
+  { icon:'⊟', label:'Zoom out',               hint:'',           action:'zoom-out',    group:'VIEW'  },
+  { icon:'⊡', label:'Reset zoom',             hint:'',           action:'zoom-reset',  group:'VIEW'  },
+  { icon:'⌕', label:'Quick open file',        hint:'Ctrl+P',     action:'file-finder', group:'NAVIGATE' },
+  { icon:'⊞', label:'Go to line',             hint:'Ctrl+G',     action:'jump-line',   group:'NAVIGATE' },
+  { icon:'≡', label:'File outline',           hint:'Ctrl+Shift+O',action:'outline',    group:'NAVIGATE' },
+  { icon:'⌕', label:'Search in files',        hint:'Ctrl+Shift+F',action:'project-search',group:'NAVIGATE' },
+  { icon:'✦', label:'Zen mode',              hint:'Ctrl+Shift+Z',action:'zen',         group:'VIEW'  },
+  { icon:'📁', label:'Open folder',           hint:'',           action:'open-folder', group:'FILE'  },
+  { icon:'💾', label:'Save file',             hint:'Ctrl+S',     action:'save',        group:'FILE'  },
+  ...PALETTES.map(p => ({
+    icon:'🎨', label:`Theme: ${p.name}`,       hint:'',           action:`theme:${p.id}`, group:'THEME', palette: p,
+  })),
+]
+
+function CommandPalette({ isOpen, onClose, onAction, previewPalette, onPreviewPalette }) {
   const [query, setQuery] = useState('')
   const [focused, setFocused] = useState(0)
-  const filtered = CMD_ITEMS.filter(i => i.label.toLowerCase().includes(query.toLowerCase()))
-  useEffect(() => { if (isOpen) setQuery('') }, [isOpen])
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const filtered = useMemo(() => {
+    const q = query.toLowerCase().trim()
+    if (!q) return EXTENDED_CMD_ITEMS
+    return EXTENDED_CMD_ITEMS.filter(i =>
+      i.label.toLowerCase().includes(q) || i.group.toLowerCase().includes(q)
+    )
+  }, [query])
+
+  useEffect(() => {
+    if (isOpen) { setQuery(''); setFocused(0); setTimeout(() => inputRef.current?.focus(), 10) }
+    else { onPreviewPalette?.(null) }
+  }, [isOpen])
+
+  useEffect(() => { setFocused(0) }, [query])
+
   if (!isOpen) return null
+
+  const grouped: Record<string, typeof EXTENDED_CMD_ITEMS> = {}
+  filtered.forEach(item => {
+    if (!grouped[item.group]) grouped[item.group] = []
+    grouped[item.group].push(item)
+  })
+
+  // Flat list for keyboard navigation
+  const flatItems = filtered
+
+  const execItem = (item: any) => {
+    onPreviewPalette?.(null)
+    onAction(item.action || item.label)
+    onClose()
+  }
+
+  const handleKey = (e: React.KeyboardEvent) => {
+    if (e.key === 'ArrowDown') { e.preventDefault(); setFocused(f => Math.min(f+1, flatItems.length-1)) }
+    if (e.key === 'ArrowUp')   { e.preventDefault(); setFocused(f => Math.max(f-1, 0)) }
+    if (e.key === 'Enter' && flatItems[focused]) { execItem(flatItems[focused]) }
+    if (e.key === 'Escape') { onPreviewPalette?.(null); onClose() }
+  }
+
+  // Live preview on hover for theme items
+  const handleHover = (item: any, idx: number) => {
+    setFocused(idx)
+    if (item.palette) onPreviewPalette?.(item.palette)
+    else onPreviewPalette?.(null)
+  }
+
   return (
-    <div className="ide-cmd-overlay" onClick={onClose}>
-      <div className="ide-cmd-box" onClick={e=>e.stopPropagation()}>
+    <div className="ide-cmd-overlay" onClick={() => { onPreviewPalette?.(null); onClose() }}>
+      <div className="ide-cmd-box" onClick={e=>e.stopPropagation()} style={{ maxHeight: '70vh', display: 'flex', flexDirection: 'column' }}>
         <div className="ide-cmd-input-row">
           <span className="ide-cmd-prefix">⌘</span>
-          <input className="ide-cmd-input" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Type a command..." autoFocus
-            onKeyDown={e=>{
-              if(e.key==='ArrowDown'){e.preventDefault();setFocused(f=>Math.min(f+1,filtered.length-1))}
-              if(e.key==='ArrowUp'){e.preventDefault();setFocused(f=>Math.max(f-1,0))}
-              if(e.key==='Enter'){onAction(filtered[focused]?.label);onClose()}
-              if(e.key==='Escape')onClose()
-            }}
-          />
+          <input ref={inputRef} className="ide-cmd-input" value={query} onChange={e=>setQuery(e.target.value)}
+            placeholder="Type a command or theme name…" onKeyDown={handleKey} />
+          {query && (
+            <button style={{ background:'transparent', border:'none', color:'#6a6a8a', cursor:'pointer', fontSize:'12px', padding:'0 6px' }}
+              onClick={() => setQuery('')}>✕</button>
+          )}
         </div>
-        <div className="ide-cmd-results">
-          {filtered.map((item,i)=>(
-            <div key={i} className={`ide-cmd-item ${i===focused?'focused':''}`}
-              onMouseEnter={()=>setFocused(i)} onClick={()=>{onAction(item.label);onClose()}}>
-              <div className="ide-cmd-icon">{item.icon}</div>
-              <span style={{flex:1}}>{item.label}</span>
-              {item.hint && <span className="ide-cmd-hint">{item.hint}</span>}
+
+        <div className="ide-cmd-results" style={{ overflowY: 'auto', flex: 1 }}>
+          {Object.entries(grouped).map(([group, items]) => {
+            return (
+              <div key={group}>
+                <div style={{ padding:'4px 12px 2px', fontSize:'8px', letterSpacing:'.12em', opacity:.35, fontFamily:"'Share Tech Mono',monospace", color:'#c0c8d8' }}>
+                  {group}
+                </div>
+                {items.map((item, _i) => {
+                  const globalIdx = flatItems.indexOf(item)
+                  const isFocused = globalIdx === focused
+                  return (
+                    <div key={item.label}
+                      className={`ide-cmd-item ${isFocused ? 'focused' : ''}`}
+                      onMouseEnter={() => handleHover(item, globalIdx)}
+                      onMouseLeave={() => { if (item.palette) onPreviewPalette?.(null) }}
+                      onClick={() => execItem(item)}
+                    >
+                      <div className="ide-cmd-icon">{item.icon}</div>
+                      <span style={{ flex:1 }}>{item.label.replace('Theme: ','')}</span>
+                      {item.palette && (
+                        <span style={{ display:'flex', gap:2, marginRight:4 }}>
+                          {item.palette.swatches.map((c: string, si: number) => (
+                            <span key={si} style={{ width:8, height:8, borderRadius:2, background:c, display:'inline-block' }}/>
+                          ))}
+                        </span>
+                      )}
+                      {item.hint && <span className="ide-cmd-hint">{item.hint}</span>}
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          })}
+          {filtered.length === 0 && (
+            <div style={{ padding:'20px', textAlign:'center', opacity:.3, fontFamily:"'Share Tech Mono',monospace", fontSize:'10px', color:'#c0c8d8' }}>
+              NO MATCHES
             </div>
-          ))}
+          )}
         </div>
-        <div className="ide-cmd-footer"><span>↑↓ navigate</span><span>↵ execute</span><span>Esc close</span></div>
+
+        <div className="ide-cmd-footer">
+          <span>↑↓ navigate</span>
+          <span>↵ execute</span>
+          <span>hover themes to preview</span>
+          <span>Esc close</span>
+        </div>
       </div>
     </div>
   )
@@ -2346,6 +2454,169 @@ function WelcomeNodeRow({ n, active, onClick, groups, searchQuery = '' }:any) {
 }
 
 // ══════════════════════════════════════════════════════════════
+//  FUZZY FILE FINDER MODAL
+// ══════════════════════════════════════════════════════════════
+
+function getFileIcon(name: string) {
+  const ext = (name || '').split('.').pop()?.toLowerCase()
+  const map: Record<string,string> = {
+    js:'⬡', mjs:'⬡', jsx:'⬡', ts:'◈', tsx:'◈',
+    py:'⬟', go:'◉', rs:'◆', c:'◇', cpp:'◇', h:'◇',
+    md:'⌗', json:'{}', css:'#', html:'<>', sh:'$',
+    txt:'≡', yaml:'⁞', yml:'⁞', toml:'⁞',
+  }
+  return map[ext || ''] || '·'
+}
+
+function getFileColor(name: string) {
+  const ext = (name || '').split('.').pop()?.toLowerCase()
+  const map: Record<string,string> = {
+    js:'#f2c12e', mjs:'#f2c12e', jsx:'#f2c12e', ts:'#4285f4', tsx:'#4285f4',
+    py:'#28f1c3', go:'#89ddff', rs:'#ff8080', c:'#ff8080', cpp:'#ff8080',
+    md:'#c792ea', json:'#ffc410', css:'#89b4fa', html:'#e06c75', sh:'#10b981',
+  }
+  return map[ext || ''] || '#888'
+}
+
+function fuzzyMatch(str: string, query: string) {
+  if (!query) return true
+  const s = str.toLowerCase(); const q = query.toLowerCase()
+  let si = 0; let qi = 0
+  while (si < s.length && qi < q.length) { if (s[si] === q[qi]) qi++; si++ }
+  return qi === q.length
+}
+
+function FileFinderModal({ isOpen, onClose, onOpenFile, rootPath }: any) {
+  const [query, setQuery] = useState('')
+  const [files, setFiles] = useState<any[]>([])
+  const [focused, setFocused] = useState(0)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!isOpen || !rootPath) return
+    const api = (window as any).electronAPI
+    api?.fs?.listAllFiles?.(rootPath, 6000).then((list: any[]) => setFiles(list || [])).catch(() => {})
+  }, [isOpen, rootPath])
+
+  const filtered = useMemo(() => {
+    if (!query) return files.slice(0, 60)
+    const q = query.toLowerCase()
+    return files
+      .filter(f => fuzzyMatch(f.rel, q) || f.name.toLowerCase().includes(q))
+      .sort((a, b) => {
+        const an = a.name.toLowerCase().startsWith(q) ? 0 : 1
+        const bn = b.name.toLowerCase().startsWith(q) ? 0 : 1
+        return an - bn || a.rel.length - b.rel.length
+      })
+      .slice(0, 60)
+  }, [query, files])
+
+  useEffect(() => { setFocused(0) }, [filtered])
+
+  useEffect(() => {
+    if (isOpen) { setQuery(''); setTimeout(() => inputRef.current?.focus(), 40) }
+  }, [isOpen])
+
+  useEffect(() => {
+    if (!listRef.current) return
+    const el = listRef.current.children[focused] as HTMLElement
+    el?.scrollIntoView({ block: 'nearest' })
+  }, [focused])
+
+  const open = (f: any) => { onOpenFile(f); onClose() }
+
+  const handleKey = (e: React.KeyboardEvent) => {
+    if (e.key === 'ArrowDown') { e.preventDefault(); setFocused(i => Math.min(i+1, filtered.length-1)) }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setFocused(i => Math.max(i-1, 0)) }
+    else if (e.key === 'Enter') { e.preventDefault(); if (filtered[focused]) open(filtered[focused]) }
+    else if (e.key === 'Escape') onClose()
+  }
+
+  if (!isOpen) return null
+  return (
+    <div style={{position:'fixed',inset:0,zIndex:99999,background:'rgba(0,0,0,.75)',backdropFilter:'blur(6px)',display:'flex',alignItems:'flex-start',justifyContent:'center',paddingTop:'12vh'}}
+      onClick={onClose}>
+      <div style={{width:'min(620px,90vw)',background:'#0d0d1a',border:'1px solid rgba(255,42,56,.25)',boxShadow:'0 24px 80px rgba(0,0,0,.95)',overflow:'hidden',borderRadius:4}}
+        onClick={e=>e.stopPropagation()}>
+        <div style={{display:'flex',alignItems:'center',gap:8,padding:'10px 14px',borderBottom:'1px solid rgba(255,255,255,.06)'}}>
+          <span style={{color:'#ff435a',fontSize:'14px',flexShrink:0}}>⌕</span>
+          <input ref={inputRef} value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={handleKey}
+            placeholder="Search files by name…"
+            style={{flex:1,background:'transparent',border:'none',outline:'none',fontFamily:"'JetBrains Mono',monospace",fontSize:'13px',color:'#c0c8d8'}}/>
+          <span style={{fontFamily:"'Share Tech Mono',monospace",fontSize:'9px',color:'rgba(200,200,220,.25)',flexShrink:0}}>Ctrl+P</span>
+          {query && <button onClick={()=>setQuery('')} style={{background:'transparent',border:'none',color:'rgba(200,200,220,.3)',cursor:'pointer',fontSize:'16px',lineHeight:1,flexShrink:0}}>×</button>}
+        </div>
+        <div ref={listRef} style={{maxHeight:'52vh',overflowY:'auto',scrollbarWidth:'thin',scrollbarColor:'rgba(255,255,255,.07) transparent'}}>
+          {filtered.length === 0 && (
+            <div style={{padding:'24px',textAlign:'center',color:'rgba(200,200,220,.25)',fontFamily:"'Share Tech Mono',monospace",fontSize:'11px'}}>
+              {files.length === 0 ? 'Open a folder first (File → Open Folder)' : 'No matching files'}
+            </div>
+          )}
+          {filtered.map((f, i) => {
+            const dir = f.rel.split('/').slice(0,-1).join('/')
+            return (
+              <div key={f.path} onClick={()=>open(f)}
+                style={{display:'flex',alignItems:'center',gap:10,padding:'7px 14px',cursor:'pointer',
+                  background:i===focused?'rgba(255,42,56,.1)':'transparent',
+                  borderLeft:i===focused?'2px solid #ff435a':'2px solid transparent',transition:'background .08s'}}
+                onMouseEnter={()=>setFocused(i)}>
+                <span style={{fontSize:'12px',color:getFileColor(f.name),flexShrink:0,width:14,textAlign:'center'}}>{getFileIcon(f.name)}</span>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:'12px',color:'#c0c8d8',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{f.name}</div>
+                  {dir && <div style={{fontFamily:"'Share Tech Mono',monospace",fontSize:'10px',color:'rgba(200,200,220,.35)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{dir}/</div>}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+        <div style={{padding:'5px 14px',borderTop:'1px solid rgba(255,255,255,.05)',display:'flex',alignItems:'center',gap:12}}>
+          <span style={{fontFamily:"'Share Tech Mono',monospace",fontSize:'9px',color:'rgba(200,200,220,.2)'}}>↑↓ navigate · ↩ open · Esc close</span>
+          {files.length > 0 && <span style={{fontFamily:"'Share Tech Mono',monospace",fontSize:'9px',color:'rgba(200,200,220,.2)',marginLeft:'auto'}}>{files.length} files indexed</span>}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ══════════════════════════════════════════════════════════════
+//  JUMP TO LINE MODAL
+// ══════════════════════════════════════════════════════════════
+
+function JumpToLineModal({ isOpen, onClose, onJump, maxLine = 9999 }: any) {
+  const [val, setVal] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (isOpen) { setVal(''); setTimeout(() => inputRef.current?.focus(), 40) }
+  }, [isOpen])
+
+  const apply = () => {
+    const n = parseInt(val)
+    if (!isNaN(n) && n >= 1) { onJump(n); onClose() }
+  }
+
+  if (!isOpen) return null
+  return (
+    <div style={{position:'fixed',inset:0,zIndex:99999,background:'rgba(0,0,0,.6)',backdropFilter:'blur(4px)',display:'flex',alignItems:'flex-start',justifyContent:'center',paddingTop:'18vh'}}
+      onClick={onClose}>
+      <div style={{width:300,background:'#0d0d1a',border:'1px solid rgba(255,42,56,.2)',boxShadow:'0 16px 48px rgba(0,0,0,.9)',borderRadius:4,overflow:'hidden'}}
+        onClick={e=>e.stopPropagation()}>
+        <div style={{padding:'8px 12px',borderBottom:'1px solid rgba(255,255,255,.06)',fontFamily:"'Oswald',sans-serif",fontWeight:700,fontSize:'10px',letterSpacing:'.12em',color:'rgba(200,200,220,.4)'}}>GO TO LINE</div>
+        <div style={{padding:'10px 12px',display:'flex',gap:6}}>
+          <input ref={inputRef} type="number" min={1} max={maxLine} value={val}
+            onChange={e=>setVal(e.target.value)}
+            onKeyDown={e=>{ if(e.key==='Enter')apply(); if(e.key==='Escape')onClose() }}
+            placeholder={`1 – ${maxLine}`}
+            style={{flex:1,background:'rgba(255,255,255,.05)',border:'1px solid rgba(255,255,255,.1)',outline:'none',color:'#c0c8d8',fontFamily:"'JetBrains Mono',monospace",fontSize:'13px',padding:'5px 8px'}}/>
+          <button onClick={apply} style={{background:'rgba(255,42,56,.15)',border:'1px solid rgba(255,42,56,.3)',color:'#ff435a',fontFamily:"'Oswald',sans-serif",fontWeight:700,fontSize:'10px',letterSpacing:'.08em',padding:'5px 12px',cursor:'pointer'}}>GO</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ══════════════════════════════════════════════════════════════
 //  MAIN IDE COMPONENT
 // ══════════════════════════════════════════════════════════════
 
@@ -2810,7 +3081,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
       }
     }
     const handleMenuRunActive = () => { if (activeTabId) handleRunNode(activeTabId) }
-    const handleMenuToggleTerm = () => { setBottomTab(v=>v==='terminal'?null:'terminal'); setBottomOpen(o=>!o) }
+    const handleMenuToggleTerm = () => { setBottomTab('terminal'); setBottomOpen(o => !o) }
     const handleTitleBarFolder = (e: any) => {
       const folder = e.detail
       if (!folder) return
@@ -2848,9 +3119,18 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
     const handler = e => {
       const tag = e.target.tagName
       const inInput = tag==='INPUT'||tag==='TEXTAREA'||e.target.contentEditable==='true'
-      if ((e.metaKey||e.ctrlKey)&&e.key==='p') { e.preventDefault(); setShowCmd(v=>!v) }
+      if ((e.metaKey||e.ctrlKey)&&e.key==='p'&&!e.shiftKey) { e.preventDefault(); setShowFileFinder(v=>!v) }
+      if ((e.metaKey||e.ctrlKey)&&e.key==='P') { e.preventDefault(); setShowCmd(v=>!v) }
+      if ((e.metaKey||e.ctrlKey)&&e.shiftKey&&e.key==='p') { e.preventDefault(); setShowCmd(v=>!v) }
+      if ((e.metaKey||e.ctrlKey)&&e.key==='g'&&!e.shiftKey) { e.preventDefault(); setShowJumpLine(v=>!v) }
+      if ((e.metaKey||e.ctrlKey)&&e.shiftKey&&(e.key==='z'||e.key==='Z')) { e.preventDefault(); setZenMode(v=>!v) }
+      if ((e.metaKey||e.ctrlKey)&&e.shiftKey&&(e.key==='f'||e.key==='F')) { e.preventDefault(); setSidebarMode('project-search'); setSidebarOpen(true) }
+      if ((e.metaKey||e.ctrlKey)&&e.shiftKey&&(e.key==='o'||e.key==='O')) { e.preventDefault(); setSidebarMode('outline'); setSidebarOpen(true) }
+      if ((e.metaKey||e.ctrlKey)&&e.key==='b'&&!e.shiftKey) { e.preventDefault(); setSidebarOpen(v=>!v) }
       if (e.key==='Escape') {
-        setShowCmd(false); setEdgeMode(null); setJoinFirstNode(null); setNodeColorPicker(null); setShowTermPalette(false)
+        setShowCmd(false); setShowFileFinder(false); setShowJumpLine(false)
+        if (zenMode) { setZenMode(false); return }
+        setEdgeMode(null); setJoinFirstNode(null); setNodeColorPicker(null); setShowTermPalette(false)
         setNotebookFloating(false)
         if (!openGroupId) setActiveTabId(null)
         setOpenGroupId(null)
@@ -2858,7 +3138,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
       if (!inInput) {
         if (e.key==='n'||e.key==='N') setShowCreateNode(true)
         if (e.key==='g'||e.key==='G') { setShowCreateGroup(true); setGroupSelected([]) }
-        if (e.key==='`'||e.key==='~') setBottomTab(v=>v==='terminal'?null:'terminal')
+        if (e.key==='`'||e.key==='~') { setBottomTab('terminal'); setBottomOpen(o => !o) }
         if (e.key==='j'||e.key==='J') setEdgeMode(m=>m==='join'?null:'join')
         if (e.key==='x'||e.key==='X') setEdgeMode(m=>m==='cut'?null:'cut')
         if ((e.key==='Delete'||e.key==='Backspace')&&hoveredNodeId) {
@@ -3414,29 +3694,99 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
   }
 
   // ── CMD PALETTE ──
-  const handleCmdAction = label => {
-    if (!label) return
-    if (label.includes('New file node')) setShowCreateNode(true)
-    else if (label.includes('New doc node')) {
+  const [cmdPreviewPalette, setCmdPreviewPalette] = useState(null)
+
+  // ── PHASE 2 STATE ──
+  const [showFileFinder, setShowFileFinder] = useState(false)
+  const [zenMode, setZenMode] = useState(false)
+  const [showJumpLine, setShowJumpLine] = useState(false)
+  const [jumpLineTarget, setJumpLineTarget] = useState<number|null>(null)
+  const [projectSearchQuery, setProjectSearchQuery] = useState('')
+  const [projectSearchResults, setProjectSearchResults] = useState<any[]>([])
+  const [projectSearchLoading, setProjectSearchLoading] = useState(false)
+  const projectSearchDebounce = useRef<any>(null)
+
+  // Project-wide search debounced effect
+  useEffect(() => {
+    clearTimeout(projectSearchDebounce.current)
+    if (!projectSearchQuery.trim() || !explorerRoot) { setProjectSearchResults([]); return }
+    setProjectSearchLoading(true)
+    projectSearchDebounce.current = setTimeout(async () => {
+      try {
+        const api = (window as any).electronAPI
+        const results = await api?.fs?.searchInFiles?.(explorerRoot, projectSearchQuery.trim(), 300) || []
+        setProjectSearchResults(results)
+      } catch { setProjectSearchResults([]) }
+      setProjectSearchLoading(false)
+    }, 350)
+    return () => clearTimeout(projectSearchDebounce.current)
+  }, [projectSearchQuery, explorerRoot])
+
+  // Open a workspace file in the editor
+  const handleOpenWorkspaceFile = useCallback(async (fileInfo: any) => {
+    const api = (window as any).electronAPI
+    if (!api?.fs?.readFile) return
+    try {
+      const res = await api.fs.readFile(fileInfo.path || fileInfo.fullPath)
+      if (res?.content === undefined) return
+      const existing = nodesRef.current.find(n => n.filepath === (fileInfo.path || fileInfo.fullPath))
+      if (existing) { openNodeInEditor(existing.id); return }
+      const tempId = 'ws_' + Date.now()
+      nodesRef.current = [...nodesRef.current, {
+        id: tempId, label: fileInfo.name || fileInfo.rel?.split('/').pop() || 'file',
+        filepath: fileInfo.path || fileInfo.fullPath, type: 'function',
+        isMain: false, x: 0, y: 0, vx: 0, vy: 0, themeIdx: 0,
+        classId: null, modified: false, code: res.content,
+      }]
+      forceRender({})
+      openNodeInEditor(tempId)
+    } catch {}
+  }, [explorerRoot])
+
+  const handleCmdAction = action => {
+    if (!action) return
+    // New action-based dispatch
+    if (action === 'new-node') { setShowCreateNode(true) }
+    else if (action === 'new-group') { setShowCreateGroup(true); setGroupSelected([]) }
+    else if (action === 'run') { if (activeTabId) handleRunNode(activeTabId) }
+    else if (action === 'terminal') { setBottomTab('terminal'); setBottomOpen(true) }
+    else if (action === 'board') { setSidebarMode('board'); setSidebarOpen(true) }
+    else if (action === 'timeline') { setBottomTab('timeline'); setBottomOpen(true) }
+    else if (action === 'git') { setSidebarMode('git'); setSidebarOpen(true) }
+    else if (action === 'sidebar') { setSidebarOpen(v => !v) }
+    else if (action === 'edge-add') { setEdgeMode(m => m === 'join' ? null : 'join') }
+    else if (action === 'edge-cut') { setEdgeMode(m => m === 'cut' ? null : 'cut') }
+    else if (action === 'zoom-in') { setTransform(p => ({...p, scale: Math.min(3.0, p.scale * 1.25)})) }
+    else if (action === 'zoom-out') { setTransform(p => ({...p, scale: Math.max(0.3, p.scale * 0.8)})) }
+    else if (action === 'zoom-reset') { setTransform(p => ({...p, scale: 1})) }
+    else if (action === 'open-folder') { handleOpenFolderForExplorer() }
+    else if (action === 'save') { if (activeTabId) saveNodeToDisk(activeTabId) }
+    else if (action === 'zen') { setZenMode(v => !v) }
+    else if (action === 'file-finder') { setShowFileFinder(true) }
+    else if (action === 'jump-line') { setShowJumpLine(true) }
+    else if (action === 'project-search') { setSidebarMode('project-search'); setSidebarOpen(true) }
+    else if (action === 'outline') { setSidebarMode('outline'); setSidebarOpen(true) }
+    else if (action?.startsWith('theme:')) {
+      const p = PALETTES.find(p => p.id === action.replace('theme:', ''))
+      if (p) setGlobalEditorPalette(p)
+    }
+    // Legacy label fallbacks
+    else if (action.includes('New file node')) { setShowCreateNode(true) }
+    else if (action.includes('New doc node')) {
       const tempId='n'+Date.now()
       const x=(Math.random()-.5)*300, y=(Math.random()-.5)*300
       nodesRef.current=[...nodesRef.current,{id:tempId,label:'notes.md',filepath:'notes.md',type:'doc',isMain:false,x,y,vx:0,vy:0,themeIdx:11,classId:null,code:'# Notes\n\n',modified:false}]
       forceRender({}); openNodeInEditor(tempId)
     }
-    else if (label.includes('New class group')) { setShowCreateGroup(true); setGroupSelected([]) }
-    else if (label.includes('Run current file')) { if (activeTabId) handleRunNode(activeTabId) }
-    else if (label.includes('JS console')) setBottomTab('console')
-    else if (label.includes('terminal')) setBottomTab('terminal')
-    else if (label.includes('board')) setSidebarMode('board')
-    else if (label.includes('Join nodes')) setEdgeMode(m=>m==='join'?null:'join')
-    else if (label.includes('Cut edge')) setEdgeMode(m=>m==='cut'?null:'cut')
     setShowCmd(false)
   }
 
   // ── ICON BAR ──
   const sideIconDefs = [
-    { key:'files', icon:<I.Files/>, tip:'Files' },
-    { key:'note',  icon:<I.Note/>,  tip:'Notes' },
+    { key:'files',          icon:<I.Files/>,  tip:'Files (Ctrl+Shift+E)' },
+    { key:'project-search', icon:<I.Search/>, tip:'Search in files (Ctrl+Shift+F)', badge:0 },
+    { key:'outline',        icon:<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>, tip:'Outline (Ctrl+Shift+O)' },
+    { key:'note',           icon:<I.Note/>,  tip:'Notes' },
   ]
 
   // ── CHAPTER SPLASH DATA ──
@@ -3445,9 +3795,24 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
 
   // ── RENDER ──
   return (
-    <div className={`ide-v2-root ${brutal?'theme-brutal':'theme-cyber'}`}
+    <div className={`ide-v2-root ${brutal?'theme-brutal':'theme-cyber'}${zenMode?' ide-zen-mode':''}`}
       style={{'--ide-font-scale':globalFontScale} as any}
     >
+
+      {/* ── ZEN MODE EDITOR OVERLAY ── */}
+      {zenMode && activeTabNode && (
+        <div style={{position:'fixed',inset:0,zIndex:90000,background:'#06060d',display:'flex',flexDirection:'column',overflow:'hidden'}}>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'6px 16px',flexShrink:0,borderBottom:'1px solid rgba(255,255,255,.04)'}}>
+            <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:'11px',color:'rgba(200,200,220,.4)'}}>{activeTabNode.label}</span>
+            <button onClick={()=>setZenMode(false)} style={{background:'transparent',border:'1px solid rgba(255,255,255,.1)',color:'rgba(200,200,220,.4)',fontFamily:"'Share Tech Mono',monospace",fontSize:'10px',padding:'2px 8px',cursor:'pointer',letterSpacing:'.06em'}}>ESC · EXIT ZEN</button>
+          </div>
+          <div style={{flex:1,overflow:'hidden',display:'flex',justifyContent:'center'}}>
+            <div style={{width:'min(800px,100%)',height:'100%'}}>
+              <CodeMirrorEditor key={activeTabId+'_zen'} node={activeTabNode} onChange={code=>updateNodeCode(activeTabId,code)} onSave={()=>saveNodeToDisk(activeTabId)} externalPalette={globalEditorPalette} jumpToLine={jumpLineTarget??undefined}/>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ═══════ TITLE BAR (custom window controls, drag region) ═══════ */}
       <TitleBar brutal={brutal} activeFile={activeTabNode?.label}/>
@@ -3505,7 +3870,9 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
         <button className="ide-topbar-btn" onClick={handleOpenFolderForExplorer} title="Open folder in Explorer">📂 OPEN</button>
         <button className="ide-topbar-btn" onClick={()=>folderInputRef.current?.click()} title="Import files as graph nodes">⬆ IMPORT</button>
         <input ref={folderInputRef} type="file" multiple {...{'webkitdirectory':''}} style={{display:'none'}} onChange={handleFolderUpload}/>
-        <button className="ide-topbar-btn" onClick={()=>setShowCmd(true)}>⌘P</button>
+        <button className="ide-topbar-btn" onClick={()=>setShowFileFinder(true)} title="Quick Open file (Ctrl+P)">⌕ FILES</button>
+        <button className="ide-topbar-btn" onClick={()=>setShowCmd(true)} title="Command palette (Ctrl+Shift+P)">⌘</button>
+        <button className="ide-topbar-btn" onClick={()=>setZenMode(v=>!v)} title="Zen mode (Ctrl+Shift+Z)" style={zenMode?{color:'#10b981',borderColor:'rgba(16,185,129,.4)'}:{}}>ZEN</button>
 
         {/* Avatar → settings */}
         <div onClick={()=>{setSidebarMode('settings');setSidebarOpen(o=>sidebarMode==='settings'?!o:true)}}
@@ -3570,7 +3937,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
           <div className="ide-sidebar-pane" style={{width:sidebarW}}>
             <div className="ide-sidebar-header">
               <span className="ide-sidebar-title">
-                {{'files':'EXPLORER','search':'SEARCH','note':'NOTES','settings':'SETTINGS'}[sidebarMode]||'EXPLORER'}
+                {({'files':'EXPLORER','search':'SEARCH','note':'NOTES','settings':'SETTINGS','project-search':'SEARCH FILES','outline':'OUTLINE'} as any)[sidebarMode]||'EXPLORER'}
               </span>
               <div style={{marginLeft:'auto',display:'flex',gap:4,alignItems:'center'}}>
                 {sidebarMode==='files'&&<button className="ide-btn ide-btn-sm" onClick={()=>setShowCreateNode(true)} title="New graph node">+N</button>}
@@ -3627,6 +3994,104 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
               {sidebarMode==='note' && (
                 <textarea style={{background:'transparent',border:'none',outline:'none',resize:'none',padding:'12px',fontFamily:"'Share Tech Mono',monospace",fontSize:'12px',lineHeight:1.7,color:brutal?'#0f0f0f':'#c0c8d8',width:'100%',height:'100%',minHeight:300}} placeholder="// scratch notes…"/>
               )}
+
+              {/* ── PROJECT-WIDE SEARCH ── */}
+              {sidebarMode==='project-search' && (
+                <div style={{display:'flex',flexDirection:'column',height:'100%',overflow:'hidden'}}>
+                  <div style={{padding:'6px 8px',flexShrink:0}}>
+                    <div style={{position:'relative'}}>
+                      <span style={{position:'absolute',left:8,top:'50%',transform:'translateY(-50%)',fontSize:'11px',opacity:.4,pointerEvents:'none'}}>⌕</span>
+                      <input
+                        value={projectSearchQuery}
+                        onChange={e=>setProjectSearchQuery(e.target.value)}
+                        placeholder="Search in all files…"
+                        autoFocus
+                        style={{width:'100%',boxSizing:'border-box',background:'rgba(255,255,255,.05)',border:'1px solid rgba(255,255,255,.08)',outline:'none',color:'#c0c8d8',fontFamily:"'JetBrains Mono',monospace",fontSize:'11px',padding:'5px 8px 5px 26px'}}
+                        onFocus={e=>(e.target.style.borderColor='rgba(255,42,56,.4)')}
+                        onBlur={e=>(e.target.style.borderColor='rgba(255,255,255,.08)')}
+                      />
+                      {projectSearchQuery&&<button onClick={()=>setProjectSearchQuery('')} style={{position:'absolute',right:6,top:'50%',transform:'translateY(-50%)',background:'transparent',border:'none',cursor:'pointer',color:'rgba(200,200,220,.3)',fontSize:'13px'}}>×</button>}
+                    </div>
+                  </div>
+                  {projectSearchLoading && <div style={{padding:'8px 10px',fontFamily:"'Share Tech Mono',monospace",fontSize:'10px',color:'#ffc410',opacity:.7,flexShrink:0}}>SEARCHING…</div>}
+                  {!projectSearchLoading && projectSearchQuery && <div className="ide-toc-sec" style={{flexShrink:0}}>{projectSearchResults.length} MATCHES{explorerRoot?'':" · no folder open"}</div>}
+                  <div style={{flex:1,overflowY:'auto',scrollbarWidth:'thin',scrollbarColor:'rgba(255,255,255,.07) transparent'}}>
+                    {(() => {
+                      const grouped: Record<string, any[]> = {}
+                      projectSearchResults.forEach(r => { ;(grouped[r.file] ??= []).push(r) })
+                      return Object.entries(grouped).map(([file, hits]) => (
+                        <div key={file}>
+                          <div style={{padding:'4px 8px',fontFamily:"'Oswald',sans-serif",fontWeight:700,fontSize:'9px',letterSpacing:'.1em',color:'rgba(200,200,220,.4)',background:'rgba(0,0,0,.2)',borderBottom:'1px solid rgba(255,255,255,.04)',display:'flex',gap:6,alignItems:'center'}}>
+                            <span style={{color:getFileColor(file.split('/').pop()||''),fontSize:'10px'}}>{getFileIcon(file.split('/').pop()||'')}</span>
+                            <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1}}>{file}</span>
+                            <span style={{opacity:.4,flexShrink:0}}>{hits.length}</span>
+                          </div>
+                          {hits.map((r, i) => (
+                            <div key={i} onClick={async()=>{
+                              await handleOpenWorkspaceFile({path:r.fullPath,name:file.split('/').pop(),rel:file})
+                              setTimeout(()=>setJumpLineTarget(r.line),200)
+                            }}
+                              style={{padding:'3px 12px 3px 18px',cursor:'pointer',fontFamily:"'JetBrains Mono',monospace",fontSize:'10px',color:'rgba(200,200,220,.7)',display:'flex',gap:6,alignItems:'center'}}
+                              onMouseEnter={e=>(e.currentTarget.style.background='rgba(255,255,255,.05)')}
+                              onMouseLeave={e=>(e.currentTarget.style.background='transparent')}>
+                              <span style={{color:'rgba(200,200,220,.3)',flexShrink:0,minWidth:28,textAlign:'right'}}>{r.line}</span>
+                              <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1}}>{r.text}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ))
+                    })()}
+                    {!projectSearchLoading && projectSearchQuery && projectSearchResults.length===0 && (
+                      <div style={{padding:'20px 10px',opacity:.3,textAlign:'center',fontFamily:"'Share Tech Mono',monospace",fontSize:'11px'}}>
+                        {explorerRoot ? 'NO MATCHES' : 'OPEN A FOLDER FIRST'}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* ── FILE OUTLINE ── */}
+              {sidebarMode==='outline' && (() => {
+                const code = activeTabNode?.code || ''
+                const label = activeTabNode?.label || ''
+                const ext = (label.split('.').pop()||'').toLowerCase()
+                const symbols: {name:string,line:number,type:string}[] = []
+                const lines = code.split('\n')
+                const FUNC_RE = /^(?:export\s+)?(?:async\s+)?function\s+([a-zA-Z_$][\w$]*)/
+                const CLASS_RE = /^(?:export\s+)?(?:abstract\s+)?class\s+([a-zA-Z_$][\w$]*)/
+                const CONST_FN_RE = /^(?:export\s+)?(?:const|let|var)\s+([a-zA-Z_$][\w$]*)\s*=\s*(?:async\s+)?(?:\(|function)/
+                const PY_DEF_RE = /^(?:\s*)def\s+([a-zA-Z_][\w]*)/
+                const PY_CLS_RE = /^class\s+([a-zA-Z_][\w]*)/
+                const GO_FUNC_RE = /^func\s+(?:\([^)]*\)\s+)?([a-zA-Z_][\w]*)/
+                lines.forEach((l, i) => {
+                  if (['js','ts','jsx','tsx'].includes(ext)) {
+                    let m = FUNC_RE.exec(l)||CLASS_RE.exec(l)||CONST_FN_RE.exec(l)
+                    if (m) symbols.push({name:m[1],line:i+1,type:l.includes('class')?'class':'function'})
+                  } else if (ext==='py') {
+                    let m = PY_DEF_RE.exec(l)||PY_CLS_RE.exec(l)
+                    if (m) symbols.push({name:m[1],line:i+1,type:l.trim().startsWith('class')?'class':'function'})
+                  } else if (ext==='go') {
+                    let m = GO_FUNC_RE.exec(l)
+                    if (m) symbols.push({name:m[1],line:i+1,type:'function'})
+                  }
+                })
+                return (
+                  <div style={{flex:1,overflowY:'auto',scrollbarWidth:'thin',scrollbarColor:'rgba(255,255,255,.07) transparent'}}>
+                    {!activeTabNode && <div style={{padding:'20px 10px',opacity:.25,textAlign:'center',fontFamily:"'Share Tech Mono',monospace",fontSize:'11px'}}>OPEN A FILE TO SEE ITS OUTLINE</div>}
+                    {activeTabNode && symbols.length===0 && <div style={{padding:'20px 10px',opacity:.25,textAlign:'center',fontFamily:"'Share Tech Mono',monospace",fontSize:'11px'}}>NO SYMBOLS FOUND</div>}
+                    {symbols.map((s,i)=>(
+                      <div key={i} onClick={()=>setJumpLineTarget(s.line)}
+                        style={{padding:'5px 10px 5px 14px',cursor:'pointer',display:'flex',gap:8,alignItems:'center',fontFamily:"'JetBrains Mono',monospace",fontSize:'11px'}}
+                        onMouseEnter={e=>(e.currentTarget.style.background='rgba(255,255,255,.05)')}
+                        onMouseLeave={e=>(e.currentTarget.style.background='transparent')}>
+                        <span style={{fontSize:'10px',color:s.type==='class'?'#4285f4':'#10b981',flexShrink:0}}>{s.type==='class'?'◇':'ƒ'}</span>
+                        <span style={{color:'#c0c8d8',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{s.name}</span>
+                        <span style={{color:'rgba(200,200,220,.3)',fontSize:'10px',flexShrink:0}}>{s.line}</span>
+                      </div>
+                    ))}
+                  </div>
+                )
+              })()}
               {sidebarMode==='settings' && (
                 <div style={{padding:'8px'}}>
                   <div className="ide-toc-sec">THEME</div>
@@ -3904,6 +4369,11 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
                   )
                 })}
                 <div style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:4,padding:'0 6px',flexShrink:0}}>
+                  {/* Jump to line button */}
+                  <button onClick={()=>setShowJumpLine(true)} title="Jump to line (Ctrl+G)"
+                    style={{padding:'1px 7px',cursor:'pointer',fontFamily:"'Share Tech Mono',monospace",fontSize:'10px',background:'transparent',color:'rgba(200,200,220,.35)',border:'1px solid rgba(255,255,255,.08)',transition:'all .12s'}}
+                    onMouseEnter={e=>(e.currentTarget.style.color='#c0c8d8')}
+                    onMouseLeave={e=>(e.currentTarget.style.color='rgba(200,200,220,.35)')}>:N</button>
                   {activeTabNode?.type==='doc' ? (
                     <>
                       {['edit','split','preview'].map(m=>(
@@ -3964,6 +4434,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
                     onChange={code=>updateNodeCode(activeTabId,code)}
                     onSave={()=>saveNodeToDisk(activeTabId)}
                     externalPalette={globalEditorPalette}
+                    jumpToLine={jumpLineTarget??undefined}
                   />
                 )}
               </div>
@@ -4515,7 +4986,13 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
       )}
 
       {/* Command palette */}
-      <CommandPalette isOpen={showCmd} onClose={()=>setShowCmd(false)} onAction={handleCmdAction}/>
+      <CommandPalette isOpen={showCmd} onClose={()=>{setShowCmd(false);setCmdPreviewPalette(null)}} onAction={handleCmdAction} previewPalette={cmdPreviewPalette} onPreviewPalette={p=>{setCmdPreviewPalette(p);if(p)setGlobalEditorPalette(p)}}/>
+
+      {/* File finder (Ctrl+P) */}
+      <FileFinderModal isOpen={showFileFinder} onClose={()=>setShowFileFinder(false)} onOpenFile={handleOpenWorkspaceFile} rootPath={explorerRoot}/>
+
+      {/* Jump to line (Ctrl+G) */}
+      <JumpToLineModal isOpen={showJumpLine} onClose={()=>setShowJumpLine(false)} onJump={line=>setJumpLineTarget(line)} maxLine={activeTabNode?.code?.split('\n').length||9999}/>
 
       {/* Create node modal — redesigned */}
       {showCreateNode && (() => {

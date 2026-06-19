@@ -865,6 +865,82 @@ ipcMain.handle('git-log-graph', async (_e, { cwd, limit = 60 }) => {
   } catch (e) { return { success: false, error: e.message, commits: [] } }
 })
 
+// ── IPC: list all files in workspace ─────────────────────────
+ipcMain.handle('fs:listAllFiles', async (_e, { rootPath, maxFiles = 5000 }) => {
+  const results = []
+  const IGNORED = new Set(['node_modules', '.git', 'dist', 'build', '.next', '__pycache__', '.venv', 'venv', '.cache', 'coverage', '.nyc_output', 'target', '.dart_tool'])
+  function walk(dir, rel = '') {
+    if (results.length >= maxFiles) return
+    let entries
+    try { entries = fs.readdirSync(dir, { withFileTypes: true }) } catch { return }
+    for (const e of entries) {
+      if (e.name.startsWith('.') || IGNORED.has(e.name)) continue
+      const full = path.join(dir, e.name)
+      const relPath = rel ? `${rel}/${e.name}` : e.name
+      if (e.isDirectory()) { walk(full, relPath) }
+      else { results.push({ path: full, rel: relPath, name: e.name }); if (results.length >= maxFiles) return }
+    }
+  }
+  try { walk(rootPath); return results } catch { return [] }
+})
+
+// ── IPC: search text across files ────────────────────────────
+ipcMain.handle('fs:searchInFiles', async (_e, { rootPath, query, maxResults = 300 }) => {
+  if (!query || query.length < 2) return []
+  const results = []
+  const IGNORED = new Set(['node_modules', '.git', 'dist', 'build', '.next', '__pycache__', '.venv', 'venv', 'coverage'])
+  const TEXT_EXTS = new Set(['.js','.ts','.tsx','.jsx','.py','.go','.c','.cpp','.h','.md','.json','.css','.html','.txt','.yaml','.yml','.toml','.rs','.rb','.sh','.vue','.svelte'])
+  const lower = query.toLowerCase()
+  function walk(dir, rel = '') {
+    if (results.length >= maxResults) return
+    let entries
+    try { entries = fs.readdirSync(dir, { withFileTypes: true }) } catch { return }
+    for (const e of entries) {
+      if (e.name.startsWith('.') || IGNORED.has(e.name)) continue
+      const full = path.join(dir, e.name)
+      const relPath = rel ? `${rel}/${e.name}` : e.name
+      if (e.isDirectory()) { walk(full, relPath) }
+      else {
+        const ext = path.extname(e.name).toLowerCase()
+        if (!TEXT_EXTS.has(ext)) continue
+        try {
+          const content = fs.readFileSync(full, 'utf8')
+          const lines = content.split('\n')
+          for (let i = 0; i < lines.length && results.length < maxResults; i++) {
+            if (lines[i].toLowerCase().includes(lower)) {
+              results.push({ file: relPath, fullPath: full, line: i + 1, text: lines[i].trim().slice(0, 200), col: lines[i].toLowerCase().indexOf(lower) })
+            }
+          }
+        } catch { /* skip binary/unreadable */ }
+      }
+    }
+  }
+  try { walk(rootPath); return results } catch { return [] }
+})
+
+// ── IPC: git blame for a file ─────────────────────────────────
+ipcMain.handle('git:blame', async (_e, { cwd, file }) => {
+  try {
+    const out = await gitCmd(`blame --line-porcelain ${JSON.stringify(file)}`, cwd)
+    const lines = []
+    const chunks = out.split('\n')
+    let current = {}
+    for (const line of chunks) {
+      if (/^[0-9a-f]{40}/.test(line)) {
+        const parts = line.split(' ')
+        current = { hash: parts[0], origLine: parseInt(parts[1]), line: parseInt(parts[2]) }
+      } else if (line.startsWith('author '))         current.author  = line.slice(7)
+      else if (line.startsWith('author-time '))      current.time    = new Date(parseInt(line.slice(12)) * 1000).toLocaleDateString()
+      else if (line.startsWith('summary '))          current.subject = line.slice(8)
+      else if (line.startsWith('\t')) {
+        lines.push({ ...current, content: line.slice(1) })
+        current = {}
+      }
+    }
+    return { success: true, lines }
+  } catch (e) { return { success: false, error: e.message, lines: [] } }
+})
+
 // ── IPC: recent workspaces ────────────────────────────────────
 const recentWsPath = path.join(app.getPath('userData'), 'recent-workspaces.json')
 const loadRecentWs = () => { try { return JSON.parse(fs.readFileSync(recentWsPath, 'utf8')) || [] } catch { return [] } }

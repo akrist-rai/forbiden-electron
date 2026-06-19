@@ -22,8 +22,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   pty: (() => {
     const dataCallbacks = new Set()
     const exitCallbacks = new Set()
-    ipcRenderer.on('pty:data', (ev, id, data) => dataCallbacks.forEach(cb => cb(ev, id, data)))
-    ipcRenderer.on('pty:exit', (ev, id)       => exitCallbacks.forEach(cb => cb(ev, id)))
+    ipcRenderer.on('pty:data', (_ev, id, data) => dataCallbacks.forEach(cb => cb(id, data)))
+    ipcRenderer.on('pty:exit', (_ev, id)       => exitCallbacks.forEach(cb => cb(id)))
     return {
       create:  (id, cols, rows, cwd) => ipcRenderer.invoke('pty:create', { id, cols, rows, cwd }),
       write:   (id, data)            => ipcRenderer.invoke('pty:write',  { id, data }),
@@ -93,6 +93,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     saveWorkspace:          (workspacePath)      => ipcRenderer.invoke('fs:saveWorkspace',          { workspacePath }),
     getRecentWorkspaces:    ()                   => ipcRenderer.invoke('fs:getRecentWorkspaces'),
     addRecentWorkspace:     (p)                  => ipcRenderer.invoke('fs:addRecentWorkspace',     { workspacePath: p }),
+    listAllFiles:           (rootPath, maxFiles) => ipcRenderer.invoke('fs:listAllFiles',            { rootPath, maxFiles }),
+    searchInFiles:          (rootPath, query, maxResults) => ipcRenderer.invoke('fs:searchInFiles', { rootPath, query, maxResults }),
+  },
+
+  // ── Git extended ───────────────────────────────────────────
+  gitEx: {
+    blame: (cwd, file) => ipcRenderer.invoke('git:blame', { cwd, file }),
   },
 
   // ── Menu events ────────────────────────────────────────────
