@@ -1,23 +1,26 @@
 // ══════════════════════════════════════════════════════════════
-//  FORBIDEN ENGINE  — core language-aware processing
-//  Supports: js, ts, py, c, cpp, go
-//  Compiled languages (c/cpp/go) execute via Wandbox API
+//  FORBIDEN ENGINE  — language detection + native execution
+//  All languages run via Electron IPC → local toolchain.
+//  No external services.
 // ══════════════════════════════════════════════════════════════
 
-export type Lang = 'js' | 'ts' | 'py' | 'c' | 'cpp' | 'go' | 'md' | 'unknown'
+export type Lang = 'js' | 'ts' | 'jsx' | 'tsx' | 'py' | 'c' | 'cpp' | 'go' | 'md' | 'unknown'
 
 export interface RunResult {
   logs: Array<{ type: string; val: string; ts: number }>
   error: Error | null
   ms: number
+  retValStr?: string
 }
 
 // ── Language Detection ─────────────────────────────────────────
 export function detectLang(filename: string): Lang {
   const ext = (filename.split('.').pop() ?? '').toLowerCase()
   const map: Record<string, Lang> = {
-    js: 'js', mjs: 'js', cjs: 'js', jsx: 'js',
-    ts: 'ts', tsx: 'ts',
+    js: 'js', mjs: 'js', cjs: 'js',
+    jsx: 'jsx',
+    ts: 'ts',
+    tsx: 'tsx',
     py: 'py', pyw: 'py',
     c: 'c', h: 'c',
     cpp: 'cpp', cc: 'cpp', cxx: 'cpp', hpp: 'cpp', hxx: 'cpp',
@@ -29,8 +32,8 @@ export function detectLang(filename: string): Lang {
 
 export function langLabel(lang: Lang): string {
   const m: Record<Lang, string> = {
-    js: 'JavaScript', ts: 'TypeScript', py: 'Python',
-    c: 'C', cpp: 'C++', go: 'Go', md: 'Markdown', unknown: 'Text',
+    js: 'JavaScript', jsx: 'JSX', ts: 'TypeScript', tsx: 'TSX',
+    py: 'Python', c: 'C', cpp: 'C++', go: 'Go', md: 'Markdown', unknown: 'Text',
   }
   return m[lang]
 }
@@ -43,7 +46,7 @@ export function isCompiled(lang: Lang): boolean {
 export function extractSymbols(code: string, lang: Lang): string[] {
   const syms: string[] = []
 
-  if (lang === 'js' || lang === 'ts') {
+  if (lang === 'js' || lang === 'ts' || lang === 'jsx' || lang === 'tsx') {
     for (const m of code.matchAll(/^(?:export\s+)?(?:async\s+)?function\s+(\w+)/gm)) syms.push(m[1])
     for (const m of code.matchAll(/^(?:export\s+)?(?:const|let|var)\s+(\w+)\s*[=:]/gm)) syms.push(m[1])
     for (const m of code.matchAll(/^(?:export\s+)?class\s+(\w+)/gm)) syms.push(m[1])
@@ -54,12 +57,10 @@ export function extractSymbols(code: string, lang: Lang): string[] {
     for (const m of code.matchAll(/^(?:async\s+)?def\s+([a-zA-Z_]\w*)/gm))
       if (!m[1].startsWith('_')) syms.push(m[1])
     for (const m of code.matchAll(/^class\s+([A-Za-z_]\w*)/gm)) syms.push(m[1])
-    // Module-level assignments
     for (const m of code.matchAll(/^([A-Z_][A-Z0-9_]{2,})\s*=/gm)) syms.push(m[1])
   }
 
   if (lang === 'c' || lang === 'cpp') {
-    // Named functions at top level (not static local)
     for (const m of code.matchAll(/^[\w\s\*]+\s+(\w+)\s*\([^;]*\)\s*\{/gm)) {
       const name = m[1]
       if (!['main', 'if', 'for', 'while', 'switch', 'else'].includes(name)) syms.push(name)
@@ -85,7 +86,7 @@ export function generateImport(sourceFile: string, targetLang: Lang, symbols: st
   const topSyms = symbols.slice(0, 5)
 
   switch (targetLang) {
-    case 'js': case 'ts':
+    case 'js': case 'ts': case 'jsx': case 'tsx':
       return topSyms.length
         ? `import { ${topSyms.join(', ')} } from './${sourceFile}'`
         : `import './${sourceFile}'`
@@ -111,7 +112,7 @@ export function injectImport(code: string, importLine: string, lang: Lang): stri
 
   const lines = code.split('\n')
 
-  if (lang === 'js' || lang === 'ts') {
+  if (lang === 'js' || lang === 'ts' || lang === 'jsx' || lang === 'tsx') {
     let last = -1
     for (let i = 0; i < lines.length; i++) {
       const t = lines[i].trim()
@@ -146,96 +147,42 @@ export function getDefaultCode(lang: Lang, label: string, nodeType = 'function')
   if (lang === 'c') {
     if (nodeType === 'class') {
       return [
-        `#include <stdio.h>`,
-        `#include <stdlib.h>`,
-        ``,
-        `typedef struct ${name} {`,
-        `    int id;`,
-        `    char name[64];`,
-        `} ${name};`,
-        ``,
-        `${name}* ${name}_create(int id, const char* n) {`,
+        `#include <stdio.h>`, `#include <stdlib.h>`, ``,
+        `typedef struct ${name} { int id; char name[64]; } ${name};`,
+        ``, `${name}* ${name}_create(int id, const char* n) {`,
         `    ${name}* self = malloc(sizeof(${name}));`,
-        `    self->id = id;`,
-        `    snprintf(self->name, 64, "%s", n);`,
-        `    return self;`,
+        `    self->id = id; snprintf(self->name, 64, "%s", n); return self;`,
         `}`,
-        ``,
-        `void ${name}_print(const ${name}* self) {`,
-        `    printf("${name}[%d]: %s\\n", self->id, self->name);`,
-        `}`,
-        ``,
+        `void ${name}_print(const ${name}* self) { printf("${name}[%d]: %s\\n", self->id, self->name); }`,
         `void ${name}_free(${name}* self) { free(self); }`,
-        ``,
-        `int main(void) {`,
+        ``, `int main(void) {`,
         `    ${name}* obj = ${name}_create(1, "test");`,
-        `    ${name}_print(obj);`,
-        `    ${name}_free(obj);`,
-        `    return 0;`,
+        `    ${name}_print(obj); ${name}_free(obj); return 0;`,
         `}`,
       ].join('\n')
     }
     return [
-      `#include <stdio.h>`,
-      `#include <stdlib.h>`,
-      ``,
-      `/* ${name} — functions */`,
-      ``,
-      `void ${name}_run(void) {`,
-      `    printf("${name}: running\\n");`,
-      `}`,
-      ``,
-      `int main(void) {`,
-      `    ${name}_run();`,
-      `    return 0;`,
-      `}`,
+      `#include <stdio.h>`, `#include <stdlib.h>`, ``,
+      `void ${name}_run(void) { printf("${name}: running\\n"); }`,
+      ``, `int main(void) { ${name}_run(); return 0; }`,
     ].join('\n')
   }
 
   if (lang === 'cpp') {
     if (nodeType === 'class') {
       return [
-        `#include <iostream>`,
-        `#include <string>`,
-        ``,
-        `class ${name} {`,
-        `public:`,
-        `    ${name}(int id, const std::string& name)`,
-        `        : id_(id), name_(name) {}`,
-        ``,
-        `    void print() const {`,
-        `        std::cout << "${name}[" << id_ << "]: " << name_ << std::endl;`,
-        `    }`,
-        ``,
-        `    int id() const { return id_; }`,
-        `    const std::string& name() const { return name_; }`,
-        ``,
-        `private:`,
-        `    int id_;`,
-        `    std::string name_;`,
-        `};`,
-        ``,
-        `int main() {`,
-        `    ${name} obj(1, "test");`,
-        `    obj.print();`,
-        `    return 0;`,
-        `}`,
+        `#include <iostream>`, `#include <string>`, ``,
+        `class ${name} {`, `public:`,
+        `    ${name}(int id, const std::string& n) : id_(id), name_(n) {}`,
+        `    void print() const { std::cout << "${name}[" << id_ << "]: " << name_ << std::endl; }`,
+        `private: int id_; std::string name_;`, `};`,
+        ``, `int main() { ${name} obj(1, "test"); obj.print(); return 0; }`,
       ].join('\n')
     }
     return [
-      `#include <iostream>`,
-      `#include <string>`,
-      ``,
-      `// ${name}`,
-      ``,
-      `void ${name}_run() {`,
-      `    std::cout << "${name}: running" << std::endl;`,
-      `}`,
-      ``,
-      `int main() {`,
-      `    ${name}_run();`,
-      `    return 0;`,
-      `}`,
+      `#include <iostream>`, ``,
+      `void ${name}_run() { std::cout << "${name}: running" << std::endl; }`,
+      ``, `int main() { ${name}_run(); return 0; }`,
     ].join('\n')
   }
 
@@ -243,59 +190,36 @@ export function getDefaultCode(lang: Lang, label: string, nodeType = 'function')
     if (nodeType === 'class') {
       const cap = name.charAt(0).toUpperCase() + name.slice(1)
       return [
-        `package main`,
-        ``,
-        `import "fmt"`,
-        ``,
-        `// ${cap} — struct with methods`,
-        `type ${cap} struct {`,
-        `\tID   int`,
-        `\tName string`,
-        `}`,
-        ``,
-        `func New${cap}(id int, name string) *${cap} {`,
-        `\treturn &${cap}{ID: id, Name: name}`,
-        `}`,
-        ``,
-        `func (s *${cap}) Print() {`,
-        `\tfmt.Printf("${cap}[%d]: %s\\n", s.ID, s.Name)`,
-        `}`,
-        ``,
-        `func (s *${cap}) String() string {`,
-        `\treturn fmt.Sprintf("${cap}(%d, %s)", s.ID, s.Name)`,
-        `}`,
-        ``,
-        `func main() {`,
-        `\tobj := New${cap}(1, "test")`,
-        `\tobj.Print()`,
-        `}`,
+        `package main`, ``, `import "fmt"`, ``,
+        `type ${cap} struct { ID int; Name string }`,
+        ``, `func New${cap}(id int, name string) *${cap} { return &${cap}{ID: id, Name: name} }`,
+        `func (s *${cap}) Print() { fmt.Printf("${cap}[%d]: %s\\n", s.ID, s.Name) }`,
+        ``, `func main() { obj := New${cap}(1, "test"); obj.Print() }`,
       ].join('\n')
     }
     return [
-      `package main`,
-      ``,
-      `import "fmt"`,
-      ``,
-      `func ${name}Run() {`,
-      `\tfmt.Println("${name}: running")`,
-      `}`,
-      ``,
-      `func main() {`,
-      `\t${name}Run()`,
-      `}`,
+      `package main`, ``, `import "fmt"`, ``,
+      `func ${name}Run() { fmt.Println("${name}: running") }`,
+      ``, `func main() { ${name}Run() }`,
     ].join('\n')
   }
 
   return ''
 }
 
-// ── Native execution via Electron IPC ────────────────────────
-// Falls back to Wandbox when running in a browser (non-Electron).
-
-async function nativeRun(lang: 'c' | 'cpp' | 'go' | 'py', code: string, stdin = ''): Promise<RunResult> {
+// ── Native execution via Electron IPC ─────────────────────────
+async function ipcRun(lang: string, code: string, stdin = ''): Promise<RunResult> {
   const api = (window as any).electronAPI
-  if (!api?.run?.code) return wandboxFallback(lang, code, stdin)
-
+  if (!api?.run?.code) {
+    return {
+      logs: [
+        { type: 'error', val: 'Native execution requires the Electron app.', ts: Date.now() },
+        { type: 'info',  val: 'Run with: npm run electron:dev', ts: Date.now() },
+      ],
+      error: new Error('Not in Electron'),
+      ms: 0,
+    }
+  }
   const t0 = performance.now()
   try {
     const result = await api.run.code(lang, code, stdin)
@@ -313,80 +237,31 @@ async function nativeRun(lang: 'c' | 'cpp' | 'go' | 'py', code: string, stdin = 
   }
 }
 
-export function runC(code: string, stdin = ''): Promise<RunResult> {
-  return nativeRun('c', code, stdin)
-}
+export const runJS  = (code: string, stdin = '') => ipcRun('js',  code, stdin)
+export const runJSX = (code: string, stdin = '') => ipcRun('jsx', code, stdin)
+export const runTS  = (code: string, stdin = '') => ipcRun('ts',  code, stdin)
+export const runTSX = (code: string, stdin = '') => ipcRun('tsx', code, stdin)
+export const runPython = (code: string, stdin = '') => ipcRun('py',  code, stdin)
+export const runC   = (code: string, stdin = '') => ipcRun('c',   code, stdin)
+export const runCpp = (code: string, stdin = '') => ipcRun('cpp', code, stdin)
+export const runGo  = (code: string, stdin = '') => ipcRun('go',  code, stdin)
 
-export function runCpp(code: string, stdin = ''): Promise<RunResult> {
-  return nativeRun('cpp', code, stdin)
-}
-
-export function runGo(code: string, stdin = ''): Promise<RunResult> {
-  return nativeRun('go', code, stdin)
-}
-
-export function runPyNative(code: string, stdin = ''): Promise<RunResult> {
-  return nativeRun('py', code, stdin)
-}
-
-// ── Wandbox fallback (web / no local toolchain) ───────────────
-const WANDBOX = 'https://wandbox.org/api/compile.json'
-
-async function wandboxFallback(
-  lang: 'c' | 'cpp' | 'go' | 'py',
-  code: string,
-  stdin = '',
-): Promise<RunResult> {
-  const cfgMap: Record<string, { compiler: string; options: string; label: string }> = {
-    c:   { compiler: 'gcc-head',  options: '-O0 -std=c11 -lm -Wall', label: 'gcc · C11'    },
-    cpp: { compiler: 'gcc-head',  options: '-O0 -std=c++17 -Wall',    label: 'g++ · C++17'  },
-    go:  { compiler: 'go-head',   options: '',                         label: 'go'           },
-    py:  { compiler: 'cpython-3.12.0', options: '',                   label: 'python 3.12'  },
-  }
-  const cfg = cfgMap[lang]
-  const t0 = performance.now()
-  const logs: RunResult['logs'] = []
-  const ts = () => Date.now()
-  const ctl = new AbortController()
-  const timer = setTimeout(() => ctl.abort(), 20000)
-
-  try {
-    const resp = await fetch(WANDBOX, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ compiler: cfg.compiler, code, options: cfg.options, stdin, save: false }),
-      signal: ctl.signal,
-    })
-    clearTimeout(timer)
-    if (!resp.ok) throw new Error(`Wandbox HTTP ${resp.status}`)
-
-    const data: any = await resp.json()
-    const compErr = (data.compiler_error  || '').trim()
-    const compOut = (data.compiler_output || '').trim()
-    const progOut = (data.program_output  || '').trim()
-    const progErr = (data.program_error   || '').trim()
-
-    logs.push({ type: 'compile-sep', val: `── ${cfg.label} (wandbox) ──`, ts: ts() })
-    if (compOut) compOut.split('\n').filter(Boolean).forEach((l: string) => logs.push({ type: 'compile-warn', val: l, ts: ts() }))
-    if (compErr) {
-      compErr.split('\n').filter(Boolean).forEach((l: string) => logs.push({ type: 'compile-err', val: l, ts: ts() }))
-      return { logs, error: new Error(compErr.split('\n')[0]), ms: Math.round(performance.now() - t0) }
-    }
-    logs.push({ type: 'compile-ok', val: `✓ compiled in ${Math.round(performance.now() - t0)}ms`, ts: ts() })
-    if (progOut || progErr) {
-      logs.push({ type: 'run-sep', val: '── output ──', ts: ts() })
-      progOut.split('\n').filter(Boolean).forEach((l: string) => logs.push({ type: 'log',     val: l, ts: ts() }))
-      progErr.split('\n').filter(Boolean).forEach((l: string) => logs.push({ type: 'run-err', val: l, ts: ts() }))
-    }
-    const exitCode = data.status ?? 0
-    logs.push({ type: exitCode === 0 ? 'return' : 'run-err', val: `exit: ${exitCode}`, ts: ts() })
-    return { logs, error: exitCode !== 0 ? new Error(`exit ${exitCode}`) : null, ms: Math.round(performance.now() - t0) }
-  } catch (e: any) {
-    clearTimeout(timer)
-    const msg    = String(e?.message ?? e)
-    const isTout = e?.name === 'AbortError'
-    logs.push({ type: 'compile-err', val: isTout ? 'timed out after 20s' : `error: ${msg}`, ts: ts() })
-    logs.push({ type: 'info',        val: 'wandbox.org requires internet · install toolchain for offline use', ts: ts() })
-    return { logs, error: e instanceof Error ? e : new Error(msg), ms: Math.round(performance.now() - t0) }
+// Unified runner — dispatches by Lang
+export function runByLang(lang: Lang, code: string, stdin = ''): Promise<RunResult> {
+  switch (lang) {
+    case 'js':  return runJS(code, stdin)
+    case 'jsx': return runJSX(code, stdin)
+    case 'ts':  return runTS(code, stdin)
+    case 'tsx': return runTSX(code, stdin)
+    case 'py':  return runPython(code, stdin)
+    case 'c':   return runC(code, stdin)
+    case 'cpp': return runCpp(code, stdin)
+    case 'go':  return runGo(code, stdin)
+    default:
+      return Promise.resolve({
+        logs: [{ type: 'error', val: `Cannot run language: ${lang}`, ts: Date.now() }],
+        error: new Error(`unsupported: ${lang}`),
+        ms: 0,
+      })
   }
 }

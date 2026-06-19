@@ -92,6 +92,59 @@ function buildMenu() {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template))
 }
 
+// ── Extended PATH so Electron finds compilers installed by the user ──
+function getEnvPath() {
+  const home = os.homedir()
+  const extras = [
+    '/usr/local/bin', '/usr/bin', '/bin', '/usr/sbin', '/sbin',
+    '/snap/bin',
+    '/opt/homebrew/bin', '/opt/homebrew/sbin',
+    path.join(home, '.local', 'bin'),
+    path.join(home, 'go', 'bin'),
+    path.join(home, '.cargo', 'bin'),
+    path.join(home, '.bun', 'bin'),
+    '/usr/local/go/bin',
+    '/usr/local/opt/go/bin',
+    'C:\\Program Files\\Python312',
+    'C:\\Program Files\\Python311',
+    'C:\\Program Files\\Python310',
+    'C:\\Program Files\\Go\\bin',
+    path.join(home, 'AppData', 'Roaming', 'npm'),
+  ]
+  const existing = (process.env.PATH || '').split(path.delimiter)
+  return [...new Set([...existing, ...extras])].filter(Boolean).join(path.delimiter)
+}
+
+// ── Find a binary in the extended PATH ───────────────────────
+function whichBin(...names) {
+  const dirs = getEnvPath().split(path.delimiter)
+  const suffixes = process.platform === 'win32' ? ['.exe', '.cmd', ''] : ['']
+  for (const name of names) {
+    for (const dir of dirs) {
+      for (const suf of suffixes) {
+        try {
+          const full = path.join(dir, name + suf)
+          fs.accessSync(full, fs.constants.X_OK)
+          return full
+        } catch {}
+      }
+    }
+  }
+  return null
+}
+
+// ── Not-found error result ────────────────────────────────────
+function notFound(cmd, hint) {
+  const ts = () => Date.now()
+  return {
+    logs: [
+      { type: 'error', val: `'${cmd}' not found in PATH`, ts: ts() },
+      { type: 'info',  val: `Install: ${hint}`, ts: ts() },
+    ],
+    error: `${cmd} not found`, ms: 0,
+  }
+}
+
 // ── Run a subprocess and capture output ──────────────────────
 function runProc(bin, args, opts = {}) {
   return new Promise(resolve => {
@@ -102,6 +155,7 @@ function runProc(bin, args, opts = {}) {
       cwd: opts.cwd || os.tmpdir(),
       timeout: opts.timeout || 30000,
       shell: false,
+      env: { ...process.env, PATH: getEnvPath() },
     })
 
     child.stdout.on('data', buf =>
@@ -133,9 +187,24 @@ ipcMain.handle('run-code', async (_event, { lang, code, stdin = '' }) => {
   const ts = () => Date.now()
 
   try {
-    // ── Python ──────────────────────────────────────────────
+    // ── JavaScript / TypeScript via Bun (fallback: node for JS only) ──
+    if (lang === 'js' || lang === 'ts' || lang === 'jsx' || lang === 'tsx') {
+      const bin = whichBin('bun', 'node')
+      if (!bin) return notFound('bun', 'curl -fsSL https://bun.sh/install | bash')
+      const isBun = path.basename(bin).replace(/\.exe$/, '') === 'bun'
+      const ext = lang
+      const src = path.join(tmpDir, `main.${ext}`)
+      fs.writeFileSync(src, code)
+      if (!isBun && (lang === 'ts' || lang === 'tsx')) {
+        return notFound('bun', 'curl -fsSL https://bun.sh/install | bash  (node cannot run TypeScript)')
+      }
+      return await runProc(bin, isBun ? ['run', src] : [src], { cwd: tmpDir, stdin })
+    }
+
+    // ── Python ───────────────────────────────────────────────
     if (lang === 'py') {
-      // Handle %pip install magic
+      const bin = whichBin('python3', 'python3.12', 'python3.11', 'python3.10', 'python3.9', 'python')
+      if (!bin) return notFound('python3', 'sudo apt install python3  OR  brew install python  OR  python.org')
       const pipLines = []
       const codeLines = code.split('\n').map(line => {
         const m = line.match(/^%pip\s+install\s+(.+)/)
@@ -144,61 +213,68 @@ ipcMain.handle('run-code', async (_event, { lang, code, stdin = '' }) => {
         return `# [pip] ${line}`
       })
       if (pipLines.length) {
-        await runProc('pip3', ['install', ...pipLines], { timeout: 60000 })
+        const pip = whichBin('pip3', 'pip')
+        if (pip) await runProc(pip, ['install', ...pipLines], { timeout: 60000 })
       }
       const src = path.join(tmpDir, 'main.py')
       fs.writeFileSync(src, codeLines.join('\n'))
-      return await runProc('python3', [src], { cwd: tmpDir, stdin })
+      return await runProc(bin, [src], { cwd: tmpDir, stdin })
     }
 
     // ── C ────────────────────────────────────────────────────
     if (lang === 'c') {
+      const bin = whichBin('gcc', 'clang', 'cc')
+      if (!bin) return notFound('gcc', 'sudo apt install build-essential  OR  brew install gcc  OR  xcode-select --install')
       const src = path.join(tmpDir, 'main.c')
       const out = path.join(tmpDir, 'main')
       fs.writeFileSync(src, code)
-      const comp = await runProc('gcc', [src, '-o', out, '-O0', '-std=c11', '-lm', '-Wall'], { cwd: tmpDir })
+      const comp = await runProc(bin, [src, '-o', out, '-O0', '-std=c11', '-lm', '-Wall'], { cwd: tmpDir })
       const runLogs = [
-        { type: 'compile-sep', val: '── gcc · C11 ──',        ts: ts() },
+        { type: 'compile-sep', val: `── ${path.basename(bin)} · C11 ──`, ts: ts() },
         ...comp.logs.map(l => ({ ...l, type: comp.error ? 'compile-err' : 'compile-warn' })),
       ]
       if (comp.error) return { logs: runLogs, error: comp.error, ms: comp.ms }
       runLogs.push({ type: 'compile-ok', val: `✓ compiled in ${comp.ms}ms`, ts: ts() })
-      runLogs.push({ type: 'run-sep',    val: '── output ──',                ts: ts() })
+      runLogs.push({ type: 'run-sep',    val: '── output ──', ts: ts() })
       const run = await runProc(out, [], { cwd: tmpDir, stdin })
       return { logs: [...runLogs, ...run.logs], error: run.error, ms: comp.ms + run.ms }
     }
 
     // ── C++ ──────────────────────────────────────────────────
     if (lang === 'cpp') {
+      const bin = whichBin('g++', 'clang++', 'c++')
+      if (!bin) return notFound('g++', 'sudo apt install build-essential  OR  brew install gcc  OR  xcode-select --install')
       const src = path.join(tmpDir, 'main.cpp')
       const out = path.join(tmpDir, 'main')
       fs.writeFileSync(src, code)
-      const comp = await runProc('g++', [src, '-o', out, '-O0', '-std=c++17', '-Wall'], { cwd: tmpDir })
+      const comp = await runProc(bin, [src, '-o', out, '-O0', '-std=c++17', '-Wall'], { cwd: tmpDir })
       const runLogs = [
-        { type: 'compile-sep', val: '── g++ · C++17 ──',       ts: ts() },
+        { type: 'compile-sep', val: `── ${path.basename(bin)} · C++17 ──`, ts: ts() },
         ...comp.logs.map(l => ({ ...l, type: comp.error ? 'compile-err' : 'compile-warn' })),
       ]
       if (comp.error) return { logs: runLogs, error: comp.error, ms: comp.ms }
       runLogs.push({ type: 'compile-ok', val: `✓ compiled in ${comp.ms}ms`, ts: ts() })
-      runLogs.push({ type: 'run-sep',    val: '── output ──',                ts: ts() })
+      runLogs.push({ type: 'run-sep',    val: '── output ──', ts: ts() })
       const run = await runProc(out, [], { cwd: tmpDir, stdin })
       return { logs: [...runLogs, ...run.logs], error: run.error, ms: comp.ms + run.ms }
     }
 
     // ── Go ───────────────────────────────────────────────────
     if (lang === 'go') {
+      const bin = whichBin('go')
+      if (!bin) return notFound('go', 'https://go.dev/dl/  OR  sudo apt install golang-go  OR  brew install go')
       const src = path.join(tmpDir, 'main.go')
-      const bin = path.join(tmpDir, 'main')
+      const out = path.join(tmpDir, 'main')
       fs.writeFileSync(src, code)
-      const comp = await runProc('go', ['build', '-o', bin, src], { cwd: tmpDir })
+      const comp = await runProc(bin, ['build', '-o', out, src], { cwd: tmpDir })
       const runLogs = [
-        { type: 'compile-sep', val: '── go ──',                 ts: ts() },
+        { type: 'compile-sep', val: '── go ──', ts: ts() },
         ...comp.logs.map(l => ({ ...l, type: comp.error ? 'compile-err' : 'compile-warn' })),
       ]
       if (comp.error) return { logs: runLogs, error: comp.error, ms: comp.ms }
       runLogs.push({ type: 'compile-ok', val: `✓ compiled in ${comp.ms}ms`, ts: ts() })
-      runLogs.push({ type: 'run-sep',    val: '── output ──',                ts: ts() })
-      const run = await runProc(bin, [], { cwd: tmpDir, stdin })
+      runLogs.push({ type: 'run-sep',    val: '── output ──', ts: ts() })
+      const run = await runProc(out, [], { cwd: tmpDir, stdin })
       return { logs: [...runLogs, ...run.logs], error: run.error, ms: comp.ms + run.ms }
     }
 

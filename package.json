@@ -1,6 +1,8 @@
 {
   "name": "forbiden-electron",
   "version": "2.2.0",
+  "description": "FORBIDEN — Graph-based code IDE with visual dependency mapping",
+  "author": "akrist-rai <platipuskumar@gmail.com>",
   "private": true,
   "main": "electron/main.js",
   "scripts": {
@@ -48,14 +50,6 @@
         { "target": "deb",      "arch": ["x64"] }
       ],
       "category": "Development",
-      "description": "FORBIDEN — Graph-based code IDE with visual dependency mapping",
-      "desktop": {
-        "Name": "FORBIDEN",
-        "Comment": "Graph IDE — visual code dependency explorer",
-        "Keywords": "ide;code;graph;editor;developer",
-        "StartupWMClass": "forbiden",
-        "StartupNotify": "true"
-      },
       "mimeTypes": [
         "text/javascript",
         "text/typescript",
