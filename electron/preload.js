@@ -17,16 +17,24 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
 
   // ── PTY terminal (real shell via node-pty) ─────────────────
-  pty: {
-    create:  (id, cols, rows, cwd) => ipcRenderer.invoke('pty:create', { id, cols, rows, cwd }),
-    write:   (id, data)            => ipcRenderer.invoke('pty:write',  { id, data }),
-    resize:  (id, cols, rows)      => ipcRenderer.invoke('pty:resize', { id, cols, rows }),
-    kill:    (id)                  => ipcRenderer.invoke('pty:kill',   { id }),
-    onData:  (cb) => ipcRenderer.on('pty:data',  cb),
-    offData: (cb) => ipcRenderer.removeListener('pty:data', cb),
-    onExit:  (cb) => ipcRenderer.on('pty:exit',  cb),
-    offExit: (cb) => ipcRenderer.removeListener('pty:exit', cb),
-  },
+  // Single master IPC listener per channel; React components just add/remove callbacks.
+  // This prevents duplicate writes when components remount or HMR fires.
+  pty: (() => {
+    const dataCallbacks = new Set()
+    const exitCallbacks = new Set()
+    ipcRenderer.on('pty:data', (ev, id, data) => dataCallbacks.forEach(cb => cb(ev, id, data)))
+    ipcRenderer.on('pty:exit', (ev, id)       => exitCallbacks.forEach(cb => cb(ev, id)))
+    return {
+      create:  (id, cols, rows, cwd) => ipcRenderer.invoke('pty:create', { id, cols, rows, cwd }),
+      write:   (id, data)            => ipcRenderer.invoke('pty:write',  { id, data }),
+      resize:  (id, cols, rows)      => ipcRenderer.invoke('pty:resize', { id, cols, rows }),
+      kill:    (id)                  => ipcRenderer.invoke('pty:kill',   { id }),
+      onData:  (cb) => dataCallbacks.add(cb),
+      offData: (cb) => dataCallbacks.delete(cb),
+      onExit:  (cb) => exitCallbacks.add(cb),
+      offExit: (cb) => exitCallbacks.delete(cb),
+    }
+  })(),
 
   // ── Window controls ────────────────────────────────────────
   window: {

@@ -10,6 +10,9 @@ try { pty = require('node-pty') } catch {}
 // ── PTY session registry ──────────────────────────────────────
 const ptySessions = new Map() // id → { ptyProc, win }
 
+// ── Main window reference (reliable alternative to getFocusedWindow) ──
+let mainWin = null
+
 const isDev = process.env.NODE_ENV === 'development'
 
 // ── Window state persistence ─────────────────────────────────
@@ -562,13 +565,13 @@ ipcMain.handle('fs:scanImports', async (_e, { rootPath }) => {
 })
 
 // ── IPC: window controls ──────────────────────────────────────
-ipcMain.handle('window:minimize',    () => { BrowserWindow.getFocusedWindow()?.minimize() })
+ipcMain.handle('window:minimize',    () => { mainWin?.minimize() })
 ipcMain.handle('window:maximize',    () => {
-  const win = BrowserWindow.getFocusedWindow(); if (!win) return
-  win.isMaximized() ? win.unmaximize() : win.maximize()
+  if (!mainWin) return
+  mainWin.isMaximized() ? mainWin.unmaximize() : mainWin.maximize()
 })
-ipcMain.handle('window:close',       () => { BrowserWindow.getFocusedWindow()?.close() })
-ipcMain.handle('window:isMaximized', () => BrowserWindow.getFocusedWindow()?.isMaximized() ?? false)
+ipcMain.handle('window:close',       () => { mainWin?.close() })
+ipcMain.handle('window:isMaximized', () => mainWin?.isMaximized() ?? false)
 
 // ── IPC: PTY terminal ─────────────────────────────────────────
 ipcMain.handle('pty:create', (event, { id, cols, rows, cwd }) => {
@@ -710,6 +713,8 @@ function createWindow() {
     },
   })
 
+  mainWin = win
+
   // ── window-maximize change → push to renderer ────────────────
   win.on('maximize',   () => win.webContents.send('window:maximized-change', true))
   win.on('unmaximize', () => win.webContents.send('window:maximized-change', false))
@@ -721,7 +726,7 @@ function createWindow() {
     win.loadFile(path.join(__dirname, '../dist/index.html'))
   }
 
-  win.on('close', () => saveWinState(win))
+  win.on('close', () => { saveWinState(win); mainWin = null })
 
   win.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url)
