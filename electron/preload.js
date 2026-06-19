@@ -11,17 +11,52 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.invoke('run-code', { lang, code, stdin }),
   },
 
-  // ── Terminal ───────────────────────────────────────────────
+  // ── Terminal (legacy exec — kept for compatibility) ────────
   terminal: {
     exec: (cmd, cwd) => ipcRenderer.invoke('terminal-exec', { cmd, cwd }),
   },
 
+  // ── PTY terminal (real shell via node-pty) ─────────────────
+  pty: {
+    create:  (id, cols, rows, cwd) => ipcRenderer.invoke('pty:create', { id, cols, rows, cwd }),
+    write:   (id, data)            => ipcRenderer.invoke('pty:write',  { id, data }),
+    resize:  (id, cols, rows)      => ipcRenderer.invoke('pty:resize', { id, cols, rows }),
+    kill:    (id)                  => ipcRenderer.invoke('pty:kill',   { id }),
+    onData:  (cb) => ipcRenderer.on('pty:data',  cb),
+    offData: (cb) => ipcRenderer.removeListener('pty:data', cb),
+    onExit:  (cb) => ipcRenderer.on('pty:exit',  cb),
+    offExit: (cb) => ipcRenderer.removeListener('pty:exit', cb),
+  },
+
+  // ── Window controls ────────────────────────────────────────
+  window: {
+    minimize:         ()   => ipcRenderer.invoke('window:minimize'),
+    maximize:         ()   => ipcRenderer.invoke('window:maximize'),
+    close:            ()   => ipcRenderer.invoke('window:close'),
+    isMaximized:      ()   => ipcRenderer.invoke('window:isMaximized'),
+    onMaximizeChange: (cb) => ipcRenderer.on('window:maximized-change', cb),
+    offMaximizeChange:(cb) => ipcRenderer.removeListener('window:maximized-change', cb),
+  },
+
   // ── Git ────────────────────────────────────────────────────
   git: {
-    status: (cwd) => ipcRenderer.invoke('git-status', { cwd }),
-    log:    (cwd) => ipcRenderer.invoke('git-log',    { cwd }),
-    branch: (cwd) => ipcRenderer.invoke('git-branch', { cwd }),
-    commit: (cwd, message) => ipcRenderer.invoke('git-commit', { cwd, message }),
+    // existing
+    status:   (cwd)           => ipcRenderer.invoke('git-status',   { cwd }),
+    log:      (cwd)           => ipcRenderer.invoke('git-log',      { cwd }),
+    branch:   (cwd)           => ipcRenderer.invoke('git-branch',   { cwd }),
+    commit:   (cwd, message)  => ipcRenderer.invoke('git-commit',   { cwd, message }),
+    // extended
+    diff:     (cwd, file)     => ipcRenderer.invoke('git-diff',     { cwd, file }),
+    stage:    (cwd, files)    => ipcRenderer.invoke('git-stage',    { cwd, files }),
+    unstage:  (cwd, files)    => ipcRenderer.invoke('git-unstage',  { cwd, files }),
+    branches: (cwd)           => ipcRenderer.invoke('git-branches', { cwd }),
+    checkout: (cwd, branch)   => ipcRenderer.invoke('git-checkout', { cwd, branch }),
+    push:     (cwd)           => ipcRenderer.invoke('git-push',     { cwd }),
+    pull:     (cwd)           => ipcRenderer.invoke('git-pull',     { cwd }),
+    stash:    (cwd)           => ipcRenderer.invoke('git-stash',    { cwd }),
+    stashPop: (cwd)           => ipcRenderer.invoke('git-stash-pop',{ cwd }),
+    init:     (cwd)           => ipcRenderer.invoke('git-init',     { cwd }),
+    discard:  (cwd, file)     => ipcRenderer.invoke('git-discard',  { cwd, file }),
   },
 
   // ── Dialogs ────────────────────────────────────────────────
@@ -31,7 +66,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     openFiles:  ()                     => ipcRenderer.invoke('dialog:open-files'),
   },
 
-  // ── Filesystem (VS Code-style explorer) ────────────────────
+  // ── Filesystem ─────────────────────────────────────────────
   fs: {
     readTree:    (rootPath, maxDepth) => ipcRenderer.invoke('fs:readTree',    { rootPath, maxDepth }),
     readFile:    (filePath)           => ipcRenderer.invoke('fs:readFile',    { filePath }),
@@ -46,14 +81,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     scanImports: (rootPath)           => ipcRenderer.invoke('fs:scanImports', { rootPath }),
   },
 
-  // ── Menu events (renderer listens for native menu actions) ─
+  // ── Menu events ────────────────────────────────────────────
   on: (channel, cb) => {
     const allowed = ['menu:open-folder', 'menu:save-file', 'menu:run-active', 'menu:toggle-terminal']
-    if (allowed.includes(channel)) {
-      ipcRenderer.on(channel, (_e, ...args) => cb(...args))
-    }
+    if (allowed.includes(channel)) ipcRenderer.on(channel, (_e, ...args) => cb(...args))
   },
-  off: (channel, cb) => {
-    ipcRenderer.removeListener(channel, cb)
-  },
+  off: (channel, cb) => ipcRenderer.removeListener(channel, cb),
 })
