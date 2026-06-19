@@ -3922,6 +3922,35 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
   const [splitTabId, setSplitTabId] = useState<string|null>(null)
   const [splitMode, setSplitMode] = useState<'vertical'|'horizontal'>('vertical')
 
+  // ── PHASE 4: AI PROVIDER STATE ──
+  const [aiProvider, setAiProvider] = useState<string>(() => localStorage.getItem('forbiden_ai_provider') || 'anthropic')
+  const [aiKeys, setAiKeys] = useState<Record<string,string>>(() => {
+    try { return JSON.parse(localStorage.getItem('forbiden_ai_keys') || '{}') } catch { return {} }
+  })
+  const [aiModels, setAiModels] = useState<Record<string,string>>(() => {
+    try { return JSON.parse(localStorage.getItem('forbiden_ai_models') || '{}') } catch { return {} }
+  })
+  const [formatOnSave, setFormatOnSave] = useState<boolean>(() => localStorage.getItem('forbiden_format_on_save') === 'true')
+  const [ollamaModels, setOllamaModels] = useState<string[]>([])
+
+  const saveAiProvider = (p: string) => { setAiProvider(p); localStorage.setItem('forbiden_ai_provider', p) }
+  const saveAiKey = (provider: string, key: string) => {
+    const next = { ...aiKeys, [provider]: key }
+    setAiKeys(next); localStorage.setItem('forbiden_ai_keys', JSON.stringify(next))
+  }
+  const saveAiModel = (provider: string, model: string) => {
+    const next = { ...aiModels, [provider]: model }
+    setAiModels(next); localStorage.setItem('forbiden_ai_models', JSON.stringify(next))
+  }
+  const saveFormatOnSave = (v: boolean) => { setFormatOnSave(v); localStorage.setItem('forbiden_format_on_save', String(v)) }
+
+  const fetchOllamaModels = async () => {
+    const api = (window as any).electronAPI
+    const host = aiKeys['ollama'] || 'http://localhost:11434'
+    const res = await api?.ai?.ollamaModels?.(host)
+    if (res?.models?.length) setOllamaModels(res.models)
+  }
+
   // Project-wide search debounced effect
   useEffect(() => {
     clearTimeout(projectSearchDebounce.current)

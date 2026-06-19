@@ -941,24 +941,86 @@ ipcMain.handle('git:blame', async (_e, { cwd, file }) => {
   } catch (e) { return { success: false, error: e.message, lines: [] } }
 })
 
-// ── IPC: AI chat via Anthropic API ───────────────────────────
-ipcMain.handle('ai:chat', async (_e, { messages, apiKey, model = 'claude-haiku-4-5-20251001', system = '' }) => {
-  if (!apiKey) return { success: false, error: 'No API key provided. Add your Anthropic API key in Settings.' }
+// ── IPC: AI chat — multi-provider router ─────────────────────
+// provider: 'anthropic' | 'openai' | 'gemini' | 'ollama' | 'openrouter'
+ipcMain.handle('ai:chat', async (_e, { messages, apiKey, model, system = '', provider = 'anthropic' }) => {
   try {
-    const body = JSON.stringify({ model, max_tokens: 4096, system, messages })
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body,
-    })
-    const data = await resp.json()
-    if (!resp.ok) return { success: false, error: data?.error?.message || resp.statusText }
-    return { success: true, content: data.content?.[0]?.text || '' }
+    // ── Anthropic ──────────────────────────────────────────────
+    if (provider === 'anthropic') {
+      if (!apiKey) return { success: false, error: 'No Anthropic API key. Add it in Settings > AI Providers.' }
+      const m = model || 'claude-haiku-4-5-20251001'
+      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+        body: JSON.stringify({ model: m, max_tokens: 4096, system, messages }),
+      })
+      const data = await resp.json()
+      if (!resp.ok) return { success: false, error: data?.error?.message || resp.statusText }
+      return { success: true, content: data.content?.[0]?.text || '' }
+    }
+
+    // ── OpenAI / OpenRouter (identical schema) ─────────────────
+    if (provider === 'openai' || provider === 'openrouter') {
+      if (!apiKey) return { success: false, error: `No ${provider === 'openrouter' ? 'OpenRouter' : 'OpenAI'} API key. Add it in Settings > AI Providers.` }
+      const m = model || (provider === 'openrouter' ? 'openai/gpt-4o-mini' : 'gpt-4o-mini')
+      const base = provider === 'openrouter' ? 'https://openrouter.ai/api/v1' : 'https://api.openai.com/v1'
+      const allMsgs = system ? [{ role: 'system', content: system }, ...messages] : messages
+      const resp = await fetch(`${base}/chat/completions`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'authorization': `Bearer ${apiKey}` },
+        body: JSON.stringify({ model: m, messages: allMsgs }),
+      })
+      const data = await resp.json()
+      if (!resp.ok) return { success: false, error: data?.error?.message || resp.statusText }
+      return { success: true, content: data.choices?.[0]?.message?.content || '' }
+    }
+
+    // ── Google Gemini ──────────────────────────────────────────
+    if (provider === 'gemini') {
+      if (!apiKey) return { success: false, error: 'No Gemini API key. Add it in Settings > AI Providers.' }
+      const m = model || 'gemini-2.0-flash'
+      const contents = messages.map(msg => ({
+        role: msg.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: msg.content }],
+      }))
+      const body = { contents }
+      if (system) body.systemInstruction = { parts: [{ text: system }] }
+      const resp = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${apiKey}`,
+        { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) },
+      )
+      const data = await resp.json()
+      if (!resp.ok) return { success: false, error: data?.error?.message || resp.statusText }
+      return { success: true, content: data.candidates?.[0]?.content?.parts?.[0]?.text || '' }
+    }
+
+    // ── Ollama (local) ─────────────────────────────────────────
+    if (provider === 'ollama') {
+      const m = model || 'llama3'
+      const base = apiKey || 'http://localhost:11434'  // apiKey field reused as custom host
+      const allMsgs = system ? [{ role: 'system', content: system }, ...messages] : messages
+      const resp = await fetch(`${base}/api/chat`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ model: m, messages: allMsgs, stream: false }),
+      })
+      const data = await resp.json()
+      if (!resp.ok) return { success: false, error: data?.error || resp.statusText }
+      return { success: true, content: data.message?.content || '' }
+    }
+
+    return { success: false, error: `Unknown provider: ${provider}` }
   } catch (e) { return { success: false, error: e.message } }
+})
+
+// ── IPC: list Ollama local models ─────────────────────────────
+ipcMain.handle('ai:ollamaModels', async (_e, { host = 'http://localhost:11434' } = {}) => {
+  try {
+    const resp = await fetch(`${host}/api/tags`)
+    if (!resp.ok) return { success: false, models: [] }
+    const data = await resp.json()
+    return { success: true, models: (data.models || []).map(m => m.name) }
+  } catch { return { success: false, models: [] } }
 })
 
 // ── IPC: format code ──────────────────────────────────────────

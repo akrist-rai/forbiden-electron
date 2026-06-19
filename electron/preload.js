@@ -104,7 +104,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // ── AI ─────────────────────────────────────────────────────
   ai: {
-    chat: (messages, apiKey, model, system) => ipcRenderer.invoke('ai:chat', { messages, apiKey, model, system }),
+    chat:         (messages, apiKey, model, system, provider) => ipcRenderer.invoke('ai:chat',         { messages, apiKey, model, system, provider }),
+    ollamaModels: (host)                                       => ipcRenderer.invoke('ai:ollamaModels', { host }),
   },
 
   // ── Code tools ─────────────────────────────────────────────
