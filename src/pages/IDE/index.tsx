@@ -830,11 +830,11 @@ function CodeEditor({ node, onChange, externalPalette }) {
         <button className={`ide-tb-btn ${wordWrap?'active':''}`} onClick={()=>setWordWrap(v=>!v)}><I.Wrap/> WRAP</button>
         <div className="ide-tb-sep"/>
         <button className="ide-tb-btn" onClick={()=>setFontSize(s=>Math.max(10,s-1))}>A−</button>
-        <span style={{fontSize:'9px',opacity:.4,padding:'0 2px',color:palette.base}}>{fontSize}</span>
+        <span style={{fontSize:'10px',opacity:.6,padding:'0 2px',color:palette.base,fontFamily:"'Share Tech Mono', monospace"}}>{fontSize}</span>
         <button className="ide-tb-btn" onClick={()=>setFontSize(s=>Math.min(20,s+1))}>A+</button>
         <div style={{marginLeft:'auto',position:'relative'}}>
           <button className={`ide-tb-btn ${showPaletteMenu?'active':''}`} onClick={()=>setShowPaletteMenu(v=>!v)} style={{gap:'4px'}}>
-            <div style={{display:'flex',gap:'3px'}}>{palette.swatches.map((c,i)=><div key={i} style={{width:'6px',height:'6px',borderRadius:'50%',background:c}}/>)}</div>
+            <div style={{display:'flex',gap:'3px'}}>{palette.swatches.map((c,i)=><div key={i} style={{width:'8px',height:'8px',borderRadius:'2px',background:c}}/>)}</div>
             {palette.name}
           </button>
           {showPaletteMenu && (
@@ -1727,11 +1727,7 @@ function loadSaved() {
       if (d.nodes?.length) return { nodes: d.nodes, edges: d.edges || [], groups: d.groups || [] }
     }
   } catch {}
-  return {
-    nodes: JSON.parse(JSON.stringify(INITIAL_NODES)),
-    edges: JSON.parse(JSON.stringify(INITIAL_EDGES)),
-    groups: JSON.parse(JSON.stringify(INITIAL_GROUPS)),
-  }
+  return { nodes: [], edges: [], groups: [] }
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -2602,7 +2598,8 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
   const dragDepthRef = useRef(0)
 
   // File explorer
-  const [explorerRoot, setExplorerRoot] = useState<string | null>(null)
+  const [explorerRoot,       setExplorerRoot]       = useState<string | null>(null)
+  const [explorerRefreshKey, setExplorerRefreshKey] = useState(0)
   const [globalFontScale, setGlobalFontScale] = useState(1)
 
   // Chat & Notes
@@ -2646,6 +2643,25 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
   useEffect(() => { termEndRef.current?.scrollIntoView({behavior:'smooth'}) }, [termLines])
   useEffect(() => { chatEndRef.current?.scrollIntoView({behavior:'smooth'}) }, [chatMessages])
   useEffect(() => { jsConsoleEndRef.current?.scrollIntoView({behavior:'smooth'}) }, [jsLogs])
+
+  // ── Init workspace folder on startup ────────────────────────
+  useEffect(() => {
+    const api = (window as any).electronAPI
+    if (!api?.fs) return
+    ;(async () => {
+      const [defaultRes, savedRes] = await Promise.all([
+        api.fs.ensureDefaultWorkspace(),
+        api.fs.getWorkspace(),
+      ])
+      const folder = savedRes?.path || (defaultRes.success ? defaultRes.path : null)
+      if (!folder) return
+      setExplorerRoot(folder)
+      ;(window as any).__forbiddenCwd = folder
+      setTermCwd(folder)
+      setSidebarMode('files')
+    })()
+  }, [])
+
   useEffect(() => {
     const t = setInterval(() => {
       const now = Date.now()
@@ -2751,10 +2767,21 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
     if (!api?.dialog) return
     const folder = await api.dialog.openFolder()
     if (!folder) return
-    setExplorerRoot(folder);
-    (window as any).__forbiddenCwd = folder
+    setExplorerRoot(folder)
+    ;(window as any).__forbiddenCwd = folder
+    setTermCwd(folder)
     setSidebarMode('files')
     setSidebarOpen(true)
+    // Clear graph so previous/hardcoded nodes don't bleed into the new folder
+    nodesRef.current = []
+    edgesRef.current = []
+    groupsRef.current = []
+    setOpenTabs([])
+    setActiveTabId(null)
+    forceRender({})
+    // Persist so the same folder reopens on next launch
+    api.fs?.saveWorkspace?.(folder)
+    api.fs?.addRecentWorkspace?.(folder)
     addEvent('import', `Opened folder: ${folder.split('/').pop()}`)
   }, [addEvent])
 
@@ -2763,24 +2790,58 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
     const api = (window as any).electronAPI
     if (!api?.on) return
     const handleMenuOpenFolder = () => handleOpenFolderForExplorer()
-    const handleMenuSaveFile = () => {
+    const handleMenuSaveFile = async () => {
       const node = nodesRef.current.find(n=>n.id===activeTabId)
       if (!node) return
-      api.dialog?.saveFile(node.label, node.code ?? '').catch(()=>{})
+      if (node.filepath?.startsWith('/') && api?.fs) {
+        // Direct disk save — no dialog
+        const res = await api.fs.writeFile(node.filepath, node.code ?? '')
+        if (res.success) {
+          nodesRef.current = nodesRef.current.map(n => n.id===activeTabId ? {...n, modified:false} : n)
+          forceRender({})
+        }
+      } else {
+        // Fallback: save-as dialog (unsaved / in-memory nodes)
+        const res = await api.dialog?.saveFile(node.label, node.code ?? '')
+        if (res?.success && res.filePath) {
+          nodesRef.current = nodesRef.current.map(n => n.id===activeTabId ? {...n, filepath: res.filePath, modified:false} : n)
+          forceRender({})
+        }
+      }
     }
     const handleMenuRunActive = () => { if (activeTabId) handleRunNode(activeTabId) }
     const handleMenuToggleTerm = () => { setBottomTab(v=>v==='terminal'?null:'terminal'); setBottomOpen(o=>!o) }
+    const handleTitleBarFolder = (e: any) => {
+      const folder = e.detail
+      if (!folder) return
+      setExplorerRoot(folder)
+      ;(window as any).__forbiddenCwd = folder
+      setTermCwd(folder)
+      setSidebarMode('files')
+      setSidebarOpen(true)
+      nodesRef.current = []
+      edgesRef.current = []
+      groupsRef.current = []
+      setOpenTabs([])
+      setActiveTabId(null)
+      forceRender({})
+      api.fs?.saveWorkspace?.(folder)
+      api.fs?.addRecentWorkspace?.(folder)
+      addEvent('import', `Opened folder: ${folder.split('/').pop()}`)
+    }
     api.on('menu:open-folder', handleMenuOpenFolder)
     api.on('menu:save-file', handleMenuSaveFile)
     api.on('menu:run-active', handleMenuRunActive)
     api.on('menu:toggle-terminal', handleMenuToggleTerm)
+    window.addEventListener('forbiden:open-folder', handleTitleBarFolder)
     return () => {
       api.off?.('menu:open-folder', handleMenuOpenFolder)
       api.off?.('menu:save-file', handleMenuSaveFile)
       api.off?.('menu:run-active', handleMenuRunActive)
       api.off?.('menu:toggle-terminal', handleMenuToggleTerm)
+      window.removeEventListener('forbiden:open-folder', handleTitleBarFolder)
     }
-  }, [activeTabId, handleOpenFolderForExplorer])
+  }, [activeTabId, handleOpenFolderForExplorer, addEvent])
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -2844,6 +2905,22 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
       return newT
     })
   }
+  // ── Disk save helper ─────────────────────────────────────────
+  const saveNodeToDisk = useCallback(async (id: string) => {
+    const node = nodesRef.current.find(n => n.id === id)
+    if (!node) return
+    const fsApi = (window as any).electronAPI?.fs
+    if (!fsApi) return
+    // Only write if filepath is absolute (real disk file)
+    const fp = node.filepath
+    if (!fp || !fp.startsWith('/')) return
+    const res = await fsApi.writeFile(fp, node.code || '')
+    if (res.success) {
+      nodesRef.current = nodesRef.current.map(n => n.id === id ? { ...n, modified: false } : n)
+      forceRender({})
+    }
+  }, [forceRender])
+
   const codeEditTimerRef = useRef({})
   const updateNodeCode = (id, code) => {
     nodesRef.current = nodesRef.current.map(n=>n.id===id?{...n,code,modified:true}:n)
@@ -2852,7 +2929,8 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
     codeEditTimerRef.current[id] = setTimeout(() => {
       const node = nodesRef.current.find(n=>n.id===id)
       if (node) addEvent('code-edit', `Edited ${node.label}`, {nodeId:id})
-    }, 2000)
+      saveNodeToDisk(id)
+    }, 1500)
   }
   const handleNodeClickInMode = nodeId => {
     if (edgeMode==='join') {
@@ -2951,12 +3029,26 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
     }
     const x=(Math.random()-.5)*300, y=(Math.random()-.5)*300
     const tempId='n'+Date.now()
-    nodesRef.current=[...nodesRef.current,{id:tempId,label,filepath:label,type:isDocType||isMd?'doc':newNodeType,isMain:false,x,y,vx:0,vy:0,themeIdx:isDocType||isMd?11:newNodeColor,classId:null,code,modified:false}]
+
+    // Determine absolute filepath — use workspace folder if available
+    const workspaceFolder = (window as any).__forbiddenCwd
+    const fsApi = (window as any).electronAPI?.fs
+    const absolutePath = workspaceFolder ? `${workspaceFolder}/${label}` : null
+
+    nodesRef.current=[...nodesRef.current,{
+      id:tempId, label, filepath: absolutePath || label,
+      type:isDocType||isMd?'doc':newNodeType, isMain:false, x, y,
+      vx:0, vy:0, themeIdx:isDocType||isMd?11:newNodeColor, classId:null, code, modified:false,
+    }]
     setShowCreateNode(false); setNewNodeName(''); forceRender({}); wakePhysicsRef.current()
+    openNodeInEditor(tempId)
     addEvent('node-create', `Created ${label}`, {nodeId:tempId})
-    wsHook.createNode(label,{filepath:label,type:newNodeType,x,y,theme_idx:newNodeColor,code}).then(n=>{
-      if(n) nodesRef.current=nodesRef.current.map(nd=>nd.id===tempId?{...nd,id:n.id}:nd)
-    }).catch(()=>{})
+
+    // Write to disk so it appears in the file explorer
+    if (absolutePath && fsApi) {
+      await fsApi.writeFile(absolutePath, code)
+      setExplorerRefreshKey(k => k + 1)
+    }
   }
   const handleCreateGroup = () => {
     if (!groupName.trim()||groupSelected.length<2) return
@@ -2995,10 +3087,18 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
       // Detect if it's a directory via the webkitRelativePath being empty and size 0
       const isNativeDir = files[0].type === '' && files[0].size === 0
       if (isNativeDir && api?.fs?.scanImports) {
-        setExplorerRoot(nativePath);
-        (window as any).__forbiddenCwd = nativePath
+        setExplorerRoot(nativePath)
+        ;(window as any).__forbiddenCwd = nativePath
+        setTermCwd(nativePath)
         setSidebarMode('files')
         setSidebarOpen(true)
+        nodesRef.current = []
+        edgesRef.current = []
+        groupsRef.current = []
+        setOpenTabs([])
+        setActiveTabId(null)
+        forceRender({})
+        api.fs?.saveWorkspace?.(nativePath)
         addEvent('import', `Folder dropped: ${nativePath.split('/').pop()}`)
         await handleScanImports(nativePath)
         return
@@ -3488,6 +3588,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
               {sidebarMode==='files' && (
                 <FileExplorer
                   rootPath={explorerRoot}
+                  refreshKey={explorerRefreshKey}
                   brutal={brutal}
                   onOpenFile={handleExplorerOpenFile}
                   onOpenFolder={handleOpenFolderForExplorer}
@@ -3849,7 +3950,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
                 {activeTabNode?.type==='doc' && mdPreviewMode==='split' ? (
                   <div style={{display:'flex',height:'100%',overflow:'hidden'}}>
                     <div style={{flex:1,overflow:'hidden',borderRight:'1px solid rgba(255,255,255,.08)'}}>
-                      <CodeMirrorEditor key={activeTabId+'_s'} node={activeTabNode} onChange={code=>updateNodeCode(activeTabId,code)} externalPalette={globalEditorPalette}/>
+                      <CodeMirrorEditor key={activeTabId+'_s'} node={activeTabNode} onChange={code=>updateNodeCode(activeTabId,code)} onSave={()=>saveNodeToDisk(activeTabId)} externalPalette={globalEditorPalette}/>
                     </div>
                     <div style={{flex:1,overflow:'auto',padding:'12px 16px',fontSize:mdFontSize+'px'}} className="md-preview"
                       dangerouslySetInnerHTML={{__html: renderMd(activeTabNode.code||'')}}/>
@@ -3861,6 +3962,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
                     key={activeTabId}
                     node={activeTabNode}
                     onChange={code=>updateNodeCode(activeTabId,code)}
+                    onSave={()=>saveNodeToDisk(activeTabId)}
                     externalPalette={globalEditorPalette}
                   />
                 )}

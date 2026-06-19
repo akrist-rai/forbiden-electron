@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 
 // ── SVG Window Control Icons ──────────────────────────────────
 function IconMinimize() {
@@ -45,16 +45,27 @@ interface TitleBarProps {
   activeFile?: string
 }
 
-type MenuItem = { label: string; action?: () => void; separator?: boolean; disabled?: boolean }
+type MenuItem = { label: string; action?: () => void; separator?: boolean; disabled?: boolean; submenu?: MenuItem[] }
 
-const MENUS: Record<string, MenuItem[]> = {
-  File: [
+function buildFileMenu(recentWorkspaces: string[]): MenuItem[] {
+  return [
     { label: 'Open Folder…', action: () => (window as any).electronAPI?.dialog?.openFolder().then((p: string) => p && window.dispatchEvent(new CustomEvent('forbiden:open-folder', { detail: p }))) },
     { label: 'Open Files…',  action: () => (window as any).electronAPI?.dialog?.openFiles() },
     { label: 'Save File',    action: () => window.dispatchEvent(new CustomEvent('forbiden:save-file')) },
     { separator: true, label: '' },
+    ...(recentWorkspaces.length > 0 ? [
+      { label: 'Open Recent ▸', disabled: true, label: '─── Recent ───', separator: false },
+      ...recentWorkspaces.map(p => ({
+        label: p.split('/').pop() || p,
+        action: () => window.dispatchEvent(new CustomEvent('forbiden:open-folder', { detail: p })),
+      })),
+      { separator: true, label: '' },
+    ] : []),
     { label: 'Quit', action: () => (window as any).electronAPI?.window?.close() },
-  ],
+  ]
+}
+
+const STATIC_MENUS: Record<string, MenuItem[]> = {
   Edit: [
     { label: 'Undo',       action: () => document.execCommand('undo') },
     { label: 'Redo',       action: () => document.execCommand('redo') },
@@ -95,9 +106,22 @@ export default function TitleBar({
   const [isMaximized, setIsMaximized] = useState(false)
   const [hoveredBtn, setHoveredBtn] = useState<string | null>(null)
   const [openMenu, setOpenMenu] = useState<string | null>(null)
+  const [recentWorkspaces, setRecentWorkspaces] = useState<string[]>([])
   const menuRef = useRef<HTMLDivElement>(null)
   const winAPI = (window as any).electronAPI?.window
   const hasWinAPI = Boolean(winAPI)
+
+  // Load recent workspaces once on mount and whenever File menu opens
+  useEffect(() => {
+    const api = (window as any).electronAPI?.fs
+    if (!api?.getRecentWorkspaces) return
+    api.getRecentWorkspaces().then((list: string[]) => setRecentWorkspaces(list || [])).catch(() => {})
+  }, [openMenu])
+
+  const MENUS = useMemo(() => ({
+    File: buildFileMenu(recentWorkspaces),
+    ...STATIC_MENUS,
+  }), [recentWorkspaces])
 
   // Poll initial maximized state and subscribe to changes
   useEffect(() => {
