@@ -941,6 +941,75 @@ ipcMain.handle('git:blame', async (_e, { cwd, file }) => {
   } catch (e) { return { success: false, error: e.message, lines: [] } }
 })
 
+// ── IPC: AI chat via Anthropic API ───────────────────────────
+ipcMain.handle('ai:chat', async (_e, { messages, apiKey, model = 'claude-haiku-4-5-20251001', system = '' }) => {
+  if (!apiKey) return { success: false, error: 'No API key provided. Add your Anthropic API key in Settings.' }
+  try {
+    const body = JSON.stringify({ model, max_tokens: 4096, system, messages })
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body,
+    })
+    const data = await resp.json()
+    if (!resp.ok) return { success: false, error: data?.error?.message || resp.statusText }
+    return { success: true, content: data.content?.[0]?.text || '' }
+  } catch (e) { return { success: false, error: e.message } }
+})
+
+// ── IPC: format code ──────────────────────────────────────────
+ipcMain.handle('fs:formatCode', async (_e, { code, lang }) => {
+  const EXT = { js:'js', mjs:'js', jsx:'jsx', ts:'ts', tsx:'tsx', css:'css', json:'json', html:'html', md:'md', py:'py', go:'go' }
+  const ext = EXT[lang] || 'txt'
+  const tmp = path.join(os.tmpdir(), `forbiden_fmt_${Date.now()}.${ext}`)
+  try {
+    fs.writeFileSync(tmp, code, 'utf8')
+    let cmd
+    if (['js','mjs','jsx','ts','tsx','css','json','html','md'].includes(lang)) {
+      cmd = `npx --yes prettier --write "${tmp}"`
+    } else if (lang === 'py') {
+      cmd = `black "${tmp}" 2>&1 || autopep8 --in-place "${tmp}"`
+    } else if (lang === 'go') {
+      cmd = `gofmt -w "${tmp}"`
+    } else {
+      return { success: false, error: 'No formatter available for this language' }
+    }
+    await new Promise((res, rej) => exec(cmd, { timeout: 15000 }, (err, _out, stderr) => {
+      if (err && !stderr.includes('warn')) rej(new Error(stderr || err.message))
+      else res()
+    }))
+    const result = fs.readFileSync(tmp, 'utf8')
+    try { fs.unlinkSync(tmp) } catch {}
+    return { success: true, code: result }
+  } catch (e) {
+    try { fs.unlinkSync(tmp) } catch {}
+    return { success: false, error: e.message }
+  }
+})
+
+// ── IPC: read npm/make scripts ────────────────────────────────
+ipcMain.handle('fs:getScripts', async (_e, { rootPath }) => {
+  if (!rootPath) return { success: false, scripts: [], type: 'none' }
+  // Try package.json
+  try {
+    const pkg = JSON.parse(fs.readFileSync(path.join(rootPath, 'package.json'), 'utf8'))
+    const scripts = Object.entries(pkg.scripts || {}).map(([name, cmd]) => ({ name, cmd: String(cmd) }))
+    if (scripts.length) return { success: true, scripts, type: 'npm', name: pkg.name || '' }
+  } catch {}
+  // Try Makefile
+  try {
+    const mk = fs.readFileSync(path.join(rootPath, 'Makefile'), 'utf8')
+    const scripts = (mk.match(/^[a-zA-Z][a-zA-Z0-9_-]*:/gm) || [])
+      .map(t => ({ name: t.replace(':', ''), cmd: `make ${t.replace(':','')}` }))
+    if (scripts.length) return { success: true, scripts, type: 'make', name: 'Makefile' }
+  } catch {}
+  return { success: false, scripts: [], type: 'none' }
+})
+
 // ── IPC: recent workspaces ────────────────────────────────────
 const recentWsPath = path.join(app.getPath('userData'), 'recent-workspaces.json')
 const loadRecentWs = () => { try { return JSON.parse(fs.readFileSync(recentWsPath, 'utf8')) || [] } catch { return [] } }

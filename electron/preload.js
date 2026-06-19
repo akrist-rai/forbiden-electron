@@ -102,6 +102,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
     blame: (cwd, file) => ipcRenderer.invoke('git:blame', { cwd, file }),
   },
 
+  // ── AI ─────────────────────────────────────────────────────
+  ai: {
+    chat: (messages, apiKey, model, system) => ipcRenderer.invoke('ai:chat', { messages, apiKey, model, system }),
+  },
+
+  // ── Code tools ─────────────────────────────────────────────
+  tools: {
+    formatCode: (code, lang) => ipcRenderer.invoke('fs:formatCode', { code, lang }),
+    getScripts:  (rootPath)  => ipcRenderer.invoke('fs:getScripts',  { rootPath }),
+  },
+
   // ── Menu events ────────────────────────────────────────────
   on: (channel, cb) => {
     const allowed = ['menu:open-folder', 'menu:save-file', 'menu:run-active', 'menu:toggle-terminal']

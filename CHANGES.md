@@ -83,3 +83,44 @@
 - `Ctrl+Shift+F` → Project Search (opens sidebar)
 - `Ctrl+Shift+O` → File Outline (opens sidebar)
 - `Ctrl+B` → Toggle Sidebar
+
+---
+
+## Phase 3 — 2026-06-19
+
+**Focus:** AI integration, split editor, smart formatting, command runner.
+
+### 1. AI Chat Assistant (`IDE/index.tsx`, `main.js`, `preload.js`)
+- New sidebar panel: "AI ASSISTANT" (✦ star icon in icon bar)
+- Powered by Anthropic API via new IPC `ai:chat` (routed through main process to avoid CORS)
+- Model selector: Haiku (fast) or Sonnet
+- "Include file" toggle — current open file is injected as context in the system prompt
+- API key stored in localStorage, entered via ⚙ inline key input
+- Markdown/code block rendering in responses (fenced blocks, inline code, bold)
+- Message history with clear button; Enter to send, Shift+Enter for newline
+- Command palette actions: `ai` → opens AI sidebar
+
+### 2. Split Editor (`IDE/index.tsx`)
+- ⬓ button in editor tab toolbar splits the current file into a side-by-side second pane
+- Split pane mirrors the active tab (same node, independent CodeMirrorEditor)
+- Both panes share the same node code state — edits sync bidirectionally
+- Close button (✕) in split pane header or clicking ⬓ again dismisses the split
+- Command palette actions: `split-vertical`, `split-horizontal`, `split-close`
+
+### 3. Smart Code Formatting (`CodeMirrorEditor.tsx`, `main.js`, `preload.js`)
+- FORMAT button now calls new IPC `fs:formatCode` — runs Prettier (JS/TS/CSS/HTML/JSON), Black (Python), or gofmt (Go)
+- Falls back to basic trim/blank-line cleanup if formatter not installed
+- Toast shows elapsed ms: "FORMATTED 142ms"
+- New IPC pattern: writes to OS temp file, runs formatter in-place, reads result
+
+### 4. Command Runner / Scripts Panel (`IDE/index.tsx`, `main.js`, `preload.js`)
+- New bottom panel tab: "⚙ SCRIPTS" (next to TERMINAL)
+- Reads `package.json` scripts and `Makefile` targets via new IPC `fs:getScripts`
+- Each script shows: source badge (NPM / MAKEFILE), name, full command
+- ▶ RUN button sends the command to the integrated terminal (XTerm pane)
+- Reload button refreshes the script list without reopening the panel
+
+### 5. New IPCs (`main.js`, `preload.js`)
+- `ai:chat` — calls Anthropic `/v1/messages`, supports model/system/messages params
+- `fs:formatCode` — temp-file formatter: Prettier / Black / gofmt by lang
+- `fs:getScripts` — reads `package.json` scripts + Makefile targets, returns `{name, cmd, source}[]`
