@@ -5,7 +5,7 @@ import { useWorkspace } from '../../hooks/useWorkspace'
 import {
   detectLang, extractSymbols, generateImport, injectImport,
   getDefaultCode, langLabel, isCompiled,
-  runC, runCpp, runGo,
+  runByLang,
 } from '../../lib/engine'
 import FileExplorer from '../../components/FileExplorer'
 
@@ -1319,185 +1319,6 @@ function convexHull(pts) {
 }
 
 // ══════════════════════════════════════════════════════════════
-//  JS RUNTIME ENGINE
-// ══════════════════════════════════════════════════════════════
-
-const WORKER_SRC = `
-self.onmessage = function(e) {
-  const code = e.data
-  function _fmt(v) {
-    if (v === null) return 'null'
-    if (v === undefined) return 'undefined'
-    if (typeof v === 'function') return '[Function: ' + (v.name || 'anon') + ']'
-    if (typeof v === 'string') return JSON.stringify(v)
-    try { return JSON.stringify(v, null, 2) } catch { return String(v) }
-  }
-  self.console = {
-    log:      (...a) => self.postMessage({t:'log',   v:a.map(_fmt).join(' ')}),
-    warn:     (...a) => self.postMessage({t:'warn',  v:a.map(_fmt).join(' ')}),
-    error:    (...a) => self.postMessage({t:'error', v:a.map(String).join(' ')}),
-    info:     (...a) => self.postMessage({t:'info',  v:a.map(_fmt).join(' ')}),
-    table:    (...a) => self.postMessage({t:'table', v:JSON.stringify(a[0],null,2)}),
-    group:    (...a) => self.postMessage({t:'log',   v:'▸ '+a.map(_fmt).join(' ')}),
-    groupEnd: ()=>{},
-  }
-  ;(async () => {
-    try {
-      const hasAwait = /\\bawait\\b/.test(code)
-      const w = hasAwait ? '(async()=>{\\n'+code+'\\n})()' : '(function(){\\n'+code+'\\n})()'
-      const ret = await eval(w)
-      self.postMessage({t:'done', v: ret !== undefined ? _fmt(ret) : undefined})
-    } catch(e) {
-      self.postMessage({t:'err', v: e.message + (e.stack ? '\\n' + e.stack.split('\\n').slice(1,2).join('') : '')})
-    }
-  })()
-}
-`
-
-function runJS(code, timeout = 10000) {
-  return new Promise(resolve => {
-    const logs = []
-    const t0 = performance.now()
-    const blob = new Blob([WORKER_SRC], { type: 'application/javascript' })
-    const url = URL.createObjectURL(blob)
-    const worker = new Worker(url)
-
-    const finish = (retValStr, error) => {
-      clearTimeout(timer)
-      worker.terminate()
-      URL.revokeObjectURL(url)
-      resolve({ logs, retValStr, error, ms: Math.round(performance.now() - t0) })
-    }
-
-    const timer = setTimeout(() => {
-      logs.push({ type:'error', val:'Execution timed out (10s)', ts: Date.now() })
-      finish(undefined, new Error('timeout'))
-    }, timeout)
-
-    worker.onmessage = (e) => {
-      const { t, v } = e.data
-      const ts = Date.now()
-      if (t === 'done') {
-        if (v !== undefined) logs.push({ type:'return', val: v, ts })
-        finish(v, null)
-      } else if (t === 'err') {
-        logs.push({ type:'error', val: v, ts })
-        finish(undefined, new Error(v))
-      } else {
-        logs.push({ type: t, val: v, ts })
-      }
-    }
-
-    worker.onerror = (e) => {
-      logs.push({ type:'error', val: e.message || 'Worker error', ts: Date.now() })
-      finish(undefined, new Error(e.message))
-    }
-
-    worker.postMessage(code)
-  })
-}
-
-// ══════════════════════════════════════════════════════════════
-//  PYTHON RUNTIME
-//  Native: uses system python3 via Electron IPC (no internet needed)
-//  Fallback: Pyodide Web Worker (browser / no local python3)
-// ══════════════════════════════════════════════════════════════
-
-async function runPython(code, timeout = 30000) {
-  const api = (window as any).electronAPI
-  if (api?.run?.code) {
-    const t0 = performance.now()
-    try {
-      const result = await api.run.code('py', code, '')
-      return {
-        logs:       result.logs  ?? [],
-        retValStr:  undefined,
-        error:      result.error ? new Error(result.error) : null,
-        ms:         result.ms    ?? Math.round(performance.now() - t0),
-      }
-    } catch (e: any) {
-      return {
-        logs:      [{ type: 'error', val: String(e?.message ?? e), ts: Date.now() }],
-        retValStr: undefined,
-        error:     e instanceof Error ? e : new Error(String(e)),
-        ms:        Math.round(performance.now() - t0),
-      }
-    }
-  }
-
-  // ── Pyodide fallback (web mode) ─────────────────────────────
-  const PY_WORKER_SRC = `
-importScripts('https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js')
-let py = null, queue = []
-async function init() {
-  py = await loadPyodide({ indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.26.4/full/' })
-  await py.loadPackage('micropip')
-  self.postMessage({ t: 'ready' })
-  for (const q of queue) await run(q)
-  queue = []
-}
-init()
-async function run({ id, code }) {
-  const processed = code.split('\\n').map(line => {
-    const m = line.match(/^%pip\\s+install\\s+(.+)/)
-    if (!m) return line
-    const pkgs = m[1].trim().split(/\\s+/).map(p => JSON.stringify(p)).join(',')
-    return 'import micropip\\nawait micropip.install([' + pkgs + '], keep_going=True)'
-  }).join('\\n')
-  try {
-    await py.runPythonAsync('import io,sys; _o=io.StringIO(); sys.stdout=sys.stderr=_o')
-    let rv = null, err = null
-    try { rv = await py.runPythonAsync(processed) } catch(e) { err = String(e) }
-    const out = py.runPython('_o.getvalue()')
-    try { py.runPython('sys.stdout=sys.__stdout__; sys.stderr=sys.__stderr__') } catch {}
-    const rvs = (rv !== null && rv !== undefined && String(rv) !== 'None') ? String(rv) : null
-    self.postMessage({ id, t: 'done', out, rv: rvs, err })
-  } catch(e) { self.postMessage({ id, t: 'done', out: '', rv: null, err: String(e) }) }
-}
-self.onmessage = async e => { if (!py) queue.push(e.data); else await run(e.data) }
-`
-  if (!(window as any).__pyWorker) {
-    const blob   = new Blob([PY_WORKER_SRC], { type: 'application/javascript' })
-    const worker = new Worker(URL.createObjectURL(blob))
-    let _id = 0
-    const cbs: Record<number, any> = {}
-    const ready = new Promise<void>(res => {
-      const h = (e: any) => { if (e.data.t === 'ready') { worker.removeEventListener('message', h); res() } }
-      worker.addEventListener('message', h)
-    })
-    worker.addEventListener('message', (e: any) => {
-      const { id, t, out, rv, err } = e.data
-      if (t !== 'done') return
-      const cb = cbs[id]; if (!cb) return
-      delete cbs[id]; cb({ out, rv, err })
-    })
-    worker.addEventListener('error', (e: any) => {
-      Object.values(cbs).forEach((cb: any) => cb({ out: '', rv: null, err: e.message }))
-      Object.keys(cbs).forEach(k => delete cbs[k])
-    })
-    ;(window as any).__pyWorker = { worker, ready, cbs, nextId: () => _id++ }
-  }
-
-  const logs: any[] = [], t0 = performance.now()
-  const pw = (window as any).__pyWorker
-  await pw.ready
-  return new Promise(resolve => {
-    const id = pw.nextId()
-    const finish = ({ out, rv, err }: any) => {
-      clearTimeout(timer)
-      delete pw.cbs[id]
-      ;(out || '').split('\n').forEach((l: string) => { if (l) logs.push({ type: 'log', val: l, ts: Date.now() }) })
-      if (err)          logs.push({ type: 'error',  val: err, ts: Date.now() })
-      else if (rv != null) logs.push({ type: 'return', val: rv,  ts: Date.now() })
-      resolve({ logs, retValStr: rv ?? undefined, error: err ? new Error(err) : null, ms: Math.round(performance.now() - t0) })
-    }
-    const timer = setTimeout(() => finish({ out: '', rv: null, err: 'Python timed out (30s)' }), timeout)
-    pw.cbs[id] = finish
-    pw.worker.postMessage({ id, code })
-  })
-}
-
-// ══════════════════════════════════════════════════════════════
 //  MARKDOWN RENDERER
 // ══════════════════════════════════════════════════════════════
 
@@ -2238,7 +2059,8 @@ function NotebookPanel({ brutal }:any) {
     const execCount = ++execCounterRef.current
     const t0 = performance.now()
     setCells(cs => cs.map((c:any) => c.id === cellId ? { ...c, status:'running', output:[], execCount, execMs:null } : c))
-    const result = cell.lang === 'python' ? await runPython(cell.code) : await runJS(cell.code)
+    const cellLang = cell.lang === 'python' ? 'py' : cell.lang === 'typescript' ? 'ts' : 'js'
+    const result = await runByLang(cellLang, cell.code)
     const ms = Math.round(performance.now() - t0)
     setCells(cs => cs.map((c:any) => c.id === cellId
       ? { ...c, status: result.error ? 'error' : 'ok', output: result.logs, execMs: ms }
@@ -2420,7 +2242,7 @@ function NotebookPanel({ brutal }:any) {
             <div style={{ display:'flex', flexDirection:'column', gap:8, width:'100%', maxWidth:200 }}>
               {([
                 { lang:'js',       color:'#ffc410', label:'JavaScript', sub:'browser + node APIs' },
-                { lang:'python',   color:'#4fc3f7', label:'Python',     sub:'Pyodide · numpy · pandas' },
+                { lang:'python',   color:'#4fc3f7', label:'Python',     sub:'native · pip install supported' },
                 { lang:'markdown', color:'#ce93d8', label:'Markdown',   sub:'rich text & notes' },
               ] as const).map(item => (
                 <button key={item.lang} onClick={() => addCell(item.lang as string)}
@@ -3448,25 +3270,15 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
     if (!node) return
     const lang = detectLang(node.label || '')
     if (lang === 'md' || lang === 'unknown') return
-    const isPy  = lang === 'py'
-    const isC   = lang === 'c'
-    const isCpp = lang === 'cpp'
-    const isGo  = lang === 'go'
     setNodeRunState(s => ({...s, [nodeId]: {status:'running', ms:0}}))
     setBottomTab('console')
     setBottomOpen(true)
     setJsLogs(l => {
       const header = [{type:'header', val:`▶  ${node.label}`, ts:Date.now(), nodeId}]
-      if (isPy && !_pyW) header.push({type:'info', val:'⌛ Loading Python runtime (Pyodide ~10 MB, first run only)…', ts:Date.now()})
-      if (isC || isCpp || isGo) header.push({type:'info', val:`⌛ Compiling… (wandbox.org)`, ts:Date.now()})
+      if (isCompiled(lang)) header.push({type:'info', val:`⌛ Compiling…`, ts:Date.now()})
       return [...l, ...header]
     })
-    let result
-    if (isPy)       result = await runPython(node.code || '')
-    else if (isC)   result = await runC(node.code || '', compileStdin)
-    else if (isCpp) result = await runCpp(node.code || '', compileStdin)
-    else if (isGo)  result = await runGo(node.code || '', compileStdin)
-    else            result = await runJS(node.code || '')
+    const result = await runByLang(lang, node.code || '', compileStdin)
     setNodeRunState(s => ({...s, [nodeId]: {status: result.error?'error':'ok', ms: result.ms}}))
     addEvent(result.error?'run-err':'run-ok', `${result.error?'✗':'✓'} ${node.label} (${result.ms}ms)`, {nodeId})
     setJsLogs(l => [
@@ -3494,7 +3306,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
     setReplHistIdx(-1)
     setReplInput('')
     setJsLogs(l => [...l, {type:'repl-in', val:`> ${code}`, ts:Date.now()}])
-    const result = await runJS(code)
+    const result = await runByLang('js', code)
     setJsLogs(l => [...l, ...result.logs])
   }
 
@@ -4028,7 +3840,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
                     </>
                   ) : (
                     <button onClick={()=>handleRunNode(activeTabId)}
-                      title={`Run (Ctrl+Enter)${isCompiled(detectLang(activeTabNode?.label||''))?' via Wandbox':''}`}
+                      title={`Run (Ctrl+Enter)${isCompiled(detectLang(activeTabNode?.label||''))?' — compile & run locally':''}`}
                       style={{padding:'2px 10px',cursor:'pointer',fontFamily:"'Oswald',sans-serif",fontWeight:700,fontSize:'9px',letterSpacing:'.1em',
                         background:nodeRunState[activeTabId]?.status==='ok'?'#10b981':nodeRunState[activeTabId]?.status==='error'?'#ff435a':'transparent',
                         color:nodeRunState[activeTabId]?.status?'#000':isCompiled(detectLang(activeTabNode?.label||''))?'#ff8080':brutal?'#f2c12e':'#ff2a38',
