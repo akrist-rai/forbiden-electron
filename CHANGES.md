@@ -124,3 +124,46 @@
 - `ai:chat` — calls Anthropic `/v1/messages`, supports model/system/messages params
 - `fs:formatCode` — temp-file formatter: Prettier / Black / gofmt by lang
 - `fs:getScripts` — reads `package.json` scripts + Makefile targets, returns `{name, cmd, source}[]`
+
+---
+
+## Phase 4 — 2026-06-19
+
+**Focus:** Multi-provider AI, GUI key management, format-on-save, AI commit generator.
+
+### 1. Multi-Provider AI (`main.js`, `preload.js`)
+- `ai:chat` IPC now routes to 5 providers via `provider` param:
+  - **Anthropic** — `/v1/messages` with `x-api-key` header (Claude Haiku, Sonnet, Opus)
+  - **OpenAI** — `/v1/chat/completions` with Bearer auth (GPT-4o, GPT-4o-mini, GPT-4 Turbo)
+  - **Google Gemini** — `generateContent` REST API (Gemini 2.0 Flash, 1.5 Pro/Flash)
+  - **OpenRouter** — OpenAI-compatible, 100+ models via one key (incl. free tiers)
+  - **Ollama** — local models, no API key, custom host (`http://localhost:11434`)
+- New IPC `ai:ollamaModels` — hits `/api/tags` to list installed local models
+
+### 2. AI Provider Settings GUI (`IDE/index.tsx` Settings panel)
+- Full "AI PROVIDERS" section in sidebar Settings panel
+- Provider selector: visual card picker with color-coded active state
+- Per-provider API key inputs (password fields) with direct link to each key page
+- Ollama host override + "Detect Local Models" button — fetches and lists installed models
+- Model selector per provider (predefined fast/powerful options)
+- All settings persisted in `localStorage` (`forbiden_ai_provider`, `forbiden_ai_keys`, `forbiden_ai_models`)
+
+### 3. AI Chat Panel — Provider-Aware (`IDE/index.tsx`)
+- Removed inline Anthropic-only key input — now uses global provider settings
+- Header badge shows active provider name + color + current model
+- Red no-key banner with link to Settings when key is missing
+- "⚙" button opens Settings panel directly at AI Providers section
+- Accent color follows active provider (purple for Anthropic, green for OpenAI, etc.)
+
+### 4. AI Commit Message Generator (`GitPanelV2.tsx`)
+- "✦ AI" button next to "Commit Message" label in the git panel
+- Fetches `git diff` + `git status` for the current working directory
+- Sends to the active AI provider with conventional commits instruction
+- Fills the commit message textarea with the generated message (editable before committing)
+- If no key is set, opens Settings automatically
+
+### 5. Format on Save (`IDE/index.tsx`, `CodeMirrorEditor.tsx`)
+- Toggle in Settings panel under "EDITOR" section
+- When enabled, `saveNodeToDisk` runs `fs:formatCode` on the file before writing
+- Supports JS/TS/JSX/TSX/CSS/JSON/HTML/MD/Python/Go
+- Persisted in `localStorage` (`forbiden_format_on_save`)
