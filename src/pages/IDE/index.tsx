@@ -3373,8 +3373,9 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
       if ((e.metaKey||e.ctrlKey)&&e.shiftKey&&(e.key==='f'||e.key==='F')) { e.preventDefault(); setSidebarMode('project-search'); setSidebarOpen(true) }
       if ((e.metaKey||e.ctrlKey)&&e.shiftKey&&(e.key==='o'||e.key==='O')) { e.preventDefault(); setSidebarMode('outline'); setSidebarOpen(true) }
       if ((e.metaKey||e.ctrlKey)&&e.key==='b'&&!e.shiftKey) { e.preventDefault(); setSidebarOpen(v=>!v) }
+      if ((e.metaKey||e.ctrlKey)&&e.key==='?') { e.preventDefault(); setShowShortcuts(v=>!v) }
       if (e.key==='Escape') {
-        setShowCmd(false); setShowFileFinder(false); setShowJumpLine(false)
+        setShowCmd(false); setShowFileFinder(false); setShowJumpLine(false); setShowShortcuts(false)
         if (zenMode) { setZenMode(false); return }
         setEdgeMode(null); setJoinFirstNode(null); setNodeColorPicker(null); setShowTermPalette(false)
         setNotebookFloating(false)
@@ -4169,6 +4170,8 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
         <button className="ide-topbar-btn" onClick={()=>setShowFileFinder(true)} title="Quick Open file (Ctrl+P)">⌕ FILES</button>
         <button className="ide-topbar-btn" onClick={()=>setShowCmd(true)} title="Command palette (Ctrl+Shift+P)">⌘</button>
         <button className="ide-topbar-btn" onClick={()=>setZenMode(v=>!v)} title="Zen mode (Ctrl+Shift+Z)" style={zenMode?{color:'#10b981',borderColor:'rgba(16,185,129,.4)'}:{}}>ZEN</button>
+        <button className="ide-topbar-btn" onClick={()=>setShowShortcuts(v=>!v)} title="Keyboard shortcuts (Ctrl+?)"
+          style={showShortcuts?{color:'#ffc410',borderColor:'rgba(255,196,16,.4)'}:{}}>?</button>
 
         {/* Avatar → settings */}
         <div onClick={()=>{setSidebarMode('settings');setSidebarOpen(o=>sidebarMode==='settings'?!o:true)}}
@@ -5485,6 +5488,97 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
 
       {/* Jump to line (Ctrl+G) */}
       <JumpToLineModal isOpen={showJumpLine} onClose={()=>setShowJumpLine(false)} onJump={line=>setJumpLineTarget(line)} maxLine={activeTabNode?.code?.split('\n').length||9999}/>
+
+      {/* ── KEYBOARD SHORTCUTS OVERLAY ── */}
+      {showShortcuts && (
+        <div style={{position:'fixed',inset:0,zIndex:95000,background:'rgba(0,0,0,.6)',backdropFilter:'blur(4px)',display:'flex',alignItems:'flex-start',justifyContent:'center',paddingTop:'60px'}}
+          onClick={()=>setShowShortcuts(false)}>
+          <div style={{background:brutal?'#f0ece0':'#0d0d1a',border:`1px solid ${brutal?'#0f0f0f':'rgba(255,196,16,.25)'}`,
+            width:'min(780px,96vw)',maxHeight:'80vh',overflow:'hidden',display:'flex',flexDirection:'column',boxShadow:'0 24px 80px rgba(0,0,0,.7)'}}
+            onClick={e=>e.stopPropagation()}>
+            {/* Header */}
+            <div style={{display:'flex',alignItems:'center',padding:'10px 16px',borderBottom:`1px solid ${brutal?'#0f0f0f':'rgba(255,255,255,.07)'}`,flexShrink:0}}>
+              <span style={{fontFamily:"'Bangers',sans-serif",fontSize:'1.3rem',letterSpacing:'.12em',color:brutal?'#0f0f0f':'#ffc410'}}>KEYBOARD SHORTCUTS</span>
+              <span style={{marginLeft:10,fontFamily:"'Share Tech Mono',monospace",fontSize:'9px',color:'rgba(200,200,220,.3)'}}>Ctrl+? to toggle · Esc to close</span>
+              <button onClick={()=>setShowShortcuts(false)} style={{marginLeft:'auto',background:'transparent',border:'none',color:'rgba(200,200,220,.4)',cursor:'pointer',fontSize:'1.1rem',lineHeight:1}}>✕</button>
+            </div>
+            {/* Grid of sections */}
+            <div style={{overflowY:'auto',scrollbarWidth:'thin',scrollbarColor:'rgba(255,255,255,.07) transparent',padding:'12px 16px',
+              display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(220px,1fr))',gap:'12px 20px'}}>
+              {([
+                { group:'NAVIGATION', color:'#4285f4', items:[
+                  ['Ctrl+P',        'Quick open file'],
+                  ['Ctrl+G',        'Go to line'],
+                  ['Ctrl+Shift+F',  'Search in files'],
+                  ['Ctrl+Shift+O',  'File outline'],
+                  ['Ctrl+B',        'Toggle sidebar'],
+                ]},
+                { group:'EDITOR', color:'#10b981', items:[
+                  ['Ctrl+S',        'Save file'],
+                  ['Ctrl+/',        'Toggle comment'],
+                  ['Ctrl+F',        'Find in file'],
+                  ['Ctrl+Enter',    'Run file'],
+                  ['Ctrl+Z',        'Undo'],
+                  ['Ctrl+Shift+Z',  'Redo'],
+                ]},
+                { group:'PANELS & VIEW', color:'#ffc410', items:[
+                  ['Ctrl+Shift+P',  'Command palette'],
+                  ['Ctrl+Shift+Z',  'Zen / focus mode'],
+                  ['Ctrl+?',        'Shortcuts cheatsheet'],
+                  ['`  (backtick)', 'Toggle terminal'],
+                  ['Ctrl+Shift+E',  'Explorer sidebar'],
+                ]},
+                { group:'AI', color:'#bb9af7', items:[
+                  ['Sidebar ✦ icon','Open AI chat'],
+                  ['⚙ in AI panel', 'Change provider/key'],
+                  ['✦ AI in git',   'Generate commit msg'],
+                  ['Settings panel','Manage API keys'],
+                ]},
+                { group:'SPLIT EDITOR', color:'#89ddff', items:[
+                  ['⬓ tab button',  'Split/unsplit editor'],
+                  ['Cmd palette',   'Split vertical'],
+                  ['Cmd palette',   'Split horizontal'],
+                  ['✕ in split',    'Close split pane'],
+                ]},
+                { group:'GIT', color:'#ff435a', items:[
+                  ['Git panel',     'Stage / unstage files'],
+                  ['Ctrl+Enter',    'Commit (in msg box)'],
+                  ['✦ AI button',   'Generate commit msg'],
+                  ['Push / Pull',   'Sync with remote'],
+                ]},
+                { group:'GRAPH CANVAS', color:'#f2c12e', items:[
+                  ['N',             'New node'],
+                  ['J',             'Join / edge mode'],
+                  ['X',             'Cut edge mode'],
+                  ['Scroll',        'Zoom in/out'],
+                  ['Drag node',     'Move node'],
+                  ['Drag canvas',   'Pan view'],
+                ]},
+                { group:'TERMINAL', color:'#28f1c3', items:[
+                  ['Any command',   'Full PTY shell'],
+                  ['New tab +',     'Open another terminal'],
+                  ['Clear button',  'Clear terminal output'],
+                  ['⚙ palette btn', 'Change terminal theme'],
+                ]},
+              ] as {group:string,color:string,items:[string,string][]}[]).map(sec=>(
+                <div key={sec.group}>
+                  <div style={{fontFamily:"'Oswald',sans-serif",fontWeight:700,fontSize:'9px',letterSpacing:'.14em',
+                    color:sec.color,marginBottom:6,paddingBottom:3,borderBottom:`1px solid ${sec.color}33`}}>{sec.group}</div>
+                  {sec.items.map(([key,label])=>(
+                    <div key={key+label} style={{display:'flex',alignItems:'center',gap:6,marginBottom:4}}>
+                      <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:'10px',
+                        background:brutal?'rgba(0,0,0,.08)':'rgba(255,255,255,.06)',
+                        border:`1px solid ${brutal?'rgba(0,0,0,.15)':'rgba(255,255,255,.1)'}`,
+                        padding:'1px 5px',color:brutal?'#0f0f0f':'#c0c8d8',flexShrink:0,whiteSpace:'nowrap'}}>{key}</span>
+                      <span style={{fontFamily:"'Share Tech Mono',monospace",fontSize:'9px',color:brutal?'rgba(15,15,15,.55)':'rgba(200,200,220,.5)',lineHeight:1.3}}>{label}</span>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Create node modal — redesigned */}
       {showCreateNode && (() => {
