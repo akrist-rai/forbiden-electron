@@ -45,7 +45,45 @@ interface TitleBarProps {
   activeFile?: string
 }
 
-const MENU_ITEMS = ['File', 'Edit', 'View', 'Run', 'Help']
+type MenuItem = { label: string; action?: () => void; separator?: boolean; disabled?: boolean }
+
+const MENUS: Record<string, MenuItem[]> = {
+  File: [
+    { label: 'Open Folder…', action: () => (window as any).electronAPI?.dialog?.openFolder().then((p: string) => p && window.dispatchEvent(new CustomEvent('forbiden:open-folder', { detail: p }))) },
+    { label: 'Open Files…',  action: () => (window as any).electronAPI?.dialog?.openFiles() },
+    { label: 'Save File',    action: () => window.dispatchEvent(new CustomEvent('forbiden:save-file')) },
+    { separator: true, label: '' },
+    { label: 'Quit', action: () => (window as any).electronAPI?.window?.close() },
+  ],
+  Edit: [
+    { label: 'Undo',       action: () => document.execCommand('undo') },
+    { label: 'Redo',       action: () => document.execCommand('redo') },
+    { separator: true, label: '' },
+    { label: 'Cut',        action: () => document.execCommand('cut') },
+    { label: 'Copy',       action: () => document.execCommand('copy') },
+    { label: 'Paste',      action: () => document.execCommand('paste') },
+    { separator: true, label: '' },
+    { label: 'Select All', action: () => document.execCommand('selectAll') },
+  ],
+  View: [
+    { label: 'Reload',          action: () => window.location.reload() },
+    { label: 'Toggle DevTools', action: () => (window as any).electronAPI?.window?.toggleDevTools?.() },
+    { separator: true, label: '' },
+    { label: 'Zoom In',         action: () => window.dispatchEvent(new CustomEvent('forbiden:zoom-in')) },
+    { label: 'Zoom Out',        action: () => window.dispatchEvent(new CustomEvent('forbiden:zoom-out')) },
+    { label: 'Reset Zoom',      action: () => window.dispatchEvent(new CustomEvent('forbiden:zoom-reset')) },
+    { separator: true, label: '' },
+    { label: 'Toggle Sidebar',  action: () => window.dispatchEvent(new CustomEvent('forbiden:toggle-sidebar')) },
+    { label: 'Toggle Terminal', action: () => window.dispatchEvent(new CustomEvent('forbiden:toggle-terminal')) },
+  ],
+  Run: [
+    { label: 'Run Active File', action: () => window.dispatchEvent(new CustomEvent('forbiden:run-active')) },
+    { label: 'Open Terminal',   action: () => window.dispatchEvent(new CustomEvent('forbiden:toggle-terminal')) },
+  ],
+  Help: [
+    { label: 'About FORBIDEN', action: () => alert('FORBIDEN Graph IDE\nVersion 2.2.0\n\nBuilt with Electron + React + Vite') },
+  ],
+}
 
 export default function TitleBar({
   title = 'FORBIDEN',
@@ -56,27 +94,34 @@ export default function TitleBar({
 }: TitleBarProps) {
   const [isMaximized, setIsMaximized] = useState(false)
   const [hoveredBtn, setHoveredBtn] = useState<string | null>(null)
+  const [openMenu, setOpenMenu] = useState<string | null>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
   const winAPI = (window as any).electronAPI?.window
-  const shellAPI = (window as any).electronAPI?.shell
   const hasWinAPI = Boolean(winAPI)
 
   // Poll initial maximized state and subscribe to changes
   useEffect(() => {
     if (!winAPI) return
     let cancelled = false
-
     winAPI.isMaximized().then((val: boolean) => {
       if (!cancelled) setIsMaximized(val)
     }).catch(() => {})
-
     const handler = (_event: any, val: boolean) => setIsMaximized(val)
     winAPI.onMaximizeChange(handler)
-
-    return () => {
-      cancelled = true
-      winAPI.offMaximizeChange(handler)
-    }
+    return () => { cancelled = true; winAPI.offMaximizeChange(handler) }
   }, [winAPI])
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    if (!openMenu) return
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setOpenMenu(null)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [openMenu])
 
   const handleMinimize = useCallback(() => {
     if (!winAPI) return
@@ -93,11 +138,9 @@ export default function TitleBar({
     winAPI.close().catch(() => {})
   }, [winAPI])
 
-  const handleMenu = useCallback((name: string) => {
-    if (shellAPI?.openMenu) {
-      try { shellAPI.openMenu(name) } catch {}
-    }
-  }, [shellAPI])
+  const handleMenuToggle = useCallback((name: string) => {
+    setOpenMenu(prev => prev === name ? null : name)
+  }, [])
 
   // ── Colors ────────────────────────────────────────────────
   const bg      = brutal ? '#f0ece0' : '#08080f'
@@ -106,6 +149,8 @@ export default function TitleBar({
   const red     = '#ff2a38'
 
   // ── Styles ────────────────────────────────────────────────
+  // No WebkitAppRegion on the bar itself — only the spacer strip is draggable.
+  // This means every button is naturally clickable without needing no-drag overrides.
   const barStyle: React.CSSProperties = {
     height: 32,
     background: bg,
@@ -113,44 +158,38 @@ export default function TitleBar({
     alignItems: 'center',
     flexShrink: 0,
     userSelect: 'none',
-    WebkitAppRegion: 'drag' as any,
     borderBottom: brutal
       ? '2px solid rgba(0,0,0,0.18)'
       : '1px solid rgba(255,255,255,0.05)',
     position: 'relative',
     zIndex: 9999,
-    // expose bg for IconRestore background match
     '--tb-bg': bg,
   } as any
 
-  const noDragStyle: React.CSSProperties = {
-    WebkitAppRegion: 'no-drag' as any,
-    display: 'flex',
-    alignItems: 'center',
-  }
+  const flexRow: React.CSSProperties = { display: 'flex', alignItems: 'center' }
 
   const menuBtnStyle = (name: string): React.CSSProperties => ({
-    ...noDragStyle,
-    background: 'transparent',
+    ...flexRow,
+    background: openMenu === name
+      ? (brutal ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)')
+      : hoveredBtn === `menu-${name}`
+        ? (brutal ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.06)')
+        : 'transparent',
     border: 'none',
     color: text,
     fontSize: '11px',
     fontFamily: "'Share Tech Mono', monospace",
-    padding: '0 8px',
+    padding: '0 9px',
     height: 32,
     cursor: 'pointer',
     letterSpacing: '.02em',
-    opacity: brutal ? 0.7 : 0.65,
-    transition: 'background .1s, opacity .1s',
+    opacity: brutal ? 0.8 : 0.7,
+    transition: 'background .1s',
     outline: 'none',
-    backgroundColor:
-      hoveredBtn === `menu-${name}`
-        ? brutal ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.08)'
-        : 'transparent',
   })
 
   const winBtnBase: React.CSSProperties = {
-    ...noDragStyle,
+    ...flexRow,
     justifyContent: 'center',
     background: 'transparent',
     border: 'none',
@@ -178,15 +217,22 @@ export default function TitleBar({
     }
   }
 
-  // Parse title display: FOR + BID (red) + EN
-  const logoLeft = 'FOR'
-  const logoMid  = 'BID'
-  const logoRight = 'EN'
+  const dropdownStyle: React.CSSProperties = {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    minWidth: 190,
+    background: brutal ? '#f0ece0' : '#12121e',
+    border: brutal ? '1px solid rgba(0,0,0,0.15)' : '1px solid rgba(255,255,255,0.1)',
+    boxShadow: '0 8px 24px rgba(0,0,0,0.45)',
+    zIndex: 99999,
+    padding: '4px 0',
+  }
 
   return (
     <div style={barStyle}>
       {/* ── Logo ── */}
-      <div style={{ ...noDragStyle, paddingLeft: 12, paddingRight: 8, gap: 0, flexShrink: 0 }}>
+      <div style={{ ...flexRow, paddingLeft: 12, paddingRight: 8, gap: 0, flexShrink: 0 }}>
         <span style={{
           fontFamily: "'Oswald', sans-serif",
           fontWeight: 700,
@@ -194,69 +240,67 @@ export default function TitleBar({
           letterSpacing: '.12em',
           color: text,
         }}>
-          {logoLeft}
-          <span style={{ color: red }}>{logoMid}</span>
-          {logoRight}
+          FOR<span style={{ color: red }}>BID</span>EN
         </span>
-        {/* Diamond logo accent */}
-        <span style={{
-          marginLeft: 6,
-          color: red,
-          fontSize: '8px',
-          opacity: 0.7,
-          lineHeight: 1,
-        }}>◆</span>
+        <span style={{ marginLeft: 6, color: red, fontSize: '8px', opacity: 0.7, lineHeight: 1 }}>◆</span>
       </div>
 
       {/* ── Separator ── */}
-      <div style={{
-        width: 1,
-        height: 16,
-        background: brutal ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.1)',
-        flexShrink: 0,
-        margin: '0 4px',
-      }} />
+      <div style={{ width: 1, height: 16, background: brutal ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.1)', flexShrink: 0, margin: '0 4px' }} />
 
-      {/* ── Menu items ── */}
-      <div style={{ ...noDragStyle, gap: 0, flexShrink: 0 }}>
-        {MENU_ITEMS.map(name => (
-          <button
-            key={name}
-            style={menuBtnStyle(name)}
-            onMouseEnter={() => setHoveredBtn(`menu-${name}`)}
-            onMouseLeave={() => setHoveredBtn(null)}
-            onClick={() => handleMenu(name)}
-          >
-            {name}
-          </button>
+      {/* ── Menu items with dropdowns ── */}
+      <div ref={menuRef} style={{ ...flexRow, gap: 0, flexShrink: 0 }}>
+        {Object.keys(MENUS).map(name => (
+          <div key={name} style={{ position: 'relative' }}>
+            <button
+              style={menuBtnStyle(name)}
+              onMouseEnter={() => { setHoveredBtn(`menu-${name}`); if (openMenu && openMenu !== name) setOpenMenu(name) }}
+              onMouseLeave={() => setHoveredBtn(null)}
+              onClick={() => handleMenuToggle(name)}
+            >
+              {name}
+            </button>
+            {openMenu === name && (
+              <div style={dropdownStyle}>
+                {MENUS[name].map((item, i) => item.separator ? (
+                  <div key={i} style={{ height: 1, background: brutal ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.08)', margin: '3px 0' }} />
+                ) : (
+                  <button
+                    key={i}
+                    disabled={item.disabled}
+                    onClick={() => { item.action?.(); setOpenMenu(null) }}
+                    style={{
+                      display: 'block',
+                      width: '100%',
+                      textAlign: 'left',
+                      background: 'transparent',
+                      border: 'none',
+                      color: item.disabled ? (brutal ? '#aaa' : '#4a4a6a') : (brutal ? '#0f0f0f' : '#c0c8d8'),
+                      fontSize: '12px',
+                      fontFamily: "'Share Tech Mono', monospace",
+                      padding: '5px 16px',
+                      cursor: item.disabled ? 'default' : 'pointer',
+                      letterSpacing: '.02em',
+                    }}
+                    onMouseEnter={e => { if (!item.disabled) (e.currentTarget as HTMLElement).style.background = brutal ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.08)' }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent' }}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         ))}
       </div>
 
       {/* ── Separator ── */}
-      <div style={{
-        width: 1,
-        height: 16,
-        background: brutal ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.1)',
-        flexShrink: 0,
-        margin: '0 4px',
-      }} />
+      <div style={{ width: 1, height: 16, background: brutal ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.1)', flexShrink: 0, margin: '0 4px' }} />
 
       {/* ── Active file breadcrumb ── */}
       {activeFile && (
-        <div style={{
-          ...noDragStyle,
-          paddingLeft: 8,
-          paddingRight: 8,
-          gap: 4,
-          flexShrink: 1,
-          minWidth: 0,
-        }}>
-          <span style={{
-            fontFamily: "'JetBrains Mono', monospace",
-            fontSize: '11px',
-            color: subText,
-            opacity: 0.6,
-          }}>›</span>
+        <div style={{ ...flexRow, paddingLeft: 8, paddingRight: 8, gap: 4, flexShrink: 1, minWidth: 0 }}>
+          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: subText, opacity: 0.6 }}>›</span>
           <span style={{
             fontFamily: "'JetBrains Mono', monospace",
             fontSize: '11px',
@@ -272,10 +316,10 @@ export default function TitleBar({
         </div>
       )}
 
-      {/* ── Spacer (draggable) ── */}
+      {/* ── Spacer — the ONLY draggable region ── */}
       <div style={{ flex: 1, height: '100%', WebkitAppRegion: 'drag' as any }} />
 
-      {/* ── Center title (absolute) ── */}
+      {/* ── Center title (absolute, pointer-events off so it doesn't block drag) ── */}
       <div style={{
         position: 'absolute',
         left: '50%',
@@ -292,8 +336,7 @@ export default function TitleBar({
       </div>
 
       {/* ── Window control buttons ── */}
-      <div style={{ ...noDragStyle, flexShrink: 0 }}>
-        {/* Minimize */}
+      <div style={{ ...flexRow, flexShrink: 0 }}>
         <button
           style={winBtnStyle('minimize')}
           onMouseEnter={() => setHoveredBtn('minimize')}
@@ -305,7 +348,6 @@ export default function TitleBar({
           <IconMinimize />
         </button>
 
-        {/* Maximize / Restore */}
         <button
           style={winBtnStyle('maximize')}
           onMouseEnter={() => setHoveredBtn('maximize')}
@@ -317,7 +359,6 @@ export default function TitleBar({
           {isMaximized ? <IconRestore /> : <IconMaximize />}
         </button>
 
-        {/* Close */}
         <button
           style={winBtnStyle('close')}
           onMouseEnter={() => setHoveredBtn('close')}

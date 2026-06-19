@@ -3353,7 +3353,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
       <TitleBar brutal={brutal} activeFile={activeTabNode?.label}/>
 
       {/* ═══════ TOPBAR ═══════ */}
-      <div className="ide-topbar" style={{'WebkitAppRegion':'drag'} as any}>
+      <div className="ide-topbar">
         <span className="ide-logo">FOR<span className="ide-logo-accent">BID</span>EN<span style={{color:'#ff2a38',animation:'fblink 1.1s infinite',fontSize:'1.1rem'}}>_</span></span>
         <div className="ide-topbar-sep"/>
 
