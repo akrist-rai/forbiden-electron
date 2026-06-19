@@ -4088,8 +4088,10 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
   }
 
   // ── ICON BAR ──
+  const gitChangeCount = (gitStatus as any)?.files?.length ?? 0
   const sideIconDefs = [
     { key:'files',          icon:<I.Files/>,  tip:'Files (Ctrl+Shift+E)' },
+    { key:'git',            icon:<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M18 9a9 9 0 01-9 9"/></svg>, tip:'Source Control (Ctrl+Shift+G)', badge:gitChangeCount },
     { key:'project-search', icon:<I.Search/>, tip:'Search in files (Ctrl+Shift+F)', badge:0 },
     { key:'outline',        icon:<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>, tip:'Outline (Ctrl+Shift+O)' },
     { key:'ai',             icon:<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>, tip:'AI Assistant' },
@@ -4246,7 +4248,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
           <div className="ide-sidebar-pane" style={{width:sidebarW}}>
             <div className="ide-sidebar-header">
               <span className="ide-sidebar-title">
-                {({'files':'EXPLORER','search':'SEARCH','note':'NOTES','settings':'SETTINGS','project-search':'SEARCH FILES','outline':'OUTLINE','ai':'AI ASSISTANT'} as any)[sidebarMode]||'EXPLORER'}
+                {({'files':'EXPLORER','git':'SOURCE CONTROL','search':'SEARCH','note':'NOTES','settings':'SETTINGS','project-search':'SEARCH FILES','outline':'OUTLINE','ai':'AI ASSISTANT'} as any)[sidebarMode]||'EXPLORER'}
               </span>
               <div style={{marginLeft:'auto',display:'flex',gap:4,alignItems:'center'}}>
                 {sidebarMode==='files'&&<button className="ide-btn ide-btn-sm" onClick={()=>setShowCreateNode(true)} title="New graph node">+N</button>}
