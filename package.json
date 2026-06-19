@@ -9,9 +9,11 @@
     "dev": "vite",
     "build": "NODE_OPTIONS=--max-old-space-size=3072 vite build",
     "preview": "vite preview",
-    "electron:dev": "cross-env NODE_ENV=development concurrently \"vite\" \"wait-on http://localhost:5175 && electron .\"",
-    "electron:build": "vite build && electron-builder",
-    "electron:preview": "vite build && electron .",
+    "engine:build": "cd engine && go build -o ../electron/forbiden-engine .",
+    "engine:build:win": "cd engine && GOOS=windows go build -o ../electron/forbiden-engine.exe .",
+    "electron:dev": "npm run engine:build && cross-env NODE_ENV=development concurrently \"vite\" \"wait-on http://localhost:5175 && electron .\"",
+    "electron:build": "npm run engine:build && NODE_OPTIONS=--max-old-space-size=3072 vite build && electron-builder",
+    "electron:preview": "npm run engine:build && vite build && electron .",
     "electron:install-linux": "npm run electron:build && sudo dpkg -i release/*.deb || echo 'deb install failed, try AppImage'"
   },
   "dependencies": {
@@ -64,8 +66,12 @@
     "files": [
       "dist/**/*",
       "electron/**/*",
+      "!electron/node_modules/**",
       "!**/node_modules/**",
       "!release/**"
+    ],
+    "extraResources": [
+      { "from": "electron/forbiden-engine", "to": "forbiden-engine" }
     ],
     "linux": {
       "target": [

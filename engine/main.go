@@ -1517,6 +1517,25 @@ func handleRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// For shell lang, inject the code directly as-is (it's already a command)
+	if req.Lang == "sh" || req.Lang == "shell" || req.Lang == "bash" {
+		cmd := strings.TrimSpace(req.Code)
+		if req.PtyID != "" {
+			ptyMu.RLock()
+			sess := ptys[req.PtyID]
+			ptyMu.RUnlock()
+			if sess != nil {
+				sess.mu.Lock()
+				sess.ptmx.WriteString(cmd + "\n")
+				sess.mu.Unlock()
+				ok200(w, map[string]any{"success": true, "injected": true, "cmd": cmd})
+				return
+			}
+		}
+		ok200(w, map[string]any{"success": false, "error": "no active terminal session"})
+		return
+	}
+
 	// Save code to temp file
 	tmp, err := os.CreateTemp("", "forbiden_*"+langExt(req.Lang))
 	if err != nil {
@@ -1549,6 +1568,29 @@ func handleRun(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ok200(w, map[string]any{"success": false, "error": "no active terminal session"})
+}
+
+// Direct PTY write — injects raw text (e.g., a full shell command)
+func handlePtyWrite(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		ID   string `json:"id"`
+		Text string `json:"text"`
+	}
+	if err := decode(r, &req); err != nil {
+		errJSON(w, err.Error(), 400)
+		return
+	}
+	ptyMu.RLock()
+	sess := ptys[req.ID]
+	ptyMu.RUnlock()
+	if sess == nil {
+		ok200(w, map[string]any{"success": false, "error": "session not found"})
+		return
+	}
+	sess.mu.Lock()
+	sess.ptmx.WriteString(req.Text)
+	sess.mu.Unlock()
+	ok200(w, map[string]any{"success": true})
 }
 
 // Capture-mode run (returns logs, used for output panel fallback)
@@ -1906,6 +1948,7 @@ func main() {
 	// Run
 	mux.HandleFunc("/api/run", handleRun)
 	mux.HandleFunc("/api/run/code", handleRunCode)
+	mux.HandleFunc("/api/pty/write", handlePtyWrite)
 
 	// AI
 	mux.HandleFunc("/api/ai/chat", handleAIChat)

@@ -5,7 +5,7 @@ import { useWorkspace } from '../../hooks/useWorkspace'
 import {
   detectLang, extractSymbols, generateImport, injectImport,
   getDefaultCode, langLabel, isCompiled,
-  runByLang,
+  runByLang, runInTerminal,
 } from '../../lib/engine'
 import FileExplorer from '../../components/FileExplorer'
 import CodeMirrorEditor from '../../components/CodeMirrorEditor'
@@ -3088,6 +3088,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
   const [termInput, setTermInput] = useState('')
   const [termPalette, setTermPalette] = useState(TERM_PALETTES[1])
   const [showTermPalette, setShowTermPalette] = useState(false)
+  const [activePtyId, setActivePtyId] = useState<string | null>(null)
   const termEndRef = useRef(null)
 
   // JS Runtime
@@ -3899,6 +3900,27 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
     const lang = detectLang(node.label || '')
     if (lang === 'md' || lang === 'unknown') return
     setNodeRunState(s => ({...s, [nodeId]: {status:'running', ms:0}}))
+    addEvent('run-ok', `▶ ${node.label}`, {nodeId})
+
+    // Prefer running in the real terminal — output appears there naturally
+    if (activePtyId) {
+      setBottomTab('terminal')
+      setBottomOpen(true)
+      const t0 = Date.now()
+      const res = await runInTerminal(activePtyId, lang, node.code || '', explorerRoot || termCwd)
+      const ms = Date.now() - t0
+      setNodeRunState(s => ({...s, [nodeId]: {status: res.success ? 'ok' : 'error', ms}}))
+      if (!res.success) {
+        setBottomTab('console')
+        setJsLogs(l => [...l,
+          {type:'header', val:`▶  ${node.label}`, ts:Date.now(), nodeId},
+          {type:'error',  val: res.error || 'Run failed', ts:Date.now(), nodeId},
+        ])
+      }
+      return
+    }
+
+    // Fallback: capture mode → show in console panel
     setBottomTab('console')
     setBottomOpen(true)
     setJsLogs(l => {
@@ -3914,18 +3936,6 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
       ...result.logs.map(e => ({...e, nodeId})),
       {type: result.error?'error-footer':'footer', val: result.error ? `✗ Error · ${result.ms}ms` : `✓ Done · ${result.ms}ms`, ts:Date.now(), nodeId}
     ])
-    if (result.retValStr !== undefined) {
-      const outEdges = edgesRef.current.filter(e => e.source === nodeId)
-      if (outEdges.length) {
-        const label = result.retValStr.length > 20 ? result.retValStr.slice(0,20)+'…' : result.retValStr
-        const ts = Date.now()
-        setEdgeDataLabels(prev => {
-          const next = {...prev}
-          outEdges.forEach(e => { next[e.id] = {val:label, ts} })
-          return next
-        })
-      }
-    }
   }
 
   const handleRunRepl = async (code) => {
@@ -5253,11 +5263,22 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
                 cwd={termCwd}
                 palette={termPalette}
                 onCwdChange={setTermCwd}
+                onActivePtyChange={setActivePtyId}
               />
             )}
             {bottomTab==='scripts' && (
               <ScriptsPanel rootPath={explorerRoot} brutal={brutal}
-                onRun={(cmd)=>{ setBottomTab('terminal'); setBottomOpen(true); setTimeout(()=>{ const api=(window as any).electronAPI; api?.pty?.write?.('terminal-main', cmd+'\n') },300) }}/>
+                onRun={(cmd)=>{
+                  setBottomTab('terminal')
+                  setBottomOpen(true)
+                  // Give terminal tab time to mount, then inject command
+                  setTimeout(() => {
+                    if (activePtyId) {
+                      const api = (window as any).electronAPI
+                      api?.runInTerminal?.(activePtyId, 'sh', cmd, explorerRoot)
+                    }
+                  }, 300)
+                }}/>
             )}
             {bottomTab==='timeline' && (
               <div style={{flex:1,overflow:'hidden',display:'flex',flexDirection:'column',minHeight:0}}>

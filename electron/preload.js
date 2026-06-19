@@ -41,11 +41,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Components open WebSocket directly; this just builds URLs.
   pty: {
     wsUrl: (id, cols, rows, cwd) => {
-      const p = new URLSearchParams({ id, cols, rows, cwd })
+      const p = new URLSearchParams({ id, cols: String(cols), rows: String(rows), cwd })
       return `${WS}/ws/pty?${p}`
     },
-    // Legacy exec shim (used by ScriptsPanel onRun) — injects via PTY if available
-    write: (id, data) => api('/api/run', { ptyId: id, lang: 'sh', code: data.replace(/\n$/, '') }),
+    // Direct PTY write — injects raw text into the session
+    write: (id, text) => api('/api/pty/write', { id, text }),
   },
 
   // ── Window controls ────────────────────────────────────────
