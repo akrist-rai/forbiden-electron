@@ -20,14 +20,14 @@ export default defineConfig({
     alias: { '@': resolve(__dirname, './src') },
   },
   build: {
-    // Increase chunk size limit — the app + Pyodide worker is large
-    chunkSizeWarningLimit: 1800,
+    chunkSizeWarningLimit: 3000,
     rollupOptions: {
+      external: ['node-pty'],
       output: {
         manualChunks: (id) => {
-          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom') || id.includes('node_modules/react-router-dom')) {
-            return 'react'
-          }
+          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom') || id.includes('node_modules/react-router-dom')) return 'react'
+          if (id.includes('@codemirror') || id.includes('@lezer')) return 'codemirror'
+          if (id.includes('xterm')) return 'xterm'
         },
       },
     },

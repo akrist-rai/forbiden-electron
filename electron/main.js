@@ -4,6 +4,12 @@ const path = require('path')
 const fs   = require('fs')
 const os   = require('os')
 
+let pty
+try { pty = require('node-pty') } catch {}
+
+// ── PTY session registry ──────────────────────────────────────
+const ptySessions = new Map() // id → { ptyProc, win }
+
 const isDev = process.env.NODE_ENV === 'development'
 
 // ── Window state persistence ─────────────────────────────────
@@ -555,6 +561,134 @@ ipcMain.handle('fs:scanImports', async (_e, { rootPath }) => {
   } catch (e) { return { success: false, error: e.message } }
 })
 
+// ── IPC: window controls ──────────────────────────────────────
+ipcMain.handle('window:minimize',    () => { BrowserWindow.getFocusedWindow()?.minimize() })
+ipcMain.handle('window:maximize',    () => {
+  const win = BrowserWindow.getFocusedWindow(); if (!win) return
+  win.isMaximized() ? win.unmaximize() : win.maximize()
+})
+ipcMain.handle('window:close',       () => { BrowserWindow.getFocusedWindow()?.close() })
+ipcMain.handle('window:isMaximized', () => BrowserWindow.getFocusedWindow()?.isMaximized() ?? false)
+
+// ── IPC: PTY terminal ─────────────────────────────────────────
+ipcMain.handle('pty:create', (event, { id, cols, rows, cwd }) => {
+  if (!pty) return { error: 'node-pty not available' }
+  const shell = process.platform === 'win32' ? 'cmd.exe'
+    : process.env.SHELL || (process.platform === 'darwin' ? '/bin/zsh' : '/bin/bash')
+  try {
+    if (ptySessions.has(id)) {
+      try { ptySessions.get(id).ptyProc.kill() } catch {}
+      ptySessions.delete(id)
+    }
+    const ptyProc = pty.spawn(shell, [], {
+      name: 'xterm-256color',
+      cols: cols || 80,
+      rows: rows || 24,
+      cwd: cwd || os.homedir(),
+      env: { ...process.env, PATH: getEnvPath(), TERM: 'xterm-256color', COLORTERM: 'truecolor' },
+    })
+    const win = BrowserWindow.fromWebContents(event.sender)
+    ptyProc.onData(data => {
+      if (win && !win.isDestroyed()) win.webContents.send('pty:data', id, data)
+    })
+    ptyProc.onExit(() => {
+      ptySessions.delete(id)
+      if (win && !win.isDestroyed()) win.webContents.send('pty:exit', id)
+    })
+    ptySessions.set(id, { ptyProc, win })
+    return { success: true }
+  } catch (e) { return { error: e.message } }
+})
+
+ipcMain.handle('pty:write', (_e, { id, data }) => {
+  const s = ptySessions.get(id); if (s) s.ptyProc.write(data)
+})
+
+ipcMain.handle('pty:resize', (_e, { id, cols, rows }) => {
+  const s = ptySessions.get(id)
+  if (s) { try { s.ptyProc.resize(cols, rows) } catch {} }
+})
+
+ipcMain.handle('pty:kill', (_e, { id }) => {
+  const s = ptySessions.get(id)
+  if (s) { try { s.ptyProc.kill() } catch {} ptySessions.delete(id) }
+})
+
+// ── IPC: extended git operations ──────────────────────────────
+ipcMain.handle('git-diff', async (_e, { cwd, file }) => {
+  try {
+    const args = file ? `diff HEAD -- ${JSON.stringify(file)}` : 'diff HEAD'
+    const out = await gitCmd(args, cwd).catch(() => gitCmd(`diff -- ${file ? JSON.stringify(file) : ''}`, cwd))
+    return { success: true, diff: out }
+  } catch (e) { return { success: false, error: e.message, diff: '' } }
+})
+
+ipcMain.handle('git-stage', async (_e, { cwd, files }) => {
+  try {
+    const fileArgs = files.map(f => JSON.stringify(f)).join(' ')
+    await gitCmd(`add -- ${fileArgs}`, cwd)
+    return { success: true }
+  } catch (e) { return { success: false, error: e.message } }
+})
+
+ipcMain.handle('git-unstage', async (_e, { cwd, files }) => {
+  try {
+    const fileArgs = files.map(f => JSON.stringify(f)).join(' ')
+    await gitCmd(`restore --staged -- ${fileArgs}`, cwd).catch(() =>
+      gitCmd(`reset HEAD -- ${fileArgs}`, cwd))
+    return { success: true }
+  } catch (e) { return { success: false, error: e.message } }
+})
+
+ipcMain.handle('git-branches', async (_e, { cwd }) => {
+  try {
+    const out = await gitCmd('branch -a', cwd)
+    return out.split('\n').filter(Boolean).map(b => b.replace(/^\*?\s+/, '').trim()).filter(Boolean)
+  } catch { return [] }
+})
+
+ipcMain.handle('git-checkout', async (_e, { cwd, branch }) => {
+  try { await gitCmd(`checkout ${JSON.stringify(branch)}`, cwd); return { success: true } }
+  catch (e) { return { success: false, error: e.message } }
+})
+
+ipcMain.handle('git-push', async (_e, { cwd }) => {
+  try {
+    const out = await gitCmd('push', cwd)
+    return { success: true, output: out }
+  } catch (e) { return { success: false, error: e.message } }
+})
+
+ipcMain.handle('git-pull', async (_e, { cwd }) => {
+  try {
+    const out = await gitCmd('pull', cwd)
+    return { success: true, output: out }
+  } catch (e) { return { success: false, error: e.message } }
+})
+
+ipcMain.handle('git-stash', async (_e, { cwd }) => {
+  try { await gitCmd('stash', cwd); return { success: true } }
+  catch (e) { return { success: false, error: e.message } }
+})
+
+ipcMain.handle('git-stash-pop', async (_e, { cwd }) => {
+  try { await gitCmd('stash pop', cwd); return { success: true } }
+  catch (e) { return { success: false, error: e.message } }
+})
+
+ipcMain.handle('git-init', async (_e, { cwd }) => {
+  try { await gitCmd('init', cwd); return { success: true } }
+  catch (e) { return { success: false, error: e.message } }
+})
+
+ipcMain.handle('git-discard', async (_e, { cwd, file }) => {
+  try {
+    await gitCmd(`checkout -- ${JSON.stringify(file)}`, cwd).catch(() =>
+      gitCmd(`restore -- ${JSON.stringify(file)}`, cwd))
+    return { success: true }
+  } catch (e) { return { success: false, error: e.message } }
+})
+
 // ── Window ────────────────────────────────────────────────────
 function createWindow() {
   const saved = loadWinState()
@@ -566,9 +700,8 @@ function createWindow() {
     minWidth:  960,
     minHeight: 600,
     backgroundColor: '#0b0b0f',
-    titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'hidden',
-    frame: process.platform !== 'darwin',
-    // Allow dropping files/folders from OS file manager
+    titleBarStyle: 'hidden',
+    frame: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
@@ -576,6 +709,10 @@ function createWindow() {
       sandbox: false,
     },
   })
+
+  // ── window-maximize change → push to renderer ────────────────
+  win.on('maximize',   () => win.webContents.send('window:maximized-change', true))
+  win.on('unmaximize', () => win.webContents.send('window:maximized-change', false))
 
   if (isDev) {
     win.loadURL('http://localhost:5175')

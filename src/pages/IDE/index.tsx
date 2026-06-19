@@ -8,6 +8,10 @@ import {
   runByLang,
 } from '../../lib/engine'
 import FileExplorer from '../../components/FileExplorer'
+import CodeMirrorEditor from '../../components/CodeMirrorEditor'
+import XTermPanel from '../../components/XTermPanel'
+import TitleBar from '../../components/TitleBar'
+import GitPanelV2 from '../../components/GitPanelV2'
 
 // ══════════════════════════════════════════════════════════════
 //  CONSTANTS
@@ -1976,35 +1980,18 @@ function NoteCell({ cell, idx, brutal, onRun, onDelete, onCodeChange, onLangChan
                 dangerouslySetInnerHTML={{ __html: renderMd(cell.code || '') }}/>
             </div>
           ) : (
-            <div style={{ position:'relative', background:'#05050e' }}>
-              {/* Line numbers */}
-              <div aria-hidden style={{
-                position:'absolute', left:0, top:0, bottom:0, width:32,
-                fontFamily:"'JetBrains Mono',monospace", fontSize:'10px',
-                lineHeight:LH+'px', color:`${meta.color}30`, textAlign:'right',
-                padding:'8px 5px 8px 0', userSelect:'none', pointerEvents:'none', overflow:'hidden',
-                background:'rgba(0,0,0,.2)', borderRight:`1px solid ${meta.color}15`,
-              }}>
-                {(cell.code || ' ').split('\n').map((_:any, i:number) => <div key={i}>{i+1}</div>)}
-              </div>
-              {/* Highlight overlay */}
-              <pre aria-hidden style={{
-                position:'absolute', inset:0, margin:0, padding:'8px 10px 8px 42px',
-                fontFamily:"'JetBrains Mono',monospace", fontSize:'12px', lineHeight:LH+'px',
-                color:'#c0c8d8', pointerEvents:'none', overflow:'hidden',
-                whiteSpace:'pre-wrap', wordBreak:'break-word',
-              }} dangerouslySetInnerHTML={{ __html: highlightCode(cell.code || '') }}/>
-              {/* Textarea */}
-              <textarea ref={taRef} value={cell.code} onChange={(e:any)=>onCodeChange(e.target.value)}
-                onKeyDown={handleKeyDown} rows={codeRows} spellCheck={false}
-                style={{
-                  display:'block', width:'100%', boxSizing:'border-box',
-                  background:'transparent', border:'none', outline:'none', resize:'none',
-                  fontFamily:"'JetBrains Mono',monospace", fontSize:'12px', lineHeight:LH+'px',
-                  color:'transparent', caretColor:meta.caret,
-                  padding:'8px 10px 8px 42px', minHeight:codeRows*LH+16+'px',
-                }}/>
-            </div>
+            <CodeMirrorEditor
+              compact
+              minHeight="80px"
+              node={{
+                id: cell.id,
+                label: `cell.${cell.lang === 'python' ? 'py' : cell.lang === 'typescript' ? 'ts' : cell.lang === 'markdown' ? 'md' : 'js'}`,
+                code: cell.code || '',
+                type: 'function',
+                modified: false,
+              }}
+              onChange={onCodeChange}
+            />
           )}
 
           {/* Output */}
@@ -3362,8 +3349,11 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
       style={{'--ide-font-scale':globalFontScale} as any}
     >
 
+      {/* ═══════ TITLE BAR (custom window controls, drag region) ═══════ */}
+      <TitleBar brutal={brutal} activeFile={activeTabNode?.label}/>
+
       {/* ═══════ TOPBAR ═══════ */}
-      <div className="ide-topbar">
+      <div className="ide-topbar" style={{'WebkitAppRegion':'drag'} as any}>
         <span className="ide-logo">FOR<span className="ide-logo-accent">BID</span>EN<span style={{color:'#ff2a38',animation:'fblink 1.1s infinite',fontSize:'1.1rem'}}>_</span></span>
         <div className="ide-topbar-sep"/>
 
@@ -3859,7 +3849,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
                 {activeTabNode?.type==='doc' && mdPreviewMode==='split' ? (
                   <div style={{display:'flex',height:'100%',overflow:'hidden'}}>
                     <div style={{flex:1,overflow:'hidden',borderRight:'1px solid rgba(255,255,255,.08)'}}>
-                      <CodeEditor key={activeTabId+'_s'} node={activeTabNode} onChange={code=>updateNodeCode(activeTabId,code)} externalPalette={globalEditorPalette}/>
+                      <CodeMirrorEditor key={activeTabId+'_s'} node={activeTabNode} onChange={code=>updateNodeCode(activeTabId,code)} externalPalette={globalEditorPalette}/>
                     </div>
                     <div style={{flex:1,overflow:'auto',padding:'12px 16px',fontSize:mdFontSize+'px'}} className="md-preview"
                       dangerouslySetInnerHTML={{__html: renderMd(activeTabNode.code||'')}}/>
@@ -3867,7 +3857,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
                 ) : activeTabNode?.type==='doc' && mdPreviewMode==='preview' ? (
                   <div className="md-preview" style={{fontSize:mdFontSize+'px'}} dangerouslySetInnerHTML={{__html: renderMd(activeTabNode.code||'')}}/>
                 ) : (
-                  <CodeEditor
+                  <CodeMirrorEditor
                     key={activeTabId}
                     node={activeTabNode}
                     onChange={code=>updateNodeCode(activeTabId,code)}
@@ -4177,8 +4167,10 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
           <div className="ide-bottom-tabbar">
             {[
               {key:'console',  label:'▶ CONSOLE'},
+              {key:'terminal', label:'$ TERMINAL'},
               {key:'notebook', label:'◎ NOTEBOOK'},
               {key:'git',      label:'◆ GIT'},
+              {key:'timeline', label:'⎔ TIMELINE'},
             ].map(t=>(
               <button key={t.key}
                 className={`ide-bottom-tab ${bottomTab===t.key?'active':''}`}
@@ -4196,6 +4188,18 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
           </div>
           {/* Content */}
           <div style={{flex:1,overflow:'hidden',display:'flex',flexDirection:'column',minHeight:0}}>
+            {bottomTab==='terminal' && (
+              <XTermPanel
+                cwd={termCwd}
+                palette={termPalette}
+                onCwdChange={setTermCwd}
+              />
+            )}
+            {bottomTab==='timeline' && (
+              <div style={{flex:1,overflow:'hidden',display:'flex',flexDirection:'column',minHeight:0}}>
+                <TimelinePanel eventLog={eventLog} brutal={brutal}/>
+              </div>
+            )}
             {bottomTab==='notebook' && <NotebookPanel brutal={brutal}/>}
             {bottomTab==='console' && (<>
 
@@ -4279,47 +4283,11 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
         </div>
             </>)}
             {bottomTab==='git' && (
-              <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}}>
-                <div style={{padding:'7px 10px',borderBottom:'1px solid rgba(255,255,255,.07)',flexShrink:0}}>
-                  <div style={{padding:'2px 0 5px',opacity:.3,fontSize:'9px',fontFamily:"'Share Tech Mono',monospace",color:'#ffc410'}}>
-                    LOCAL SNAPSHOTS — no GitHub connection · use terminal for real git
-                  </div>
-                  <div style={{display:'flex',gap:6}}>
-                    <input value={gitCommitMsg} onChange={e=>setGitCommitMsg(e.target.value)}
-                      onKeyDown={e=>{ if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();handleGitCommit()} }}
-                      placeholder="Snapshot message…"
-                      style={{flex:1,background:'rgba(255,255,255,.04)',border:'1px solid rgba(255,255,255,.1)',outline:'none',padding:'4px 8px',fontFamily:"'Share Tech Mono',monospace",fontSize:'11px',color:'#c0c8d8',borderRadius:2}}/>
-                    <button onClick={handleGitCommit} disabled={!gitCommitMsg.trim()}
-                      style={{padding:'4px 10px',fontFamily:"'Oswald',sans-serif",fontWeight:700,fontSize:'9px',letterSpacing:'.1em',background:'#ff2a38',color:'#fff',border:'none',cursor:'pointer'}}>
-                      SNAP
-                    </button>
-                  </div>
-                  {modifiedNodes.length>0 && (
-                    <div style={{marginTop:5,display:'flex',flexWrap:'wrap',gap:3}}>
-                      {modifiedNodes.map((n,i)=>(
-                        <span key={i} style={{fontSize:'9px',padding:'1px 5px',background:'#ffc41018',border:'1px solid #ffc41040',color:'#ffc410',fontFamily:"'JetBrains Mono',monospace"}}>{n.label}</span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                <div style={{flex:1,overflowY:'auto',scrollbarWidth:'thin',scrollbarColor:'rgba(255,255,255,.1) transparent'}}>
-                  {eventLog.filter(e=>e.type==='commit').length===0 && (
-                    <div style={{padding:'16px',opacity:.25,textAlign:'center',fontFamily:"'Share Tech Mono',monospace",fontSize:'11px'}}>No snapshots yet — type a message and hit SNAP</div>
-                  )}
-                  {eventLog.filter(e=>e.type==='commit').map((ev:any,i:number)=>(
-                    <div key={ev.id||i} style={{padding:'5px 10px',borderBottom:'1px solid rgba(255,255,255,.04)',display:'flex',gap:8,alignItems:'flex-start'}}>
-                      <div style={{width:5,height:5,borderRadius:'50%',background:'#ff2a38',flexShrink:0,marginTop:5}}/>
-                      <div style={{flex:1,minWidth:0}}>
-                        <div style={{fontFamily:"'Share Tech Mono',monospace",fontSize:'11px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:'#c0c8d8'}}>{ev.label}</div>
-                        <div style={{fontFamily:"'Share Tech Mono',monospace",fontSize:'9px',opacity:.4,marginTop:1}}>
-                          <span style={{color:'#ff2a38',fontFamily:"'JetBrains Mono',monospace"}}>{ev.id?.toString(16)?.slice(0,7)||'·······'}</span>
-                          {' · Operator · '}{new Date(ev.ts).toLocaleString()}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <GitPanelV2
+                cwd={(window as any).__forbiddenCwd || termCwd}
+                brutal={brutal}
+                onOpenFile={handleExplorerOpenFile}
+              />
             )}
           </div>
         </div>
@@ -4447,45 +4415,91 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
       {/* Command palette */}
       <CommandPalette isOpen={showCmd} onClose={()=>setShowCmd(false)} onAction={handleCmdAction}/>
 
-      {/* Create node modal */}
-      {showCreateNode && (
-        <div className="ide-overlay" onClick={()=>setShowCreateNode(false)}>
-          <div className="ide-modal" onClick={e=>e.stopPropagation()}>
-            <div className="ide-modal-hdr">
-              <span className="ide-modal-title">NEW NODE</span>
-              <button onClick={()=>setShowCreateNode(false)} style={{background:'transparent',border:'none',color:'rgba(200,200,220,.4)',cursor:'pointer',fontSize:'1.1rem'}}>✕</button>
-            </div>
-            <div className="ide-modal-body">
-              <div>
-                <div className="ide-modal-label">FILE NAME</div>
-                <input className="ide-modal-input" value={newNodeName} onChange={e=>setNewNodeName(e.target.value)} placeholder="my_function" autoFocus
-                  onKeyDown={e=>{if(e.key==='Enter')handleCreateNode();if(e.key==='Escape')setShowCreateNode(false)}}/>
+      {/* Create node modal — redesigned */}
+      {showCreateNode && (() => {
+        const EXT_MAP: Record<string,string> = { entry:'.js', function:'.js', class:'.ts', module:'.ts', doc:'.md' }
+        const LANG_ICONS: Record<string,string> = { entry:'⬡', function:'ƒ', class:'◇', module:'⬡', doc:'⌗' }
+        const acc = ACCENTS[newNodeColor]
+        const suggestedExt = (() => {
+          const n = newNodeName.trim()
+          if (n.includes('.')) return ''
+          return EXT_MAP[newNodeType] || '.js'
+        })()
+        const previewName = newNodeName.trim() ? newNodeName.trim() + (newNodeName.includes('.') ? '' : suggestedExt) : 'untitled' + suggestedExt
+        return (
+          <div className="ide-overlay" onClick={()=>setShowCreateNode(false)}>
+            <div className="ide-modal" onClick={e=>e.stopPropagation()} style={{width:380,maxWidth:'90vw'}}>
+              {/* Header */}
+              <div className="ide-modal-hdr" style={{borderBottom:`1px solid ${acc}22`}}>
+                <span className="ide-modal-title" style={{color:acc}}>NEW NODE</span>
+                <button onClick={()=>setShowCreateNode(false)} style={{background:'transparent',border:'none',color:'rgba(200,200,220,.3)',cursor:'pointer',fontSize:'1rem',lineHeight:1}}>✕</button>
               </div>
-              <div>
-                <div className="ide-modal-label">TYPE</div>
-                <div style={{display:'flex',gap:5}}>
-                  {['entry','function','class','module','doc'].map(t=>(
-                    <button key={t} className={`ide-btn ide-btn-sm ${newNodeType===t?'primary':''}`} onClick={()=>setNewNodeType(t)}>{t.toUpperCase()}</button>
-                  ))}
+              <div className="ide-modal-body" style={{gap:14}}>
+
+                {/* File name + live preview */}
+                <div>
+                  <div className="ide-modal-label">FILE NAME</div>
+                  <div style={{position:'relative'}}>
+                    <span style={{position:'absolute',left:10,top:'50%',transform:'translateY(-50%)',fontSize:'13px',opacity:.5,pointerEvents:'none',color:acc}}>{LANG_ICONS[newNodeType]||'ƒ'}</span>
+                    <input className="ide-modal-input" value={newNodeName} onChange={e=>setNewNodeName(e.target.value)}
+                      placeholder={`my_${newNodeType}`} autoFocus
+                      style={{paddingLeft:28}}
+                      onKeyDown={e=>{if(e.key==='Enter')handleCreateNode();if(e.key==='Escape')setShowCreateNode(false)}}/>
+                  </div>
+                  <div style={{marginTop:4,fontSize:'9px',fontFamily:"'JetBrains Mono',monospace",opacity:.4,paddingLeft:2,color:acc}}>
+                    → {previewName}
+                  </div>
                 </div>
-              </div>
-              <div>
-                <div className="ide-modal-label">ACCENT</div>
-                <div style={{display:'flex',flexWrap:'wrap',gap:5}}>
-                  {ACCENTS.map((c,i)=>(
-                    <div key={i} onClick={()=>setNewNodeColor(i)}
-                      style={{width:18,height:18,background:c,cursor:'pointer',border:`2px solid ${newNodeColor===i?'#fff':'transparent'}`,borderRadius:brutal?0:'50%',transition:'all .12s'}}/>
-                  ))}
+
+                {/* Type selector */}
+                <div>
+                  <div className="ide-modal-label">TYPE</div>
+                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:5}}>
+                    {[
+                      {t:'entry',    desc:'App entry point'},
+                      {t:'function', desc:'JS/TS function'},
+                      {t:'class',    desc:'Class / struct'},
+                      {t:'module',   desc:'Module / lib'},
+                      {t:'doc',      desc:'Markdown notes'},
+                    ].map(({t,desc})=>(
+                      <button key={t} onClick={()=>setNewNodeType(t)}
+                        style={{padding:'7px 6px',border:`1px solid ${newNodeType===t?acc:brutal?'rgba(0,0,0,.2)':'rgba(255,255,255,.1)'}`,background:newNodeType===t?acc+'18':'transparent',cursor:'pointer',
+                          display:'flex',flexDirection:'column',alignItems:'center',gap:3,transition:'all .12s',borderRadius:brutal?0:3,
+                          color:newNodeType===t?acc:brutal?'#0f0f0f':'rgba(200,200,220,.7)'}}>
+                        <span style={{fontSize:'13px',lineHeight:1}}>{LANG_ICONS[t]}</span>
+                        <span style={{fontFamily:"'Oswald',sans-serif",fontWeight:700,fontSize:'8px',letterSpacing:'.12em'}}>{t.toUpperCase()}</span>
+                        <span style={{fontSize:'7px',opacity:.5,fontFamily:"'Share Tech Mono',monospace"}}>{desc}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-              <div style={{display:'flex',gap:7}}>
-                <button className="ide-btn primary" style={{flex:1}} onClick={handleCreateNode}>CREATE</button>
-                <button className="ide-btn" onClick={()=>setShowCreateNode(false)}>CANCEL</button>
+
+                {/* Accent color */}
+                <div>
+                  <div className="ide-modal-label">ACCENT</div>
+                  <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+                    {ACCENTS.map((c,i)=>(
+                      <div key={i} onClick={()=>setNewNodeColor(i)} title={c}
+                        style={{width:20,height:20,background:c,cursor:'pointer',
+                          outline:`2px solid ${newNodeColor===i?'#fff':'transparent'}`,outlineOffset:2,
+                          borderRadius:brutal?0:4,transition:'all .1s',
+                          transform:newNodeColor===i?'scale(1.2)':'scale(1)'}}/>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div style={{display:'flex',gap:7,paddingTop:4,borderTop:`1px solid ${brutal?'rgba(0,0,0,.1)':'rgba(255,255,255,.06)'}`}}>
+                  <button className="ide-btn primary" style={{flex:1,background:acc,borderColor:acc,color:'#000'}} onClick={handleCreateNode}>
+                    CREATE
+                  </button>
+                  <button className="ide-btn" onClick={()=>setShowCreateNode(false)}>CANCEL</button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       {/* Create group modal */}
       {showCreateGroup && (
