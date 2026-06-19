@@ -111,9 +111,14 @@ func lookBin(names ...string) string {
 				candidates = append(candidates, filepath.Join(dir, name+".exe"), filepath.Join(dir, name+".cmd"))
 			}
 			for _, c := range candidates {
-				if info, err := os.Stat(c); err == nil && !info.IsDir() && info.Mode()&0111 != 0 {
-					return c
+				info, err := os.Stat(c)
+				if err != nil || info.IsDir() {
+					continue
 				}
+				if runtime.GOOS != "windows" && info.Mode()&0111 == 0 {
+					continue
+				}
+				return c
 			}
 		}
 	}
@@ -998,7 +1003,7 @@ func handleFsFormatCode(w http.ResponseWriter, r *http.Request) {
 		cmdStr = "npx --yes prettier --write " + tmpPath
 	}
 
-	cmd := exec.Command("sh", "-c", cmdStr)
+	cmd := shellCommand(cmdStr)
 	cmd.Env = append(os.Environ(), "PATH="+extendedPath())
 	var errBuf bytes.Buffer
 	cmd.Stderr = &errBuf
@@ -1464,11 +1469,17 @@ func buildRunCmd(lang, filePath string) string {
 		}
 	case "c":
 		out := strings.TrimSuffix(filePath, ".c")
+		if runtime.GOOS == "windows" {
+			out += ".exe"
+		}
 		if bin := lookBin("gcc", "clang", "cc"); bin != "" {
 			return bin + " -o " + out + " " + filePath + " -lm && " + out
 		}
 	case "cpp":
 		out := strings.TrimSuffix(filePath, ".cpp")
+		if runtime.GOOS == "windows" {
+			out += ".exe"
+		}
 		if bin := lookBin("g++", "clang++", "c++"); bin != "" {
 			return bin + " -o " + out + " " + filePath + " && " + out
 		}
@@ -1601,7 +1612,7 @@ func handleRunCode(w http.ResponseWriter, r *http.Request) {
 	}
 
 	t0 := time.Now()
-	cmd := exec.Command("sh", "-c", cmdStr)
+	cmd := shellCommand(cmdStr)
 	cmd.Env = append(os.Environ(), "PATH="+extendedPath())
 	if req.Cwd != "" {
 		cmd.Dir = req.Cwd
