@@ -13,6 +13,7 @@
     "engine:build:win": "cd engine && GOOS=windows go build -o ../electron/forbiden-engine.exe .",
     "electron:dev": "npm run engine:build && cross-env NODE_ENV=development concurrently \"vite\" \"wait-on http://localhost:5175 && electron .\"",
     "electron:build": "npm run engine:build && NODE_OPTIONS=--max-old-space-size=3072 vite build && electron-builder",
+    "electron:build:win": "npm run engine:build:win && NODE_OPTIONS=--max-old-space-size=3072 vite build && electron-builder --win",
     "electron:preview": "npm run engine:build && vite build && electron .",
     "electron:install-linux": "npm run electron:build && sudo dpkg -i release/*.deb || echo 'deb install failed, try AppImage'"
   },
@@ -70,9 +71,6 @@
       "!**/node_modules/**",
       "!release/**"
     ],
-    "extraResources": [
-      { "from": "electron/forbiden-engine", "to": "forbiden-engine" }
-    ],
     "linux": {
       "target": [
         {
@@ -95,7 +93,10 @@
         "text/x-python",
         "application/json"
       ],
-      "executableName": "forbiden"
+      "executableName": "forbiden",
+      "extraResources": [
+        { "from": "electron/forbiden-engine", "to": "forbiden-engine" }
+      ]
     },
     "mac": {
       "target": [
@@ -108,7 +109,10 @@
         }
       ],
       "category": "public.app-category.developer-tools",
-      "darkModeSupport": true
+      "darkModeSupport": true,
+      "extraResources": [
+        { "from": "electron/forbiden-engine", "to": "forbiden-engine" }
+      ]
     },
     "win": {
       "target": [
@@ -119,7 +123,10 @@
           ]
         }
       ],
-      "artifactName": "FORBIDEN-Setup-${version}.exe"
+      "artifactName": "FORBIDEN-Setup-${version}.exe",
+      "extraResources": [
+        { "from": "electron/forbiden-engine.exe", "to": "forbiden-engine.exe" }
+      ]
     },
     "nsis": {
       "oneClick": false,
