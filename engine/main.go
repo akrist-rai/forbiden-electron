@@ -20,7 +20,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/creack/pty"
 	"github.com/gorilla/websocket"
 )
 
@@ -29,7 +28,7 @@ import (
 // ─────────────────────────────────────────────────────────────────────────────
 
 type PTYSession struct {
-	ptmx *os.File
+	ptmx ptyHandle
 	mu   sync.Mutex
 }
 
@@ -187,38 +186,17 @@ func handleWsPTY(w http.ResponseWriter, r *http.Request) {
 	}
 	defer conn.Close()
 
-	shell := os.Getenv("SHELL")
-	if shell == "" {
-		if runtime.GOOS == "darwin" {
-			shell = "/bin/zsh"
-		} else {
-			shell = "/bin/bash"
-		}
-	}
-
-	cmd := exec.Command(shell)
-	cmd.Dir = cwd
-	cmd.Env = append(os.Environ(),
+	env := append(os.Environ(),
 		"PATH="+extendedPath(),
 		"TERM=xterm-256color",
 		"COLORTERM=truecolor",
 	)
-
-	ptmx, err := pty.StartWithSize(cmd, &pty.Winsize{
-		Rows: uint16(rows),
-		Cols: uint16(cols),
-	})
+	ptmx, cleanup, err := startTerminal(cols, rows, cwd, env)
 	if err != nil {
 		conn.WriteMessage(websocket.TextMessage, []byte("\x1b[31mFailed to start PTY: "+err.Error()+"\x1b[0m\r\n"))
 		return
 	}
-	defer func() {
-		ptmx.Close()
-		if cmd.Process != nil {
-			cmd.Process.Kill()
-		}
-		cmd.Wait()
-	}()
+	defer cleanup()
 
 	if id != "" {
 		ptyMu.Lock()
@@ -269,10 +247,7 @@ func handleWsPTY(w http.ResponseWriter, r *http.Request) {
 			if json.Unmarshal(data, &ctrl) == nil && ctrl.Type != "" {
 				switch ctrl.Type {
 				case "resize":
-					pty.Setsize(ptmx, &pty.Winsize{
-						Rows: uint16(ctrl.Rows),
-						Cols: uint16(ctrl.Cols),
-					})
+					ptmx.Resize(ctrl.Cols, ctrl.Rows)
 					continue
 				case "input":
 					ptmx.WriteString(ctrl.Data)
