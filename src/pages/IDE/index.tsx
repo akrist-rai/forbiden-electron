@@ -989,7 +989,11 @@ const EXTENDED_CMD_ITEMS = [
   { icon:'⊞', label:'Go to line',             hint:'Ctrl+G',     action:'jump-line',   group:'NAVIGATE' },
   { icon:'≡', label:'File outline',           hint:'Ctrl+Shift+O',action:'outline',    group:'NAVIGATE' },
   { icon:'⌕', label:'Search in files',        hint:'Ctrl+Shift+F',action:'project-search',group:'NAVIGATE' },
-  { icon:'✦', label:'Zen mode',              hint:'Ctrl+Shift+Z',action:'zen',         group:'VIEW'  },
+  { icon:'✦', label:'Zen mode',              hint:'Ctrl+Shift+Z',action:'zen',             group:'VIEW'  },
+  { icon:'⬡', label:'AI Assistant',          hint:'',           action:'ai',              group:'VIEW'  },
+  { icon:'⬓', label:'Split editor vertical', hint:'',           action:'split-vertical',  group:'VIEW'  },
+  { icon:'⬔', label:'Split editor horizontal',hint:'',          action:'split-horizontal',group:'VIEW'  },
+  { icon:'✕', label:'Close split',           hint:'',           action:'split-close',     group:'VIEW'  },
   { icon:'📁', label:'Open folder',           hint:'',           action:'open-folder', group:'FILE'  },
   { icon:'💾', label:'Save file',             hint:'Ctrl+S',     action:'save',        group:'FILE'  },
   ...PALETTES.map(p => ({
@@ -2617,6 +2621,216 @@ function JumpToLineModal({ isOpen, onClose, onJump, maxLine = 9999 }: any) {
 }
 
 // ══════════════════════════════════════════════════════════════
+//  SCRIPTS PANEL (Command Runner)
+// ══════════════════════════════════════════════════════════════
+
+function ScriptsPanel({ rootPath, brutal, onRun }: any) {
+  const [scripts, setScripts] = useState<{name:string,cmd:string,source:string}[]>([])
+  const [loading, setLoading] = useState(false)
+  const [running, setRunning] = useState<string|null>(null)
+
+  useEffect(() => {
+    if (!rootPath) return
+    setLoading(true)
+    const api = (window as any).electronAPI
+    api?.tools?.getScripts?.(rootPath).then((res: any) => {
+      setScripts(res?.scripts || [])
+      setLoading(false)
+    }).catch(() => setLoading(false))
+  }, [rootPath])
+
+  const text   = brutal ? '#0f0f0f' : '#c0c8d8'
+  const dimText = brutal ? 'rgba(15,15,15,.4)' : 'rgba(200,200,220,.4)'
+
+  const handleRun = (s: any) => {
+    setRunning(s.name)
+    setTimeout(() => setRunning(null), 1500)
+    onRun?.(s.cmd)
+  }
+
+  return (
+    <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}}>
+      <div style={{padding:'6px 10px 4px',flexShrink:0,borderBottom:'1px solid rgba(255,255,255,.06)',display:'flex',alignItems:'center',gap:8}}>
+        <span style={{fontFamily:"'Oswald',sans-serif",fontWeight:700,fontSize:'10px',letterSpacing:'.12em',color:'#ffc410'}}>⚙ SCRIPTS</span>
+        {rootPath && <button onClick={()=>{ setLoading(true); const api=(window as any).electronAPI; api?.tools?.getScripts?.(rootPath).then((r:any)=>{setScripts(r?.scripts||[]);setLoading(false)}).catch(()=>setLoading(false)) }}
+          style={{marginLeft:'auto',background:'transparent',border:'1px solid rgba(255,255,255,.1)',color:dimText,fontFamily:"'Share Tech Mono',monospace",fontSize:'9px',padding:'1px 6px',cursor:'pointer'}}>↻ RELOAD</button>}
+      </div>
+      <div style={{flex:1,overflowY:'auto',scrollbarWidth:'thin',scrollbarColor:'rgba(255,255,255,.07) transparent',padding:'6px 8px',display:'flex',flexDirection:'column',gap:4}}>
+        {!rootPath && (
+          <div style={{padding:'20px',textAlign:'center',fontFamily:"'Share Tech Mono',monospace",fontSize:'10px',color:dimText}}>OPEN A FOLDER TO SEE ITS SCRIPTS</div>
+        )}
+        {rootPath && loading && (
+          <div style={{padding:'20px',textAlign:'center',fontFamily:"'Share Tech Mono',monospace",fontSize:'10px',color:'#ffc410',opacity:.7}}>LOADING…</div>
+        )}
+        {rootPath && !loading && scripts.length === 0 && (
+          <div style={{padding:'20px',textAlign:'center',fontFamily:"'Share Tech Mono',monospace",fontSize:'10px',color:dimText}}>NO SCRIPTS FOUND<br/><span style={{fontSize:'9px',opacity:.6}}>add scripts to package.json or a Makefile</span></div>
+        )}
+        {scripts.map((s, i) => (
+          <div key={i} style={{display:'flex',alignItems:'center',gap:8,padding:'5px 8px',background:'rgba(255,255,255,.03)',border:'1px solid rgba(255,255,255,.06)',cursor:'default'}}>
+            <span style={{fontFamily:"'Share Tech Mono',monospace",fontSize:'8px',color:s.source==='makefile'?'#4285f4':'#10b981',flexShrink:0,letterSpacing:'.06em',border:`1px solid`,borderColor:s.source==='makefile'?'rgba(66,133,244,.3)':'rgba(16,185,129,.3)',padding:'0 4px'}}>{s.source.toUpperCase()}</span>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:'11px',color:text,fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{s.name}</div>
+              <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:'10px',color:dimText,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{s.cmd}</div>
+            </div>
+            <button onClick={()=>handleRun(s)}
+              style={{flexShrink:0,background:running===s.name?'rgba(16,185,129,.2)':'rgba(255,196,16,.12)',border:`1px solid ${running===s.name?'rgba(16,185,129,.4)':'rgba(255,196,16,.3)'}`,
+                color:running===s.name?'#10b981':'#ffc410',fontFamily:"'Oswald',sans-serif",fontWeight:700,fontSize:'9px',letterSpacing:'.08em',
+                padding:'3px 10px',cursor:'pointer',transition:'all .1s'}}>
+              {running===s.name?'▶…':'▶ RUN'}
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ══════════════════════════════════════════════════════════════
+//  AI CHAT PANEL
+// ══════════════════════════════════════════════════════════════
+
+function renderAiMessage(text: string) {
+  // Convert markdown-ish code blocks to styled spans
+  return text
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/```[\w]*\n?([\s\S]*?)```/g, (_,code)=>`<pre style="background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.08);padding:8px 10px;margin:6px 0;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.5;color:#c0c8d8">${code.trim()}</pre>`)
+    .replace(/`([^`]+)`/g, '<code style="background:rgba(255,255,255,.08);padding:1px 4px;font-family:\'JetBrains Mono\',monospace;font-size:11px">$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/\n/g, '<br/>')
+}
+
+function AiChatPanel({ activeNode, explorerRoot, brutal }: any) {
+  const [messages, setMessages] = useState<{role:string,content:string}[]>([])
+  const [input, setInput] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [apiKey, setApiKey] = useState(() => localStorage.getItem('forbiden_ai_key') || '')
+  const [model, setModel] = useState('claude-haiku-4-5-20251001')
+  const [includeFile, setIncludeFile] = useState(true)
+  const [showKeyInput, setShowKeyInput] = useState(false)
+  const endRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages, loading])
+
+  const saveKey = (k: string) => { setApiKey(k); localStorage.setItem('forbiden_ai_key', k) }
+
+  const send = async () => {
+    const q = input.trim()
+    if (!q || loading) return
+    setInput('')
+
+    const userMsg = { role: 'user', content: q }
+    const newMsgs = [...messages, userMsg]
+    setMessages(newMsgs)
+    setLoading(true)
+
+    const system = includeFile && activeNode?.code
+      ? `You are an expert programmer assistant in the FORBIDEN IDE. The user has this file open:\n\nFilename: ${activeNode.label}\n\`\`\`\n${activeNode.code.slice(0, 8000)}\n\`\`\`\n\nBe concise, code-focused, and practical. Reference the file when relevant.`
+      : `You are an expert programmer assistant in the FORBIDEN IDE. Be concise, code-focused, and practical.`
+
+    const api = (window as any).electronAPI
+    const result = await api?.ai?.chat?.(newMsgs.map(m=>({role:m.role,content:m.content})), apiKey, model, system)
+
+    setLoading(false)
+    if (result?.success) {
+      setMessages(prev => [...prev, { role: 'assistant', content: result.content }])
+    } else {
+      setMessages(prev => [...prev, { role: 'assistant', content: `⚠ Error: ${result?.error || 'Unknown error'}` }])
+    }
+  }
+
+  const text   = brutal ? '#0f0f0f' : '#c0c8d8'
+  const dimText = brutal ? 'rgba(15,15,15,.4)' : 'rgba(200,200,220,.4)'
+
+  return (
+    <div style={{display:'flex',flexDirection:'column',height:'100%',overflow:'hidden'}}>
+      {/* Header */}
+      <div style={{padding:'6px 10px',flexShrink:0,borderBottom:'1px solid rgba(255,255,255,.06)',display:'flex',alignItems:'center',gap:6}}>
+        <span style={{fontFamily:"'Oswald',sans-serif",fontWeight:700,fontSize:'10px',letterSpacing:'.12em',color:'#bb9af7'}}>✦ AI ASSISTANT</span>
+        <select value={model} onChange={e=>setModel(e.target.value)}
+          style={{marginLeft:'auto',background:'transparent',border:'1px solid rgba(255,255,255,.1)',color:dimText,fontFamily:"'Share Tech Mono',monospace",fontSize:'9px',padding:'1px 3px',cursor:'pointer',outline:'none'}}>
+          <option value="claude-haiku-4-5-20251001">Haiku (fast)</option>
+          <option value="claude-sonnet-4-6">Sonnet</option>
+        </select>
+        <button onClick={()=>setShowKeyInput(s=>!s)} title="API key settings"
+          style={{background:'transparent',border:'none',color:apiKey?'#10b981':dimText,cursor:'pointer',fontSize:'12px',padding:'0 2px'}}>⚙</button>
+      </div>
+
+      {/* API key input */}
+      {showKeyInput && (
+        <div style={{padding:'6px 10px',flexShrink:0,borderBottom:'1px solid rgba(255,255,255,.06)',background:'rgba(0,0,0,.25)'}}>
+          <div style={{fontSize:'9px',color:dimText,fontFamily:"'Share Tech Mono',monospace",marginBottom:4}}>ANTHROPIC API KEY</div>
+          <div style={{display:'flex',gap:4}}>
+            <input type="password" value={apiKey} onChange={e=>saveKey(e.target.value)}
+              placeholder="sk-ant-..."
+              style={{flex:1,background:'rgba(255,255,255,.05)',border:'1px solid rgba(255,255,255,.1)',outline:'none',color:text,fontFamily:"'JetBrains Mono',monospace",fontSize:'11px',padding:'3px 6px'}}/>
+            <button onClick={()=>setShowKeyInput(false)} style={{background:'rgba(16,185,129,.15)',border:'1px solid rgba(16,185,129,.3)',color:'#10b981',fontFamily:"'Oswald',sans-serif",fontWeight:700,fontSize:'9px',padding:'3px 8px',cursor:'pointer'}}>OK</button>
+          </div>
+        </div>
+      )}
+
+      {/* Messages */}
+      <div style={{flex:1,overflowY:'auto',scrollbarWidth:'thin',scrollbarColor:'rgba(255,255,255,.07) transparent',padding:'8px 0'}}>
+        {messages.length === 0 && (
+          <div style={{padding:'24px 14px',textAlign:'center',color:dimText,fontFamily:"'Share Tech Mono',monospace",fontSize:'10px',lineHeight:2}}>
+            {apiKey ? (
+              <>ASK ANYTHING ABOUT YOUR CODE<br/>
+              <span style={{fontSize:'9px',opacity:.6}}>The current file is included automatically · toggle below</span></>
+            ) : (
+              <>ADD YOUR ANTHROPIC API KEY<br/>
+              <span style={{fontSize:'9px',opacity:.6}}>Click ⚙ above · get one at console.anthropic.com</span></>
+            )}
+          </div>
+        )}
+        {messages.map((m, i) => (
+          <div key={i} style={{padding:'6px 12px',borderBottom:'1px solid rgba(255,255,255,.03)'}}>
+            <div style={{fontFamily:"'Oswald',sans-serif",fontWeight:700,fontSize:'8px',letterSpacing:'.12em',marginBottom:4,
+              color:m.role==='user'?'#ff435a':'#bb9af7'}}>
+              {m.role==='user'?'YOU':'✦ AI'}
+            </div>
+            <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:'11px',lineHeight:1.6,color:text}}
+              dangerouslySetInnerHTML={{__html: renderAiMessage(m.content)}}/>
+          </div>
+        ))}
+        {loading && (
+          <div style={{padding:'8px 12px',display:'flex',alignItems:'center',gap:6}}>
+            <span style={{color:'#bb9af7',fontSize:'11px',opacity:.6,fontFamily:"'Share Tech Mono',monospace",animation:'fpulse 1.2s infinite'}}>✦ thinking…</span>
+          </div>
+        )}
+        <div ref={endRef}/>
+      </div>
+
+      {/* Input */}
+      <div style={{padding:'8px',flexShrink:0,borderTop:'1px solid rgba(255,255,255,.06)',display:'flex',flexDirection:'column',gap:5}}>
+        <div style={{display:'flex',alignItems:'center',gap:5}}>
+          <label style={{display:'flex',alignItems:'center',gap:4,cursor:'pointer',fontFamily:"'Share Tech Mono',monospace",fontSize:'9px',color:dimText}}>
+            <input type="checkbox" checked={includeFile} onChange={e=>setIncludeFile(e.target.checked)} style={{width:10,height:10}}/>
+            include file
+          </label>
+          {messages.length > 0 && (
+            <button onClick={()=>setMessages([])} style={{marginLeft:'auto',background:'transparent',border:'none',color:dimText,cursor:'pointer',fontFamily:"'Share Tech Mono',monospace",fontSize:'9px'}}>clear</button>
+          )}
+        </div>
+        <div style={{display:'flex',gap:5}}>
+          <textarea value={input} onChange={e=>setInput(e.target.value)}
+            onKeyDown={e=>{ if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()} }}
+            placeholder="Ask about your code… (Enter to send, Shift+Enter newline)"
+            rows={2}
+            style={{flex:1,background:'rgba(255,255,255,.05)',border:'1px solid rgba(255,255,255,.08)',outline:'none',color:text,fontFamily:"'JetBrains Mono',monospace",fontSize:'11px',padding:'5px 7px',resize:'none',lineHeight:1.4}}
+            onFocus={e=>(e.target.style.borderColor='rgba(187,154,247,.4)')}
+            onBlur={e=>(e.target.style.borderColor='rgba(255,255,255,.08)')}/>
+          <button onClick={send} disabled={loading||!input.trim()||!apiKey}
+            style={{background:loading||!apiKey?'transparent':'rgba(187,154,247,.15)',border:`1px solid ${loading||!apiKey?'rgba(255,255,255,.08)':'rgba(187,154,247,.4)'}`,
+              color:loading||!apiKey?dimText:'#bb9af7',fontFamily:"'Oswald',sans-serif",fontWeight:700,fontSize:'10px',
+              letterSpacing:'.08em',padding:'0 10px',cursor:loading||!apiKey?'default':'pointer',transition:'all .12s'}}>
+            {loading?'…':'▶'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ══════════════════════════════════════════════════════════════
 //  MAIN IDE COMPONENT
 // ══════════════════════════════════════════════════════════════
 
@@ -3705,6 +3919,8 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
   const [projectSearchResults, setProjectSearchResults] = useState<any[]>([])
   const [projectSearchLoading, setProjectSearchLoading] = useState(false)
   const projectSearchDebounce = useRef<any>(null)
+  const [splitTabId, setSplitTabId] = useState<string|null>(null)
+  const [splitMode, setSplitMode] = useState<'vertical'|'horizontal'>('vertical')
 
   // Project-wide search debounced effect
   useEffect(() => {
@@ -3766,6 +3982,10 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
     else if (action === 'jump-line') { setShowJumpLine(true) }
     else if (action === 'project-search') { setSidebarMode('project-search'); setSidebarOpen(true) }
     else if (action === 'outline') { setSidebarMode('outline'); setSidebarOpen(true) }
+    else if (action === 'ai') { setSidebarMode('ai'); setSidebarOpen(true) }
+    else if (action === 'split-vertical') { if (activeTabId) { setSplitTabId(activeTabId); setSplitMode('vertical') } }
+    else if (action === 'split-horizontal') { if (activeTabId) { setSplitTabId(activeTabId); setSplitMode('horizontal') } }
+    else if (action === 'split-close') { setSplitTabId(null) }
     else if (action?.startsWith('theme:')) {
       const p = PALETTES.find(p => p.id === action.replace('theme:', ''))
       if (p) setGlobalEditorPalette(p)
@@ -3786,6 +4006,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
     { key:'files',          icon:<I.Files/>,  tip:'Files (Ctrl+Shift+E)' },
     { key:'project-search', icon:<I.Search/>, tip:'Search in files (Ctrl+Shift+F)', badge:0 },
     { key:'outline',        icon:<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>, tip:'Outline (Ctrl+Shift+O)' },
+    { key:'ai',             icon:<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>, tip:'AI Assistant' },
     { key:'note',           icon:<I.Note/>,  tip:'Notes' },
   ]
 
@@ -3937,7 +4158,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
           <div className="ide-sidebar-pane" style={{width:sidebarW}}>
             <div className="ide-sidebar-header">
               <span className="ide-sidebar-title">
-                {({'files':'EXPLORER','search':'SEARCH','note':'NOTES','settings':'SETTINGS','project-search':'SEARCH FILES','outline':'OUTLINE'} as any)[sidebarMode]||'EXPLORER'}
+                {({'files':'EXPLORER','search':'SEARCH','note':'NOTES','settings':'SETTINGS','project-search':'SEARCH FILES','outline':'OUTLINE','ai':'AI ASSISTANT'} as any)[sidebarMode]||'EXPLORER'}
               </span>
               <div style={{marginLeft:'auto',display:'flex',gap:4,alignItems:'center'}}>
                 {sidebarMode==='files'&&<button className="ide-btn ide-btn-sm" onClick={()=>setShowCreateNode(true)} title="New graph node">+N</button>}
@@ -4092,6 +4313,11 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
                   </div>
                 )
               })()}
+              {/* ── AI CHAT ── */}
+              {sidebarMode==='ai' && (
+                <AiChatPanel activeNode={activeTabNode} explorerRoot={explorerRoot} brutal={brutal}/>
+              )}
+
               {sidebarMode==='settings' && (
                 <div style={{padding:'8px'}}>
                   <div className="ide-toc-sec">THEME</div>
@@ -4374,6 +4600,19 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
                     style={{padding:'1px 7px',cursor:'pointer',fontFamily:"'Share Tech Mono',monospace",fontSize:'10px',background:'transparent',color:'rgba(200,200,220,.35)',border:'1px solid rgba(255,255,255,.08)',transition:'all .12s'}}
                     onMouseEnter={e=>(e.currentTarget.style.color='#c0c8d8')}
                     onMouseLeave={e=>(e.currentTarget.style.color='rgba(200,200,220,.35)')}>:N</button>
+                  {/* Split editor buttons */}
+                  {activeTabId && (
+                    <>
+                      <button onClick={()=>{ if(splitTabId===activeTabId){setSplitTabId(null)}else{setSplitTabId(activeTabId);setSplitMode('vertical')} }}
+                        title={splitTabId===activeTabId?'Close split':'Split vertical'}
+                        style={{padding:'1px 7px',cursor:'pointer',fontFamily:"'Share Tech Mono',monospace",fontSize:'10px',transition:'all .12s',
+                          background:splitTabId===activeTabId?'rgba(16,185,129,.15)':'transparent',
+                          color:splitTabId===activeTabId?'#10b981':'rgba(200,200,220,.35)',
+                          border:`1px solid ${splitTabId===activeTabId?'rgba(16,185,129,.35)':'rgba(255,255,255,.08)'}`}}
+                        onMouseEnter={e=>(e.currentTarget.style.color=splitTabId===activeTabId?'#10b981':'#c0c8d8')}
+                        onMouseLeave={e=>(e.currentTarget.style.color=splitTabId===activeTabId?'#10b981':'rgba(200,200,220,.35)')}>⬓</button>
+                    </>
+                  )}
                   {activeTabNode?.type==='doc' ? (
                     <>
                       {['edit','split','preview'].map(m=>(
@@ -4416,27 +4655,57 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
                 </div>
               </div>
               {/* Editor / Markdown Preview */}
-              <div className="ide-code-wrap" onKeyDown={e=>{if(e.ctrlKey&&e.key==='Enter'){e.preventDefault();handleRunNode(activeTabId)}}}>
-                {activeTabNode?.type==='doc' && mdPreviewMode==='split' ? (
-                  <div style={{display:'flex',height:'100%',overflow:'hidden'}}>
-                    <div style={{flex:1,overflow:'hidden',borderRight:'1px solid rgba(255,255,255,.08)'}}>
-                      <CodeMirrorEditor key={activeTabId+'_s'} node={activeTabNode} onChange={code=>updateNodeCode(activeTabId,code)} onSave={()=>saveNodeToDisk(activeTabId)} externalPalette={globalEditorPalette}/>
+              <div className="ide-code-wrap" style={{display:'flex',flexDirection:splitTabId?(splitMode==='horizontal'?'column':'row'):'column',overflow:'hidden'}} onKeyDown={e=>{if(e.ctrlKey&&e.key==='Enter'){e.preventDefault();handleRunNode(activeTabId)}}}>
+                {/* Primary editor pane */}
+                <div style={{flex:1,overflow:'hidden',position:'relative',display:'flex',flexDirection:'column'}}>
+                  {activeTabNode?.type==='doc' && mdPreviewMode==='split' ? (
+                    <div style={{display:'flex',height:'100%',overflow:'hidden'}}>
+                      <div style={{flex:1,overflow:'hidden',borderRight:'1px solid rgba(255,255,255,.08)'}}>
+                        <CodeMirrorEditor key={activeTabId+'_s'} node={activeTabNode} onChange={code=>updateNodeCode(activeTabId,code)} onSave={()=>saveNodeToDisk(activeTabId)} externalPalette={globalEditorPalette}/>
+                      </div>
+                      <div style={{flex:1,overflow:'auto',padding:'12px 16px',fontSize:mdFontSize+'px'}} className="md-preview"
+                        dangerouslySetInnerHTML={{__html: renderMd(activeTabNode.code||'')}}/>
                     </div>
-                    <div style={{flex:1,overflow:'auto',padding:'12px 16px',fontSize:mdFontSize+'px'}} className="md-preview"
-                      dangerouslySetInnerHTML={{__html: renderMd(activeTabNode.code||'')}}/>
-                  </div>
-                ) : activeTabNode?.type==='doc' && mdPreviewMode==='preview' ? (
-                  <div className="md-preview" style={{fontSize:mdFontSize+'px'}} dangerouslySetInnerHTML={{__html: renderMd(activeTabNode.code||'')}}/>
-                ) : (
-                  <CodeMirrorEditor
-                    key={activeTabId}
-                    node={activeTabNode}
-                    onChange={code=>updateNodeCode(activeTabId,code)}
-                    onSave={()=>saveNodeToDisk(activeTabId)}
-                    externalPalette={globalEditorPalette}
-                    jumpToLine={jumpLineTarget??undefined}
-                  />
-                )}
+                  ) : activeTabNode?.type==='doc' && mdPreviewMode==='preview' ? (
+                    <div className="md-preview" style={{fontSize:mdFontSize+'px'}} dangerouslySetInnerHTML={{__html: renderMd(activeTabNode.code||'')}}/>
+                  ) : (
+                    <CodeMirrorEditor
+                      key={activeTabId}
+                      node={activeTabNode}
+                      onChange={code=>updateNodeCode(activeTabId,code)}
+                      onSave={()=>saveNodeToDisk(activeTabId)}
+                      externalPalette={globalEditorPalette}
+                      jumpToLine={jumpLineTarget??undefined}
+                    />
+                  )}
+                </div>
+
+                {/* Split pane */}
+                {splitTabId && (() => {
+                  const splitNode = nodesRef.current.find(n=>n.id===splitTabId)
+                  return splitNode ? (
+                    <>
+                      <div style={{
+                        [splitMode==='horizontal'?'height':'width']:'1px',
+                        background:'rgba(255,255,255,.1)',flexShrink:0,
+                        cursor:splitMode==='horizontal'?'row-resize':'col-resize'
+                      }}/>
+                      <div style={{flex:1,overflow:'hidden',position:'relative',display:'flex',flexDirection:'column'}}>
+                        <div style={{display:'flex',alignItems:'center',padding:'2px 8px',background:'rgba(0,0,0,.25)',flexShrink:0,gap:6,borderBottom:'1px solid rgba(255,255,255,.06)'}}>
+                          <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:'10px',opacity:.5,flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{splitNode.label}</span>
+                          <button onClick={()=>setSplitTabId(null)} style={{background:'transparent',border:'none',color:'rgba(200,200,220,.3)',cursor:'pointer',fontSize:'11px',padding:'0 2px',lineHeight:1}} title="Close split">✕</button>
+                        </div>
+                        <CodeMirrorEditor
+                          key={splitTabId+'_split'}
+                          node={splitNode}
+                          onChange={code=>updateNodeCode(splitTabId,code)}
+                          onSave={()=>saveNodeToDisk(splitTabId)}
+                          externalPalette={globalEditorPalette}
+                        />
+                      </div>
+                    </>
+                  ) : null
+                })()}
               </div>
             </>
           ) : (
@@ -4741,6 +5010,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
             {[
               {key:'console',  label:'▶ CONSOLE'},
               {key:'terminal', label:'$ TERMINAL'},
+              {key:'scripts',  label:'⚙ SCRIPTS'},
               {key:'notebook', label:'◎ NOTEBOOK'},
               {key:'git',      label:'◆ GIT'},
               {key:'timeline', label:'⎔ TIMELINE'},
@@ -4767,6 +5037,10 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
                 palette={termPalette}
                 onCwdChange={setTermCwd}
               />
+            )}
+            {bottomTab==='scripts' && (
+              <ScriptsPanel rootPath={explorerRoot} brutal={brutal}
+                onRun={(cmd)=>{ setBottomTab('terminal'); setBottomOpen(true); setTimeout(()=>{ const api=(window as any).electronAPI; api?.pty?.write?.('terminal-main', cmd+'\n') },300) }}/>
             )}
             {bottomTab==='timeline' && (
               <div style={{flex:1,overflow:'hidden',display:'flex',flexDirection:'column',minHeight:0}}>

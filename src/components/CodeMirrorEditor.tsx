@@ -457,19 +457,26 @@ export default function CodeMirrorEditor({ node, onChange, onSave, externalPalet
     showToast('COPIED')
   }, [showToast])
 
-  const handleFormat = useCallback(() => {
+  const handleFormat = useCallback(async () => {
     if (!viewRef.current) return
     const code = viewRef.current.state.doc.toString()
-    const formatted = code
-      .split('\n')
-      .map((l) => l.replace(/\s+$/, ''))
-      .join('\n')
-      .replace(/\n{3,}/g, '\n\n')
-    const current = viewRef.current.state.doc.toString()
-    viewRef.current.dispatch({
-      changes: { from: 0, to: current.length, insert: formatted },
-    })
-    showToast('FORMATTED')
+    const ext = (nodeRef.current?.label || '').split('.').pop()?.toLowerCase() || ''
+    const langMap: Record<string,string> = { js:'js', mjs:'js', jsx:'jsx', ts:'ts', tsx:'tsx', py:'py', go:'go', json:'json', css:'css', html:'html' }
+    const lang = langMap[ext] || ext
+    const api = (window as any).electronAPI
+    const t0 = Date.now()
+    let formatted = code
+    if (api?.tools?.formatCode) {
+      const result = await api.tools.formatCode(code, lang)
+      if (result?.success && result.formatted) formatted = result.formatted
+    }
+    if (formatted === code) {
+      // fall back to basic cleanup
+      formatted = code.split('\n').map((l:string)=>l.replace(/\s+$/,'')).join('\n').replace(/\n{3,}/g,'\n\n')
+    }
+    const cur = viewRef.current.state.doc.toString()
+    viewRef.current.dispatch({ changes: { from: 0, to: cur.length, insert: formatted } })
+    showToast(`FORMATTED ${Date.now()-t0}ms`)
   }, [showToast])
 
   const handleToggleComment = useCallback(() => {
