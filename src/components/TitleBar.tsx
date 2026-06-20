@@ -113,8 +113,8 @@ export default function TitleBar({
 
   // Load recent workspaces once on mount and whenever File menu opens
   useEffect(() => {
-    if (!api?.getRecentWorkspaces) return
-    api.getRecentWorkspaces().then((list: string[]) => setRecentWorkspaces(list || [])).catch(() => {})
+    if (!api?.fs?.getRecentWorkspaces) return
+    api.fs.getRecentWorkspaces().then((list: string[]) => setRecentWorkspaces(list || [])).catch(() => {})
   }, [openMenu])
 
   const MENUS = useMemo(() => ({

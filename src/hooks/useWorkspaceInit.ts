@@ -14,7 +14,7 @@ export function useWorkspaceInit({ setExplorerRoot, setTermCwd, setSidebarMode }
       const [defaultRes, savedRes] = await Promise.all([
         api.fs.ensureDefaultWorkspace(),
         api.fs.getWorkspace(),
-      ])
+      ]) as [{ success?: boolean; path?: string } | null, { path?: string } | null]
       const folder = savedRes?.path || (defaultRes?.success ? defaultRes.path : null)
       if (!folder) return
       setExplorerRoot(folder)

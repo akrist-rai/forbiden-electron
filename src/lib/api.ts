@@ -90,6 +90,6 @@ export function getAPI(): DesktopAPI | undefined {
 export const api = new Proxy({} as DesktopAPI, {
   get(_target, prop) {
     const a = (window as unknown as { electronAPI?: DesktopAPI }).electronAPI
-    return a ? (a as Record<string | symbol, unknown>)[prop] : undefined
+    return a ? (a as unknown as Record<string | symbol, unknown>)[prop] : undefined
   },
 })

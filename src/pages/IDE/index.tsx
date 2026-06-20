@@ -5,7 +5,7 @@ import { useWorkspace } from '../../hooks/useWorkspace'
 import { useUIStore } from '../../stores/uiStore'
 import { useEditorStore } from '../../stores/editorStore'
 import { useWorkspaceStore } from '../../stores/workspaceStore'
-import { useAiStore } from '../../stores/aiStore'
+import { useAiStore, DEFAULT_MODELS } from '../../stores/aiStore'
 import { useTerminalStore } from '../../stores/terminalStore'
 import { useGitStore } from '../../stores/gitStore'
 import { useBoardStore } from '../../stores/boardStore'
@@ -203,7 +203,7 @@ function CodeEditor({ node, onChange, externalPalette }) {
   }
   const diffLines = useMemo(() => code.split('\n').map((line,i)=>({ type:i===1&&node.modified?'add':i===2&&node.modified?'del':'ctx', text:line, num:i+1 })), [code,node.modified])
   const cssVars = { '--syn-kw':palette.kw,'--syn-str':palette.str,'--syn-cmt':palette.cmt,'--syn-num':palette.num,'--syn-fn':palette.fn,'--syn-bi':palette.bi,'--syn-op':palette.op }
-  const highlighted = highlightCode(code, nodeLang)
+  const highlighted = useMemo(() => highlightCode(code, nodeLang), [code, nodeLang])
   const activeLineY = (cursor.line - 1) * lineH
   const minimapLines = useMemo(() => code.split('\n').slice(0,50).map(l=>({len:Math.min(l.length,80),indent:l.match(/^\s*/)[0].length})), [code])
 

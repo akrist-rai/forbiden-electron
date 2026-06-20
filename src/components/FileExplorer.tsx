@@ -335,7 +335,7 @@ function FileExplorer({ rootPath, brutal, onOpenFile, onOpenFolder, onScanImport
     if (!p || !api) return
     setLoading(true)
     try {
-      const res = await api.readTree(p)
+      const res = await api.fs.readTree(p) as any
       if (res.success) setTree(res.tree)
     } finally { setLoading(false) }
   }, [rootPath, api])
@@ -377,7 +377,7 @@ function FileExplorer({ rootPath, brutal, onOpenFile, onOpenFolder, onScanImport
     if (action === 'open') { onOpenFile(item); return }
     if (action === 'open-graph') { onScanImports(item.type === 'dir' ? item.path : rootPath!); return }
     if (action === 'open-terminal') { onTerminalCd(item.type === 'dir' ? item.path : item.path.substring(0, item.path.lastIndexOf('/'))); return }
-    if (action === 'reveal') { api.showInFolder(item.path); return }
+    if (action === 'reveal') { api.fs.showInFolder(item.path); return }
 
     if (action === 'copy') {
       setClipboard({ action: 'copy', item })
@@ -391,8 +391,8 @@ function FileExplorer({ rootPath, brutal, onOpenFile, onOpenFolder, onScanImport
         : `${item.path.substring(0, item.path.lastIndexOf('/'))}/${clipboard.item.name}`
       const isDir = clipboard.item.type === 'dir'
       const result = isDir
-        ? await api.copyFolder(clipboard.item.path, dest)
-        : await api.copyFile(clipboard.item.path, dest)
+        ? await api.fs.copyFolder(clipboard.item.path, dest)
+        : await api.fs.copyFile(clipboard.item.path, dest)
       if (result.success) { showToast('Pasted'); reload() }
       else showToast(`Error: ${result.error}`)
       return
@@ -422,7 +422,7 @@ function FileExplorer({ rootPath, brutal, onOpenFile, onOpenFolder, onScanImport
 
     if (action === 'delete') {
       if (confirm(`Delete "${item.name}"?`)) {
-        const r = await api.deleteItem(item.path)
+        const r = await api.fs.deleteItem(item.path)
         if (r.success) reload()
         else showToast(`Error: ${r.error}`)
       }
@@ -435,7 +435,7 @@ function FileExplorer({ rootPath, brutal, onOpenFile, onOpenFolder, onScanImport
     const dir = renamingPath.substring(0, renamingPath.lastIndexOf('/'))
     const newPath = `${dir}/${newName}`
     if (newPath !== renamingPath) {
-      const r = await api.renameItem(renamingPath, newPath)
+      const r = await api.fs.renameItem(renamingPath, newPath)
       if (!r.success) showToast(`Error: ${r.error}`)
       else reload()
     }
@@ -446,8 +446,8 @@ function FileExplorer({ rootPath, brutal, onOpenFile, onOpenFolder, onScanImport
     if (!newItemState || !newItemName.trim() || !api) { setNewItemState(null); return }
     const fullPath = `${newItemState.parentPath}/${newItemName.trim()}`
     const r = newItemState.type === 'dir'
-      ? await api.createFolder(fullPath)
-      : await api.createFile(fullPath)
+      ? await api.fs.createFolder(fullPath)
+      : await api.fs.createFile(fullPath)
     if (r.success) { reload(); if (newItemState.type === 'file') onOpenFile({ path: fullPath, name: newItemName.trim(), type: 'file', ext: newItemName.split('.').pop() ?? '' }) }
     else showToast(`Error: ${r.error}`)
     setNewItemState(null); setNewItemName('')

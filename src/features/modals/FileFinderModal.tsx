@@ -53,7 +53,7 @@ export default function FileFinderModal({ isOpen, onClose, onOpenFile, rootPath,
 
   useEffect(() => {
     if (!isOpen || !rootPath) return
-    api?.fs?.listAllFiles?.(rootPath, 6000).then((list: FileEntry[]) => setFiles(list || [])).catch(() => {})
+    api?.fs?.listAllFiles?.(rootPath, 6000).then((list) => setFiles((list as FileEntry[]) || [])).catch(() => {})
   }, [isOpen, rootPath])
 
   const filtered = useMemo(() => {
