@@ -4406,7 +4406,8 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
               {/* ── PROJECT-WIDE SEARCH ── */}
               {sidebarMode==='project-search' && (
                 <div style={{display:'flex',flexDirection:'column',height:'100%',overflow:'hidden'}}>
-                  <div style={{padding:'6px 8px',flexShrink:0}}>
+                  <div style={{padding:'6px 8px',flexShrink:0,display:'flex',flexDirection:'column',gap:4}}>
+                    {/* Search input */}
                     <div style={{position:'relative'}}>
                       <span style={{position:'absolute',left:8,top:'50%',transform:'translateY(-50%)',fontSize:'11px',opacity:.4,pointerEvents:'none'}}>⌕</span>
                       <input
@@ -4419,6 +4420,30 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
                         onBlur={e=>(e.target.style.borderColor='rgba(255,255,255,.08)')}
                       />
                       {projectSearchQuery&&<button onClick={()=>setProjectSearchQuery('')} style={{position:'absolute',right:6,top:'50%',transform:'translateY(-50%)',background:'transparent',border:'none',cursor:'pointer',color:'rgba(200,200,220,.3)',fontSize:'13px'}}>×</button>}
+                    </div>
+                    {/* Replace input */}
+                    <div style={{display:'flex',gap:4}}>
+                      <div style={{flex:1,position:'relative'}}>
+                        <span style={{position:'absolute',left:8,top:'50%',transform:'translateY(-50%)',fontSize:'11px',opacity:.3,pointerEvents:'none'}}>↺</span>
+                        <input
+                          value={replaceQuery}
+                          onChange={e=>setReplaceQuery(e.target.value)}
+                          placeholder="Replace with…"
+                          style={{width:'100%',boxSizing:'border-box',background:'rgba(255,255,255,.03)',border:'1px solid rgba(255,255,255,.07)',outline:'none',color:'#c0c8d8',fontFamily:"'JetBrains Mono',monospace",fontSize:'11px',padding:'5px 8px 5px 26px'}}
+                          onFocus={e=>(e.target.style.borderColor='rgba(226,192,141,.35)')}
+                          onBlur={e=>(e.target.style.borderColor='rgba(255,255,255,.07)')}
+                        />
+                      </div>
+                      <button
+                        onClick={handleReplaceAll}
+                        disabled={replaceLoading||!projectSearchQuery.trim()||projectSearchResults.length===0}
+                        title={`Replace all ${projectSearchResults.length} matches`}
+                        style={{flexShrink:0,padding:'3px 8px',background:replaceLoading?'transparent':'rgba(226,192,141,.1)',border:'1px solid rgba(226,192,141,.25)',color:replaceLoading||projectSearchResults.length===0?'rgba(200,200,220,.25)':'#e2c08d',fontFamily:"'Oswald',sans-serif",fontWeight:700,fontSize:'9px',letterSpacing:'.08em',cursor:replaceLoading||projectSearchResults.length===0?'default':'pointer',whiteSpace:'nowrap',transition:'all .1s'}}
+                        onMouseEnter={e=>{ if(!replaceLoading&&projectSearchResults.length>0) (e.currentTarget as HTMLElement).style.background='rgba(226,192,141,.2)' }}
+                        onMouseLeave={e=>{ (e.currentTarget as HTMLElement).style.background=replaceLoading?'transparent':'rgba(226,192,141,.1)' }}
+                      >
+                        {replaceLoading?'…':'↺ ALL'}
+                      </button>
                     </div>
                   </div>
                   {projectSearchLoading && <div style={{padding:'8px 10px',fontFamily:"'Share Tech Mono',monospace",fontSize:'10px',color:'#ffc410',opacity:.7,flexShrink:0}}>SEARCHING…</div>}

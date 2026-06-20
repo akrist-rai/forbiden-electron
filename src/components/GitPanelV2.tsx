@@ -188,10 +188,37 @@ function FileRow({ file, cwd, isStaged, onOpenFile, brutal }: any) {
 
         {/* Action buttons — visible on hover */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 1, opacity: hovered ? 1 : 0, transition: 'opacity .1s', flexShrink: 0 }}>
-          {!isStaged && <ActionBtn title="Stage file" onClick={handleStage}>+</ActionBtn>}
-          {isStaged  && <ActionBtn title="Unstage file" onClick={handleUnstage}>−</ActionBtn>}
-          <ActionBtn title="Discard changes" onClick={handleDiscard} danger>↺</ActionBtn>
-          <ActionBtn title="Show diff" onClick={handleToggleDiff} active={showDiff}>…</ActionBtn>
+          {!isStaged && (
+            <ActionBtn title="Stage file" onClick={handleStage}>
+              {/* plus */}
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+                <line x1="5" y1="1" x2="5" y2="9"/><line x1="1" y1="5" x2="9" y2="5"/>
+              </svg>
+            </ActionBtn>
+          )}
+          {isStaged && (
+            <ActionBtn title="Unstage file" onClick={handleUnstage}>
+              {/* minus */}
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+                <line x1="1" y1="5" x2="9" y2="5"/>
+              </svg>
+            </ActionBtn>
+          )}
+          <ActionBtn title="Discard changes" onClick={handleDiscard} danger>
+            {/* undo/discard */}
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="1 3 1 7 5 7"/>
+              <path d="M1 7a5 5 0 1 1 1.4 3.5"/>
+            </svg>
+          </ActionBtn>
+          <ActionBtn title="Show diff" onClick={handleToggleDiff} active={showDiff}>
+            {/* diff/lines */}
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+              <line x1="2" y1="3" x2="8" y2="3"/>
+              <line x1="2" y1="5" x2="6" y2="5"/>
+              <line x1="2" y1="7" x2="8" y2="7"/>
+            </svg>
+          </ActionBtn>
         </div>
       </div>
 
@@ -702,11 +729,38 @@ export default function GitPanelV2({
 
       {/* ── Action header ── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 1, padding: '3px 6px', flexShrink: 0, borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-        <HeaderBtn title="Refresh" onClick={refresh} loading={refreshing}>⟳</HeaderBtn>
-        <HeaderBtn title="Push" onClick={handlePush} loading={pushLoading}>↑</HeaderBtn>
-        <HeaderBtn title="Pull" onClick={handlePull} loading={pullLoading}>↓</HeaderBtn>
-        <HeaderBtn title="Stash" onClick={handleStash} loading={stashLoading}>⊡</HeaderBtn>
-        <HeaderBtn title="Stash Pop" onClick={handleStashPop}>⊞</HeaderBtn>
+        <HeaderBtn title="Refresh" onClick={refresh} loading={refreshing}>
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="10.5 2 10.5 5.5 7 5.5"/>
+            <path d="M10.5 5.5A5 5 0 1 1 8.2 2"/>
+          </svg>
+        </HeaderBtn>
+        <HeaderBtn title="Push" onClick={handlePush} loading={pushLoading}>
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="6" y1="9" x2="6" y2="2"/>
+            <polyline points="3 5 6 2 9 5"/>
+            <line x1="3" y1="10.5" x2="9" y2="10.5"/>
+          </svg>
+        </HeaderBtn>
+        <HeaderBtn title="Pull" onClick={handlePull} loading={pullLoading}>
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="6" y1="2" x2="6" y2="9"/>
+            <polyline points="3 6 6 9 9 6"/>
+            <line x1="3" y1="10.5" x2="9" y2="10.5"/>
+          </svg>
+        </HeaderBtn>
+        <HeaderBtn title="Stash" onClick={handleStash} loading={stashLoading}>
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="2" y="5" width="8" height="6" rx="1"/>
+            <path d="M4 5V3.5a2 2 0 0 1 4 0V5"/>
+          </svg>
+        </HeaderBtn>
+        <HeaderBtn title="Stash Pop" onClick={handleStashPop}>
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="2" y="5" width="8" height="6" rx="1"/>
+            <line x1="6" y1="3" x2="6" y2="1"/><polyline points="4 2.5 6 1 8 2.5"/>
+          </svg>
+        </HeaderBtn>
         <div style={{ flex: 1 }} />
         {totalChanges > 0 && (
           <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: '9px', color: '#5a5a7a', marginRight: 4 }}>
@@ -735,6 +789,7 @@ export default function GitPanelV2({
           <path d="M18 9a9 9 0 01-9 9"/>
         </svg>
         <button
+          type="button"
           onClick={() => setShowBranch(v => !v)}
           style={{ background: 'transparent', border: 'none', color: '#10b981', fontFamily: "'JetBrains Mono',monospace", fontSize: '11px', cursor: 'pointer', padding: '1px 2px', outline: 'none', display: 'flex', alignItems: 'center', gap: 3, flex: 1 }}
         >
@@ -785,6 +840,7 @@ export default function GitPanelV2({
           />
           {commitError && <div style={{ color: '#ff435a', fontSize: '10px', fontFamily: 'monospace', marginTop: 3 }}>{commitError}</div>}
           <button
+            type="button"
             onClick={handleCommit}
             disabled={commitLoading || !commitMsg.trim()}
             style={{

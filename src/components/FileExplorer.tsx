@@ -550,7 +550,18 @@ const iconBtnStyle: any = {
 // ── New item input ─────────────────────────────────────────
 const NewItemInput = ({ ref, type, value, onChange, onCommit, onCancel, depth }: any) => (
   <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: `2px 6px 2px ${depth * 14 + 6}px`, background: 'rgba(16,185,129,.06)', borderLeft: '2px solid #10b981' }}>
-    <span style={{ fontSize: '10px', opacity: .5 }}>{type === 'dir' ? '📁' : '📄'}</span>
+    <span style={{ display: 'flex', alignItems: 'center', opacity: .55 }}>
+      {type === 'dir' ? (
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#89b4fa" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+        </svg>
+      ) : (
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#a8b0c8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+        </svg>
+      )}
+    </span>
     <input ref={ref} value={value} onChange={e => onChange(e.target.value)}
       onKeyDown={e => { if (e.key === 'Enter') onCommit(); if (e.key === 'Escape') onCancel() }}
       onBlur={onCommit}

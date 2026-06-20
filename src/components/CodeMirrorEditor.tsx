@@ -705,32 +705,40 @@ export default function CodeMirrorEditor({ node, onChange, onSave, externalPalet
     >
       {/* ── TOOLBAR ── */}
       {!compact && <div className="ide-editor-toolbar">
-        {/* Language pill */}
-        <span
-          style={{
-            padding: '1px 7px',
-            fontSize: '9px',
-            fontFamily: "'Oswald',sans-serif",
-            fontWeight: 700,
-            letterSpacing: '.1em',
-            background: langColor + '18',
-            color: langColor,
-            border: `1px solid ${langColor}44`,
-          }}
-        >
-          {langLabel}
-        </span>
+        {/* Window chrome dots */}
+        <div className="ide-tb-chrome">
+          <div className="ide-tb-dot ide-tb-dot--red" />
+          <div className="ide-tb-dot ide-tb-dot--yellow" />
+          <div className="ide-tb-dot ide-tb-dot--green" />
+        </div>
 
         <div className="ide-tb-sep" />
 
-        <button className="ide-tb-btn" onClick={handleCopy} title="Copy code">
+        {/* File info: name + modified + lang badge */}
+        <div className="ide-tb-fileinfo">
+          <span className="ide-tb-filename" style={{ color: palette.base }}>
+            {node.label}
+          </span>
+          {node.modified && <span className="ide-tb-moddot" />}
+          <span
+            className="ide-tb-lang-badge"
+            style={{ background: langColor + '1a', color: langColor, border: `1px solid ${langColor}44` }}
+          >
+            {langLabel}
+          </span>
+        </div>
+
+        <div className="ide-tb-sep" />
+
+        {/* Actions */}
+        <button className="ide-tb-btn" onClick={handleCopy} title="Copy all code">
           <ICopy /> COPY
         </button>
         <button className="ide-tb-btn" onClick={handleFormat} title="Format code">
-          <IFormat /> FORMAT
+          <IFormat /> FMT
         </button>
-        <button className="ide-tb-btn" onClick={handleToggleComment} title="Toggle comment (Alt+Shift+A)">
-          {isJS ? '//' : '#'} CMT
+        <button className="ide-tb-btn" onClick={handleToggleComment} title="Toggle comment (Ctrl+/)">
+          <span style={{ fontFamily: 'monospace', fontSize: '10px', opacity: 0.8 }}>{isJS ? '//' : '#'}</span> CMT
         </button>
 
         <div className="ide-tb-sep" />
@@ -738,7 +746,7 @@ export default function CodeMirrorEditor({ node, onChange, onSave, externalPalet
         <button
           className={`ide-tb-btn ${showFind ? 'active' : ''}`}
           onClick={handleToggleFind}
-          title="Find (Ctrl+F)"
+          title="Find / Replace (Ctrl+F)"
         >
           <IFind /> FIND
         </button>
@@ -750,74 +758,75 @@ export default function CodeMirrorEditor({ node, onChange, onSave, externalPalet
           <IWrap /> WRAP
         </button>
 
+        {/* Spacer pushes right controls to end */}
+        <div style={{ flex: 1 }} />
+
+        {/* Font size control */}
+        <div className="ide-tb-fontrow">
+          <button className="ide-tb-btn ide-tb-fontbtn" onClick={handleDecreaseFontSize} title="Decrease font size">−</button>
+          <span className="ide-tb-fontval" style={{ color: palette.base }}>{fontSize}</span>
+          <button className="ide-tb-btn ide-tb-fontbtn" onClick={handleIncreaseFontSize} title="Increase font size">+</button>
+        </div>
+
         <div className="ide-tb-sep" />
 
-        <button className="ide-tb-btn" onClick={handleDecreaseFontSize} title="Decrease font size">
-          A−
-        </button>
-        <span style={{ fontSize: '10px', opacity: 0.6, padding: '0 2px', color: palette.base, fontFamily: "'Share Tech Mono', monospace" }}>
-          {fontSize}
-        </span>
-        <button className="ide-tb-btn" onClick={handleIncreaseFontSize} title="Increase font size">
-          A+
-        </button>
-
         {/* Palette selector */}
-        <div style={{ marginLeft: 'auto', position: 'relative' }}>
+        <div style={{ position: 'relative' }}>
           <button
-            className={`ide-tb-btn ${showPaletteMenu ? 'active' : ''}`}
+            className={`ide-tb-btn ide-tb-palette-btn ${showPaletteMenu ? 'active' : ''}`}
             onClick={(e) => { e.stopPropagation(); setShowPaletteMenu((v) => !v) }}
-            style={{ gap: '4px' }}
           >
-            <div style={{ display: 'flex', gap: '3px' }}>
+            <div className="ide-tb-swatches">
               {palette.swatches.map((c, i) => (
-                <div
-                  key={i}
-                  style={{ width: '8px', height: '8px', borderRadius: '2px', background: c }}
-                />
+                <div key={i} className="ide-tb-swatch" style={{ background: c }} />
               ))}
             </div>
-            {palette.name}
+            <span style={{ color: palette.base, opacity: 0.65 }}>{palette.name}</span>
+            <span className="ide-tb-caret">▾</span>
           </button>
 
           {showPaletteMenu && (
             <div className="ide-palette-dropdown" onClick={(e) => e.stopPropagation()}>
               <div className="ide-palette-sec">DARK</div>
-              {PALETTES.filter((p) => !LIGHT_IDS.includes(p.id)).map((p) => (
-                <div
-                  key={p.id}
-                  className={`ide-palette-opt ${palette.id === p.id ? 'active' : ''}`}
-                  onClick={() => { setPalette(p); setShowPaletteMenu(false) }}
-                  style={{ background: p.bg }}
-                >
-                  <div className="ide-palette-swatches">
-                    {p.swatches.map((c, i) => (
-                      <div key={i} className="ide-palette-swatch" style={{ background: c }} />
-                    ))}
+              <div className="ide-palette-grid">
+                {PALETTES.filter((p) => !LIGHT_IDS.includes(p.id)).map((p) => (
+                  <div
+                    key={p.id}
+                    className={`ide-palette-opt ${palette.id === p.id ? 'active' : ''}`}
+                    onClick={() => { setPalette(p); setShowPaletteMenu(false) }}
+                    style={{ background: p.bg }}
+                  >
+                    <div className="ide-palette-swatches">
+                      {p.swatches.map((c, i) => (
+                        <div key={i} className="ide-palette-swatch" style={{ background: c }} />
+                      ))}
+                    </div>
+                    <span className="ide-palette-name" style={{ color: p.base }}>
+                      {p.name}
+                    </span>
                   </div>
-                  <span className="ide-palette-name" style={{ color: p.base }}>
-                    {p.name}
-                  </span>
-                </div>
-              ))}
+                ))}
+              </div>
               <div className="ide-palette-sec">LIGHT</div>
-              {PALETTES.filter((p) => LIGHT_IDS.includes(p.id)).map((p) => (
-                <div
-                  key={p.id}
-                  className={`ide-palette-opt ${palette.id === p.id ? 'active' : ''}`}
-                  onClick={() => { setPalette(p); setShowPaletteMenu(false) }}
-                  style={{ background: p.bg }}
-                >
-                  <div className="ide-palette-swatches">
-                    {p.swatches.map((c, i) => (
-                      <div key={i} className="ide-palette-swatch" style={{ background: c }} />
-                    ))}
+              <div className="ide-palette-grid">
+                {PALETTES.filter((p) => LIGHT_IDS.includes(p.id)).map((p) => (
+                  <div
+                    key={p.id}
+                    className={`ide-palette-opt ${palette.id === p.id ? 'active' : ''}`}
+                    onClick={() => { setPalette(p); setShowPaletteMenu(false) }}
+                    style={{ background: p.bg }}
+                  >
+                    <div className="ide-palette-swatches">
+                      {p.swatches.map((c, i) => (
+                        <div key={i} className="ide-palette-swatch" style={{ background: c }} />
+                      ))}
+                    </div>
+                    <span className="ide-palette-name" style={{ color: p.base }}>
+                      {p.name}
+                    </span>
                   </div>
-                  <span className="ide-palette-name" style={{ color: p.base }}>
-                    {p.name}
-                  </span>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -839,37 +848,41 @@ export default function CodeMirrorEditor({ node, onChange, onSave, externalPalet
         />
 
         {/* ── MINIMAP ── */}
-        <div
-          style={{
-            width: '56px',
-            flexShrink: 0,
-            background: palette.bg,
-            borderLeft: `1px solid ${palette.lineNum}22`,
-            overflow: 'hidden',
-            padding: '8px 4px',
-            cursor: 'default',
-          }}
-        >
-          <svg width="48" height="100%" style={{ display: 'block', overflow: 'visible' }}>
+        <div className="ide-minimap" style={{ borderLeft: `1px solid ${palette.lineNum}28`, background: palette.bg }}>
+          {/* Header label */}
+          <div className="ide-minimap-label" style={{ color: palette.lineNum }}>MAP</div>
+          <svg width="52" height="calc(100% - 18px)" style={{ display: 'block', overflow: 'visible', marginTop: '2px' }}>
+            {/* Code lines */}
             {minimapLines.map((l, i) => (
               <rect
                 key={i}
-                x={l.indent * 0.3}
-                y={i * 3.2}
-                width={l.len * 0.38}
-                height={1.6}
-                fill={palette.lineNum}
-                opacity=".7"
-                rx=".5"
+                x={2 + l.indent * 0.25}
+                y={i * 3.4}
+                width={Math.max(2, l.len * 0.42)}
+                height={1.8}
+                fill={i % 5 === 0 ? palette.fn : palette.lineNum}
+                opacity={i % 5 === 0 ? 0.55 : 0.45}
+                rx=".6"
               />
             ))}
+            {/* Viewport indicator */}
             <rect
               x={0}
-              y={(cursor.line - 1) * 3.2}
-              width={48}
-              height={3.5}
+              y={(cursor.line - 1) * 3.4}
+              width={52}
+              height={5}
               fill={palette.kw}
-              opacity=".12"
+              opacity=".18"
+              rx="1.5"
+            />
+            {/* Cursor line highlight */}
+            <rect
+              x={0}
+              y={(cursor.line - 1) * 3.4 + 1.5}
+              width={52}
+              height={2}
+              fill={palette.fn}
+              opacity=".55"
               rx="1"
             />
           </svg>
@@ -881,34 +894,52 @@ export default function CodeMirrorEditor({ node, onChange, onSave, externalPalet
         className="editor-status-strip"
         style={{
           background: palette.bg,
-          borderTop: `1px solid ${palette.lineNum}33`,
+          borderTop: `1px solid ${palette.kw}20`,
           color: palette.base,
         }}
       >
-        <span style={{ opacity: 0.45 }}>
-          Ln {cursor.line}:{cursor.col}
+        {/* Cursor position */}
+        <span className="esr-pos" style={{ color: palette.fn }}>
+          {cursor.line}<span style={{ opacity: 0.4 }}>:</span>{cursor.col}
         </span>
-        <span style={{ opacity: 0.2 }}>|</span>
-        <span style={{ opacity: 0.45 }}>{lineCount}L</span>
-        <span style={{ opacity: 0.2 }}>|</span>
-        <span style={{ color: palette.fn, opacity: 0.7 }}>{node.type}</span>
+        <span className="esr-pipe" style={{ color: palette.lineNum }}>│</span>
+
+        {/* Line count */}
+        <span style={{ opacity: 0.5 }}>{lineCount}</span>
+        <span style={{ opacity: 0.3, fontSize: '9px', letterSpacing: '.08em' }}>LN</span>
+
+        <span className="esr-pipe" style={{ color: palette.lineNum }}>│</span>
+
+        {/* File type */}
+        <span style={{ color: palette.kw, opacity: 0.75, letterSpacing: '.08em' }}>{(node.type || '').toUpperCase()}</span>
+
+        {/* Modified indicator */}
         {node.modified && (
           <>
-            <span style={{ opacity: 0.2 }}>|</span>
-            <span style={{ color: '#ffc410', fontSize: '8px' }}>● MOD</span>
+            <span className="esr-pipe" style={{ color: palette.lineNum }}>│</span>
+            <span className="esr-modified">● UNSAVED</span>
           </>
         )}
-        <span style={{ opacity: 0.2 }}>|</span>
-        {hasGhostText ? (
-          <span style={{ color: '#10b981', fontSize: '10px', fontStyle: 'italic', animation: 'fblink 1.4s step-end infinite' }}>
-            ✦ AI · Tab accept · Esc dismiss
-          </span>
-        ) : (
-          <span style={{ opacity: 0.22, fontSize: '11px' }}>
-            ^Enter RUN · ^/ CMT · ^F FIND · Tab INDENT
+
+        {/* AI ghost text indicator */}
+        {hasGhostText && (
+          <>
+            <span className="esr-pipe" style={{ color: palette.lineNum }}>│</span>
+            <span style={{ color: palette.bi, fontSize: '10px', letterSpacing: '.06em' }}>
+              ⚡ AI  <span style={{ opacity: 0.55 }}>Tab·accept  Esc·dismiss</span>
+            </span>
+          </>
+        )}
+
+        {/* Right side */}
+        <div style={{ flex: 1 }} />
+        {!hasGhostText && (
+          <span className="esr-hints" style={{ color: palette.base }}>
+            <kbd>^S</kbd> save <span style={{ opacity: 0.3 }}>·</span> <kbd>^/</kbd> cmt <span style={{ opacity: 0.3 }}>·</span> <kbd>^F</kbd> find
           </span>
         )}
-        <span style={{ marginLeft: 'auto', opacity: 0.35 }}>{palette.name}</span>
+        <span className="esr-pipe" style={{ color: palette.lineNum }}>│</span>
+        <span style={{ color: palette.kw, opacity: 0.5, fontSize: '9px', letterSpacing: '.1em' }}>{palette.name}</span>
       </div>}
 
       {/* ── TOAST ── */}

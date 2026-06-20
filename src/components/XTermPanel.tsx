@@ -116,9 +116,9 @@ function tabStyle(active: boolean): React.CSSProperties {
     fontFamily: FONT_FAMILY, cursor: 'pointer', whiteSpace: 'nowrap',
     borderRight: '1px solid #1a1a2c',
     background: active ? '#080810' : 'transparent',
-    color: active ? '#c0c8d8' : '#5a5a7a',
+    color: active ? '#c0c8d8' : '#404060',
     borderBottom: active ? '2px solid #10b981' : '2px solid transparent',
-    transition: 'background 0.1s, color 0.1s',
+    transition: 'background 0.12s, color 0.12s',
     letterSpacing: '0.02em',
   }
 }
