@@ -1,6 +1,6 @@
 // ══════════════════════════════════════════════════════════════
 //  FORBIDEN ENGINE  — language detection + execution bridge
-//  System ops run entirely in the Go engine over HTTP.
+//  Heavy ops run via Tauri IPC (Rust). PTY injection via Go WS.
 // ══════════════════════════════════════════════════════════════
 import { api } from './api'
 
@@ -138,25 +138,18 @@ export function getDefaultCode(lang: Lang, label: string, nodeType = 'function')
   return ''
 }
 
-// ── Go engine base URL ─────────────────────────────────────────
-function engineUrl(): string {
-  return api?.engine?.url || 'http://127.0.0.1:49373'
-}
+// ── Run via Tauri native command ─────────────────────────────
+import { invoke } from '@tauri-apps/api/core'
 
-async function goPost(path: string, body: any): Promise<any> {
-  const res = await fetch(engineUrl() + path, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  })
-  return res.json()
-}
-
-// ── Capture-mode execution (output panel) ─────────────────────
 async function captureRun(lang: string, code: string, stdin = ''): Promise<RunResult> {
   const t0 = performance.now()
   try {
-    const result = await goPost('/api/run/code', { lang, code, stdin })
+    const result = await invoke<any>('run_code', {
+      lang,
+      code,
+      stdin: stdin || null,
+      cwd: null,
+    })
     return {
       logs:  result.logs  ?? [],
       error: result.error ? new Error(result.error) : null,
@@ -171,7 +164,7 @@ async function captureRun(lang: string, code: string, stdin = ''): Promise<RunRe
   }
 }
 
-// ── Terminal injection (run in attached terminal) ──────────────
+// ── Terminal injection (run in attached terminal via PTY write) ──
 export async function runInTerminal(
   ptyId: string | null,
   lang: Lang,
@@ -180,8 +173,9 @@ export async function runInTerminal(
 ): Promise<{ success: boolean; error?: string }> {
   if (!ptyId) return { success: false, error: 'No active terminal' }
   try {
-    const result = await goPost('/api/run', { ptyId, lang, code, cwd })
-    return result
+    // PTY injection still goes via Go engine (only remaining Go responsibility)
+    const result = await api?.pty?.write(ptyId, code + '\n')
+    return { success: true }
   } catch (e: any) {
     return { success: false, error: String(e?.message ?? e) }
   }

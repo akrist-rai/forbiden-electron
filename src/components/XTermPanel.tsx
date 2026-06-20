@@ -247,7 +247,7 @@ const XTermPanel: React.FC<XTermPanelProps> = ({ cwd, palette, onCwdChange, onAc
         return false
       })
     } else {
-      term.writeln('\x1b[31mEngine not available. Run the app via Electron.\x1b[0m')
+      term.writeln('\x1b[31mPTY engine not available — engine may still be starting.\x1b[0m')
     }
 
     return { term, fitAddon, ws }
@@ -338,7 +338,7 @@ const XTermPanel: React.FC<XTermPanelProps> = ({ cwd, palette, onCwdChange, onAc
         <div style={S.empty}>
           <span style={{ fontSize: 32 }}>⚠</span>
           <span style={{ color: '#ffc410', fontWeight: 700 }}>Terminal unavailable</span>
-          <span style={{ color: '#5a5a7a', fontSize: 11 }}>Go engine not running — start app via Electron.</span>
+          <span style={{ color: '#5a5a7a', fontSize: 11 }}>PTY engine not ready — try reopening the terminal panel.</span>
         </div>
       </div>
     )

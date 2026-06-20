@@ -39,9 +39,9 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "resources": {
-      "../engine/forbiden-engine": "."
-    }
+    "externalBin": [
+      "binaries/forbiden-engine"
+    ]
   },
   "plugins": {
     "shell": {
