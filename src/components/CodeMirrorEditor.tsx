@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
-import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter } from '@codemirror/view'
-import { EditorState } from '@codemirror/state'
+import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter, Decoration, WidgetType } from '@codemirror/view'
+import { EditorState, StateEffect, StateField } from '@codemirror/state'
 import { defaultKeymap, indentWithTab, toggleComment } from '@codemirror/commands'
 import { searchKeymap, openSearchPanel, closeSearchPanel, search } from '@codemirror/search'
 import { completionKeymap, autocompletion, closeBrackets } from '@codemirror/autocomplete'
@@ -49,10 +49,56 @@ interface CodeMirrorEditorProps {
   onChange: (code: string) => void
   onSave?: () => void
   externalPalette?: Palette
-  compact?: boolean  // hide toolbar + status strip (for notebook cells)
-  minHeight?: string // e.g. '80px'
-  jumpToLine?: number // when changed, scrolls editor to that line
+  compact?: boolean
+  minHeight?: string
+  jumpToLine?: number
+  onCursorChange?: (line: number, col: number) => void
+  aiProvider?: string
+  aiKey?: string
+  aiModel?: string
 }
+
+// ══════════════════════════════════════════════════════════════
+//  AI GHOST TEXT — module-level (shared across instances)
+// ══════════════════════════════════════════════════════════════
+
+class GhostTextWidget extends WidgetType {
+  constructor(readonly text: string) { super() }
+  toDOM() {
+    const el = document.createElement('span')
+    el.textContent = this.text.split('\n')[0]
+    el.setAttribute('aria-hidden', 'true')
+    Object.assign(el.style, {
+      color: 'rgba(200,200,220,.28)',
+      fontStyle: 'italic',
+      pointerEvents: 'none',
+      userSelect: 'none',
+      whiteSpace: 'pre',
+    })
+    return el
+  }
+  ignoreEvent() { return true }
+  eq(other: GhostTextWidget) { return other.text === this.text }
+}
+
+const setGhostText = StateEffect.define<{ pos: number; text: string } | null>()
+
+const ghostTextField = StateField.define<{ pos: number; text: string } | null>({
+  create: () => null,
+  update(val, tr) {
+    for (const e of tr.effects) {
+      if (e.is(setGhostText)) return e.value
+    }
+    if (tr.docChanged || tr.selectionSet) return null
+    return val
+  },
+  provide: f => EditorView.decorations.from(f, val => {
+    if (!val) return Decoration.none
+    return Decoration.set([
+      Decoration.widget({ widget: new GhostTextWidget(val.text), side: 1 }).range(val.pos)
+    ])
+  }),
+})
 
 // ══════════════════════════════════════════════════════════════
 //  PALETTES
@@ -257,7 +303,7 @@ function buildTheme(palette: Palette) {
 //  COMPONENT
 // ══════════════════════════════════════════════════════════════
 
-export default function CodeMirrorEditor({ node, onChange, onSave, externalPalette, compact = false, minHeight, jumpToLine }: CodeMirrorEditorProps) {
+export default function CodeMirrorEditor({ node, onChange, onSave, externalPalette, compact = false, minHeight, jumpToLine, onCursorChange, aiProvider, aiKey, aiModel }: CodeMirrorEditorProps) {
   const [palette, setPalette] = useState<Palette>(PALETTES[0])
   const [showPaletteMenu, setShowPaletteMenu] = useState(false)
   const [showFind, setShowFind] = useState(false)
@@ -265,19 +311,31 @@ export default function CodeMirrorEditor({ node, onChange, onSave, externalPalet
   const [fontSize, setFontSize] = useState(13)
   const [toastMsg, setToastMsg] = useState('')
   const [cursor, setCursor] = useState({ line: 1, col: 1 })
+  const [hasGhostText, setHasGhostText] = useState(false)
 
   const containerRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<EditorView | null>(null)
   const onChangeRef = useRef(onChange)
   const onSaveRef   = useRef(onSave)
+  const onCursorChangeRef = useRef(onCursorChange)
   const nodeRef = useRef(node)
   const wordWrapRef = useRef(wordWrap)
   const fontSizeRef = useRef(fontSize)
   const paletteRef = useRef(palette)
+  const aiDebounceRef = useRef<any>(null)
+  const aiConfigRef = useRef<any>({ enabled: false })
 
   // Keep refs current
   useEffect(() => { onChangeRef.current = onChange }, [onChange])
   useEffect(() => { onSaveRef.current   = onSave   }, [onSave])
+  useEffect(() => { onCursorChangeRef.current = onCursorChange }, [onCursorChange])
+
+  // Update AI config ref whenever AI props change
+  useEffect(() => {
+    const streamUrl = (window as any).electronAPI?.ai?.streamUrl?.()
+    const enabled = !!(streamUrl && aiProvider && aiKey && !compact)
+    aiConfigRef.current = { enabled, provider: aiProvider, apiKey: aiKey, model: aiModel, streamUrl }
+  }, [aiProvider, aiKey, aiModel, compact])
   useEffect(() => { nodeRef.current = node }, [node])
   useEffect(() => { wordWrapRef.current = wordWrap }, [wordWrap])
   useEffect(() => { fontSizeRef.current = fontSize }, [fontSize])
@@ -337,7 +395,43 @@ export default function CodeMirrorEditor({ node, onChange, onSave, externalPalet
       if (update.selectionSet || update.docChanged) {
         const head = update.state.selection.main.head
         const line = update.state.doc.lineAt(head)
-        setCursor({ line: line.number, col: head - line.from + 1 })
+        const lineNum = line.number
+        const colNum = head - line.from + 1
+        setCursor({ line: lineNum, col: colNum })
+        onCursorChangeRef.current?.(lineNum, colNum)
+
+        // Reset AI ghost text debounce
+        clearTimeout(aiDebounceRef.current)
+        const ghost = update.view.state.field(ghostTextField, false)
+        if (ghost) setHasGhostText(false)
+        const cfg = aiConfigRef.current
+        if (cfg.enabled && update.docChanged) {
+          const view = update.view
+          const headPos = head
+          aiDebounceRef.current = setTimeout(async () => {
+            if (view.state.selection.main.head !== headPos) return
+            const doc = view.state.doc.toString()
+            const prefix = doc.slice(0, headPos)
+            const suffix = doc.slice(headPos, headPos + 200)
+            if (prefix.trim().length < 10) return
+            try {
+              const result = await (window as any).electronAPI?.ai?.chat?.(
+                [{ role: 'user', content: `Complete the code at the cursor (<|>):\n\n${prefix.slice(-500)}<|>${suffix}` }],
+                cfg.apiKey,
+                cfg.model,
+                'Code completion engine. Output ONLY the raw completion inserted at <|>, 1–4 lines max. No markdown, no explanation.',
+                cfg.provider,
+              )
+              if (!result?.success || !result.content) return
+              const completion = result.content.trim()
+              if (!completion) return
+              if (view.state.selection.main.head === headPos) {
+                view.dispatch({ effects: setGhostText.of({ pos: headPos, text: completion }) })
+                setHasGhostText(true)
+              }
+            } catch {}
+          }, 1800)
+        }
       }
     })
 
@@ -348,9 +442,34 @@ export default function CodeMirrorEditor({ node, onChange, onSave, externalPalet
       foldGutter(),
       bracketMatching(),
       closeBrackets(),
+      ghostTextField,
       autocompletion(),
       search({ top: false }),
       keymap.of([
+        {
+          key: 'Tab',
+          run: (view) => {
+            const ghost = view.state.field(ghostTextField, false)
+            if (!ghost) return false
+            view.dispatch({
+              changes: { from: ghost.pos, insert: ghost.text },
+              effects: setGhostText.of(null),
+              selection: { anchor: ghost.pos + ghost.text.length },
+            })
+            setHasGhostText(false)
+            return true
+          },
+        },
+        {
+          key: 'Escape',
+          run: (view) => {
+            const ghost = view.state.field(ghostTextField, false)
+            if (!ghost) return false
+            view.dispatch({ effects: setGhostText.of(null) })
+            setHasGhostText(false)
+            return true
+          },
+        },
         ...defaultKeymap, ...searchKeymap, ...completionKeymap, indentWithTab,
         { key: 'Mod-s', run: () => { onSaveRef.current?.(); return true } },
       ]),
@@ -376,6 +495,7 @@ export default function CodeMirrorEditor({ node, onChange, onSave, externalPalet
     viewRef.current = view
 
     return () => {
+      clearTimeout(aiDebounceRef.current)
       view.destroy()
       viewRef.current = null
     }
@@ -404,8 +524,6 @@ export default function CodeMirrorEditor({ node, onChange, onSave, externalPalet
   // Toggle word wrap by reconfiguring
   useEffect(() => {
     if (!viewRef.current) return
-    // Simplest approach: dispatch an effect to add/remove line wrapping
-    // We use a compartment-free approach via reconfigure on the view
     const view = viewRef.current
     const langExt = getLanguageExtension(node.label)
     const themeExt = buildTheme(palette)
@@ -416,7 +534,10 @@ export default function CodeMirrorEditor({ node, onChange, onSave, externalPalet
       if (update.selectionSet || update.docChanged) {
         const head = update.state.selection.main.head
         const line = update.state.doc.lineAt(head)
-        setCursor({ line: line.number, col: head - line.from + 1 })
+        const lineNum = line.number
+        const colNum = head - line.from + 1
+        setCursor({ line: lineNum, col: colNum })
+        onCursorChangeRef.current?.(lineNum, colNum)
       }
     })
 
@@ -427,9 +548,34 @@ export default function CodeMirrorEditor({ node, onChange, onSave, externalPalet
       foldGutter(),
       bracketMatching(),
       closeBrackets(),
+      ghostTextField,
       autocompletion(),
       search({ top: false }),
       keymap.of([
+        {
+          key: 'Tab',
+          run: (v) => {
+            const ghost = v.state.field(ghostTextField, false)
+            if (!ghost) return false
+            v.dispatch({
+              changes: { from: ghost.pos, insert: ghost.text },
+              effects: setGhostText.of(null),
+              selection: { anchor: ghost.pos + ghost.text.length },
+            })
+            setHasGhostText(false)
+            return true
+          },
+        },
+        {
+          key: 'Escape',
+          run: (v) => {
+            const ghost = v.state.field(ghostTextField, false)
+            if (!ghost) return false
+            v.dispatch({ effects: setGhostText.of(null) })
+            setHasGhostText(false)
+            return true
+          },
+        },
         ...defaultKeymap, ...searchKeymap, ...completionKeymap, indentWithTab,
         { key: 'Mod-s', run: () => { onSaveRef.current?.(); return true } },
       ]),
@@ -753,9 +899,15 @@ export default function CodeMirrorEditor({ node, onChange, onSave, externalPalet
           </>
         )}
         <span style={{ opacity: 0.2 }}>|</span>
-        <span style={{ opacity: 0.22, fontSize: '11px' }}>
-          ^Enter RUN · ^/ CMT · ^F FIND · Tab INDENT
-        </span>
+        {hasGhostText ? (
+          <span style={{ color: '#10b981', fontSize: '10px', fontStyle: 'italic', animation: 'fblink 1.4s step-end infinite' }}>
+            ✦ AI · Tab accept · Esc dismiss
+          </span>
+        ) : (
+          <span style={{ opacity: 0.22, fontSize: '11px' }}>
+            ^Enter RUN · ^/ CMT · ^F FIND · Tab INDENT
+          </span>
+        )}
         <span style={{ marginLeft: 'auto', opacity: 0.35 }}>{palette.name}</span>
       </div>}
 

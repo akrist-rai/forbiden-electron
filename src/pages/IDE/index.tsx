@@ -2825,9 +2825,18 @@ function AiChatPanel({ activeNode, explorerRoot, brutal, aiProvider, aiKeys, aiM
               dangerouslySetInnerHTML={{__html: renderAiMessage(m.content)}}/>
           </div>
         ))}
-        {loading && (
-          <div style={{padding:'8px 12px',display:'flex',alignItems:'center',gap:6}}>
-            <span style={{color:provColor,fontSize:'11px',opacity:.6,fontFamily:"'Share Tech Mono',monospace"}}>✦ thinking…</span>
+        {streaming && (
+          <div style={{padding:'6px 12px',borderBottom:'1px solid rgba(255,255,255,.03)'}}>
+            <div style={{fontFamily:"'Oswald',sans-serif",fontWeight:700,fontSize:'8px',letterSpacing:'.12em',marginBottom:4,color:provColor}}>
+              ✦ AI
+            </div>
+            {streamingText ? (
+              <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:'11px',lineHeight:1.6,color:text}}
+                dangerouslySetInnerHTML={{__html: renderAiMessage(streamingText)}}/>
+            ) : (
+              <span style={{color:provColor,opacity:.5,fontFamily:"'Share Tech Mono',monospace",fontSize:'10px'}}>thinking…</span>
+            )}
+            <span style={{display:'inline-block',width:7,height:13,background:provColor,opacity:.8,animation:'blink 1s step-end infinite',verticalAlign:'text-bottom',marginLeft:1}}/>
           </div>
         )}
         <div ref={endRef}/>
@@ -2840,8 +2849,8 @@ function AiChatPanel({ activeNode, explorerRoot, brutal, aiProvider, aiKeys, aiM
             <input type="checkbox" checked={includeFile} onChange={e=>setIncludeFile(e.target.checked)} style={{width:10,height:10}}/>
             include file
           </label>
-          {messages.length > 0 && (
-            <button onClick={()=>setMessages([])} style={{marginLeft:'auto',background:'transparent',border:'none',color:dimText,cursor:'pointer',fontFamily:"'Share Tech Mono',monospace",fontSize:'9px'}}>clear</button>
+          {(messages.length > 0 || streaming) && (
+            <button onClick={()=>{ cancel(); setMessages([]); setStreamingText('') }} style={{marginLeft:'auto',background:'transparent',border:'none',color:dimText,cursor:'pointer',fontFamily:"'Share Tech Mono',monospace",fontSize:'9px'}}>clear</button>
           )}
         </div>
         <div style={{display:'flex',gap:5}}>
@@ -2849,15 +2858,25 @@ function AiChatPanel({ activeNode, explorerRoot, brutal, aiProvider, aiKeys, aiM
             onKeyDown={e=>{ if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()} }}
             placeholder="Ask about your code… (Enter to send, Shift+Enter newline)"
             rows={2}
-            style={{flex:1,background:'rgba(255,255,255,.05)',border:'1px solid rgba(255,255,255,.08)',outline:'none',color:text,fontFamily:"'JetBrains Mono',monospace",fontSize:'11px',padding:'5px 7px',resize:'none',lineHeight:1.4}}
+            disabled={streaming}
+            style={{flex:1,background:'rgba(255,255,255,.05)',border:'1px solid rgba(255,255,255,.08)',outline:'none',color:text,fontFamily:"'JetBrains Mono',monospace",fontSize:'11px',padding:'5px 7px',resize:'none',lineHeight:1.4,opacity:streaming?.6:1}}
             onFocus={e=>(e.target.style.borderColor=provColor+'66')}
             onBlur={e=>(e.target.style.borderColor='rgba(255,255,255,.08)')}/>
-          <button onClick={send} disabled={loading||!input.trim()||!hasKey}
-            style={{background:loading||!hasKey?'transparent':`${provColor}22`,border:`1px solid ${loading||!hasKey?'rgba(255,255,255,.08)':provColor+'55'}`,
-              color:loading||!hasKey?dimText:provColor,fontFamily:"'Oswald',sans-serif",fontWeight:700,fontSize:'10px',
-              letterSpacing:'.08em',padding:'0 10px',cursor:loading||!hasKey?'default':'pointer',transition:'all .12s'}}>
-            {loading?'…':'▶'}
-          </button>
+          {streaming ? (
+            <button onClick={cancel}
+              style={{background:'rgba(255,67,90,.12)',border:'1px solid rgba(255,67,90,.4)',
+                color:'#ff435a',fontFamily:"'Oswald',sans-serif",fontWeight:700,fontSize:'10px',
+                letterSpacing:'.08em',padding:'0 10px',cursor:'pointer',transition:'all .12s'}}>
+              ■
+            </button>
+          ) : (
+            <button onClick={send} disabled={!input.trim()||!hasKey}
+              style={{background:!hasKey?'transparent':`${provColor}22`,border:`1px solid ${!hasKey?'rgba(255,255,255,.08)':provColor+'55'}`,
+                color:!hasKey?dimText:provColor,fontFamily:"'Oswald',sans-serif",fontWeight:700,fontSize:'10px',
+                letterSpacing:'.08em',padding:'0 10px',cursor:!hasKey?'default':'pointer',transition:'all .12s'}}>
+              ▶
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -3457,6 +3476,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
   const openNodeInEditor = id => {
     setOpenTabs(t => t.includes(id)?t:[...t,id])
     setActiveTabId(id)
+    setEditorCursorPos(null)
   }
   const closeTab = id => {
     setOpenTabs(t => {
@@ -4011,6 +4031,9 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
   const projectSearchDebounce = useRef<any>(null)
   const [splitTabId, setSplitTabId] = useState<string|null>(null)
   const [splitMode, setSplitMode] = useState<'vertical'|'horizontal'>('vertical')
+  const [editorCursorPos, setEditorCursorPos] = useState<{line:number,col:number}|null>(null)
+  const [replaceQuery, setReplaceQuery] = useState('')
+  const [replaceLoading, setReplaceLoading] = useState(false)
 
   // ── PHASE 4: AI PROVIDER STATE ──
   const [aiProvider, setAiProvider] = useState<string>(() => localStorage.getItem('forbiden_ai_provider') || 'anthropic')
@@ -4038,6 +4061,41 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
     const host = aiKeys['ollama'] || 'http://localhost:11434'
     const res = await api?.ai?.ollamaModels?.(host)
     if (res?.models?.length) setOllamaModels(res.models)
+  }
+
+  // Project-wide Replace All
+  const handleReplaceAll = async () => {
+    if (!projectSearchQuery.trim() || !replaceQuery || !explorerRoot) return
+    const api = (window as any).electronAPI
+    if (!api?.fs) return
+    setReplaceLoading(true)
+    try {
+      const byPath: Record<string, string> = {}
+      projectSearchResults.forEach(r => { byPath[r.fullPath] = r.fullPath })
+      let totalReplaced = 0
+      for (const fullPath of Object.values(byPath)) {
+        const readRes = await api.fs.readFile(fullPath)
+        if (!readRes?.content) continue
+        const query = projectSearchQuery.trim()
+        const count = readRes.content.split(query).length - 1
+        if (count > 0) {
+          await api.fs.writeFile(fullPath, readRes.content.split(query).join(replaceQuery))
+          totalReplaced += count
+          // Update open tabs that match this file
+          const openNode = nodesRef.current.find(n => n.filepath === fullPath)
+          if (openNode) {
+            openNode.code = readRes.content.split(query).join(replaceQuery)
+            openNode.modified = true
+          }
+        }
+      }
+      addEvent('info', `Replaced ${totalReplaced} occurrence${totalReplaced !== 1 ? 's' : ''} of "${query}" → "${replaceQuery}"`)
+      setProjectSearchQuery(q => q + ' ')
+      setTimeout(() => setProjectSearchQuery(q => q.trim()), 50)
+    } catch(e: any) {
+      addEvent('error', `Replace failed: ${e?.message || e}`)
+    }
+    setReplaceLoading(false)
   }
 
   // Project-wide search debounced effect
@@ -4149,7 +4207,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
           </div>
           <div style={{flex:1,overflow:'hidden',display:'flex',justifyContent:'center'}}>
             <div style={{width:'min(800px,100%)',height:'100%'}}>
-              <CodeMirrorEditor key={activeTabId+'_zen'} node={activeTabNode} onChange={code=>updateNodeCode(activeTabId,code)} onSave={()=>saveNodeToDisk(activeTabId)} externalPalette={globalEditorPalette} jumpToLine={jumpLineTarget??undefined}/>
+              <CodeMirrorEditor key={activeTabId+'_zen'} node={activeTabNode} onChange={code=>updateNodeCode(activeTabId,code)} onSave={()=>saveNodeToDisk(activeTabId)} externalPalette={globalEditorPalette} jumpToLine={jumpLineTarget??undefined} onCursorChange={(line,col)=>setEditorCursorPos({line,col})} aiProvider={aiProvider} aiKey={aiProvider==='ollama'?(aiKeys['ollama']||'http://localhost:11434'):aiKeys[aiProvider]||''} aiModel={aiModels[aiProvider]||DEFAULT_MODELS[aiProvider]||''}/>
             </div>
           </div>
         </div>
@@ -4944,6 +5002,10 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
                       onSave={()=>saveNodeToDisk(activeTabId)}
                       externalPalette={globalEditorPalette}
                       jumpToLine={jumpLineTarget??undefined}
+                      onCursorChange={(line,col)=>setEditorCursorPos({line,col})}
+                      aiProvider={aiProvider}
+                      aiKey={aiProvider==='ollama'?(aiKeys['ollama']||'http://localhost:11434'):aiKeys[aiProvider]||''}
+                      aiModel={aiModels[aiProvider]||DEFAULT_MODELS[aiProvider]||''}
                     />
                   )}
                 </div>
@@ -4969,6 +5031,10 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
                           onChange={code=>updateNodeCode(splitTabId,code)}
                           onSave={()=>saveNodeToDisk(splitTabId)}
                           externalPalette={globalEditorPalette}
+                          onCursorChange={(line,col)=>setEditorCursorPos({line,col})}
+                          aiProvider={aiProvider}
+                          aiKey={aiProvider==='ollama'?(aiKeys['ollama']||'http://localhost:11434'):aiKeys[aiProvider]||''}
+                          aiModel={aiModels[aiProvider]||DEFAULT_MODELS[aiProvider]||''}
                         />
                       </div>
                     </>
@@ -5428,6 +5494,10 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
             {gitChangeCount>0 && <span style={{color:'#e2c08d',fontSize:'9px'}}>+{gitChangeCount}</span>}
           </span>
         )}
+        {editorCursorPos && activeTabId && (<>
+          <span style={{opacity:.2}}>|</span>
+          <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:'9px',opacity:.6}}>Ln {editorCursorPos.line}, Col {editorCursorPos.col}</span>
+        </>)}
         <span style={{opacity:.2}}>|</span>
         <span>{nodeCount} nodes · {edgeCount} edges</span>
         {groupsRef.current.length>0 && <><span style={{opacity:.2}}>|</span><span>{groupsRef.current.length} classes</span></>}

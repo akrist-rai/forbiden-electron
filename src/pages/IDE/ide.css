@@ -876,6 +876,7 @@ body {
 
 
 @keyframes fblink    { 50% { opacity: 0 } }
+@keyframes blink     { 50% { opacity: 0 } }
 @keyframes fpulse    { 0%,100%{opacity:1} 50%{opacity:.2} }
 @keyframes fadeInOut { 0%,100%{opacity:0;transform:translateX(-50%) translateY(6px)} 15%,85%{opacity:1;transform:translateX(-50%) translateY(0)} }
 @keyframes join-pulse{ 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(1.35)} }
@@ -4112,5 +4113,70 @@ body {
 .ide-zen-mode .ide-split-divider {
   visibility: hidden;
   pointer-events: none;
+}
+
+/* ══════════════════════════════════════════════════════
+   UI/UX POLISH
+   ══════════════════════════════════════════════════════ */
+
+/* FileExplorer toast slide-up */
+@keyframes fe-toast-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(6px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+/* Sidebar active icon — left accent bar */
+.ide-icon-bar .strip-icon {
+  position: relative;
+}
+.ide-icon-bar .strip-icon.active::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 22%; bottom: 22%;
+  width: 2px;
+  background: var(--red, #ff2a38);
+  border-radius: 0 1px 1px 0;
+}
+
+/* Better focus outlines on inputs inside the IDE */
+.ide-v2-root input:focus-visible,
+.ide-v2-root textarea:focus-visible,
+.ide-v2-root select:focus-visible {
+  outline: 1px solid rgba(16,185,129,.5);
+  outline-offset: 0;
+}
+
+/* Smooth sidebar width transitions */
+.ide-sidebar-pane {
+  transition: width .15s ease;
+}
+
+/* Split divider hover glow */
+.theme-cyber .ide-split-divider {
+  transition: background .12s;
+}
+.theme-cyber .ide-split-divider:hover {
+  background: rgba(255,42,56,.35);
+}
+
+/* Bottom panel resize handle */
+.ide-bottom-panel-handle {
+  transition: background .12s;
+}
+.theme-cyber .ide-bottom-panel-handle:hover {
+  background: rgba(255,42,56,.25) !important;
+}
+
+/* Tab close button — larger hit target */
+.tab-close {
+  width: 16px; height: 16px;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+
+/* Command palette focused item — accent left bar */
+.cmd-item.focused {
+  background: rgba(255,255,255,.06);
+  border-left: 2px solid rgba(255,42,56,.45);
+  padding-left: 14px;
 }
 
