@@ -7,13 +7,13 @@
   "main": "electron/main.js",
   "scripts": {
     "dev": "vite",
-    "build": "NODE_OPTIONS=--max-old-space-size=3072 vite build",
+    "build": "vite build",
     "preview": "vite preview",
     "engine:build": "cd engine && go build -o ../electron/forbiden-engine .",
     "engine:build:win": "cd engine && GOOS=windows go build -o ../electron/forbiden-engine.exe .",
     "electron:dev": "npm run engine:build && cross-env NODE_ENV=development concurrently \"vite\" \"wait-on http://localhost:5175 && electron .\"",
-    "electron:build": "npm run engine:build && NODE_OPTIONS=--max-old-space-size=3072 vite build && electron-builder",
-    "electron:build:win": "npm run engine:build:win && NODE_OPTIONS=--max-old-space-size=3072 vite build && electron-builder --win",
+    "electron:build": "npm run engine:build && vite build && electron-builder",
+    "electron:build:win": "npm run engine:build:win && vite build && electron-builder --win",
     "electron:preview": "npm run engine:build && vite build && electron .",
     "electron:install-linux": "npm run electron:build && sudo dpkg -i release/*.deb || echo 'deb install failed, try AppImage'"
   },
@@ -41,7 +41,8 @@
     "xterm": "^5.3.0",
     "xterm-addon-fit": "^0.8.0",
     "xterm-addon-web-links": "^0.9.0",
-    "xterm-addon-webgl": "^0.16.0"
+    "xterm-addon-webgl": "^0.16.0",
+    "zustand": "^5.0.14"
   },
   "devDependencies": {
     "@types/react": "^19.1.6",
@@ -96,8 +97,14 @@
       ],
       "executableName": "forbiden",
       "extraResources": [
-        { "from": "electron/forbiden-engine", "to": "forbiden-engine" },
-        { "from": "assets/icon.png", "to": "icon.png" }
+        {
+          "from": "electron/forbiden-engine",
+          "to": "forbiden-engine"
+        },
+        {
+          "from": "assets/icon.png",
+          "to": "icon.png"
+        }
       ]
     },
     "mac": {
@@ -113,8 +120,14 @@
       "category": "public.app-category.developer-tools",
       "darkModeSupport": true,
       "extraResources": [
-        { "from": "electron/forbiden-engine", "to": "forbiden-engine" },
-        { "from": "assets/icon.png", "to": "icon.png" }
+        {
+          "from": "electron/forbiden-engine",
+          "to": "forbiden-engine"
+        },
+        {
+          "from": "assets/icon.png",
+          "to": "icon.png"
+        }
       ]
     },
     "win": {
@@ -128,8 +141,14 @@
       ],
       "artifactName": "FORBIDEN-Setup-${version}.exe",
       "extraResources": [
-        { "from": "electron/forbiden-engine.exe", "to": "forbiden-engine.exe" },
-        { "from": "assets/icon.png", "to": "icon.png" }
+        {
+          "from": "electron/forbiden-engine.exe",
+          "to": "forbiden-engine.exe"
+        },
+        {
+          "from": "assets/icon.png",
+          "to": "icon.png"
+        }
       ]
     },
     "nsis": {

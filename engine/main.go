@@ -20,6 +20,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/fsnotify/fsnotify"
 	"github.com/gorilla/websocket"
 )
 
@@ -344,13 +345,32 @@ func handleWsWatch(w http.ResponseWriter, r *http.Request) {
 	}
 	defer conn.Close()
 
-	// snapshot: path → mtime
-	snapshot := watchScan(root)
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		return
+	}
+	defer watcher.Close()
 
-	ticker := time.NewTicker(1500 * time.Millisecond)
-	defer ticker.Stop()
+	// Watch all non-ignored subdirectories
+	_ = filepath.WalkDir(root, func(path string, d os.DirEntry, _ error) error {
+		if d == nil {
+			return nil
+		}
+		if d.IsDir() {
+			if watchSkipDirs[d.Name()] {
+				return filepath.SkipDir
+			}
+			watcher.Add(path) //nolint:errcheck
+		}
+		return nil
+	})
 
-	// read pump — detect client disconnect
+	var (
+		debounce *time.Timer
+		mu       sync.Mutex
+	)
+
+	// Read pump — detect client disconnect
 	closed := make(chan struct{})
 	go func() {
 		defer close(closed)
@@ -361,53 +381,42 @@ func handleWsWatch(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
+	notify := func() {
+		data, _ := json.Marshal(map[string]string{"type": "change"})
+		conn.WriteMessage(websocket.TextMessage, data) //nolint:errcheck
+	}
+
 	for {
 		select {
 		case <-closed:
 			return
-		case <-ticker.C:
-			next := watchScan(root)
-			if watchDiff(snapshot, next) {
-				snapshot = next
-				data, _ := json.Marshal(map[string]string{"type": "change"})
-				if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
-					return
+		case event, ok := <-watcher.Events:
+			if !ok {
+				return
+			}
+			// Ignore pure permission changes
+			if event.Has(fsnotify.Chmod) {
+				continue
+			}
+			// Watch new subdirectories as they appear
+			if event.Has(fsnotify.Create) {
+				if info, err := os.Stat(event.Name); err == nil && info.IsDir() {
+					watcher.Add(event.Name) //nolint:errcheck
 				}
 			}
-		}
-	}
-}
-
-func watchScan(root string) map[string]int64 {
-	m := make(map[string]int64, 256)
-	filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
-		if err != nil {
-			return nil
-		}
-		if d.IsDir() {
-			if watchSkipDirs[d.Name()] {
-				return filepath.SkipDir
+			// Debounce rapid bursts (e.g. editor writing multiple temp files)
+			mu.Lock()
+			if debounce != nil {
+				debounce.Stop()
 			}
-			return nil
-		}
-		if info, err2 := d.Info(); err2 == nil {
-			m[path] = info.ModTime().UnixNano()
-		}
-		return nil
-	})
-	return m
-}
-
-func watchDiff(a, b map[string]int64) bool {
-	if len(a) != len(b) {
-		return true
-	}
-	for k, v := range b {
-		if a[k] != v {
-			return true
+			debounce = time.AfterFunc(80*time.Millisecond, notify)
+			mu.Unlock()
+		case _, ok := <-watcher.Errors:
+			if !ok {
+				return
+			}
 		}
 	}
-	return false
 }
 
 func handleFsTree(w http.ResponseWriter, r *http.Request) {
@@ -2246,10 +2255,11 @@ func main() {
 
 	addr := fmt.Sprintf("127.0.0.1:%d", port)
 	server := &http.Server{
-		Addr:         addr,
-		Handler:      cors(mux),
-		ReadTimeout:  120 * time.Second,
-		WriteTimeout: 120 * time.Second,
+		Addr:              addr,
+		Handler:           cors(mux),
+		ReadTimeout:       120 * time.Second,
+		WriteTimeout:      120 * time.Second,
+		ReadHeaderTimeout: 5 * time.Second,
 	}
 
 	// Signal readiness to parent process BEFORE blocking

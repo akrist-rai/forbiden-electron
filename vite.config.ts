@@ -19,15 +19,22 @@ export default defineConfig({
   resolve: {
     alias: { '@': resolve(__dirname, './src') },
   },
+  worker: {
+    format: 'es',
+  },
   build: {
-    chunkSizeWarningLimit: 3000,
+    chunkSizeWarningLimit: 600,
+    minify: 'esbuild',
+    target: 'esnext',
+    sourcemap: false,
     rollupOptions: {
       external: ['node-pty'],
       output: {
         manualChunks: (id) => {
-          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom') || id.includes('node_modules/react-router-dom')) return 'react'
-          if (id.includes('@codemirror') || id.includes('@lezer')) return 'codemirror'
-          if (id.includes('xterm')) return 'xterm'
+          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom') || id.includes('node_modules/react-router-dom')) return 'vendor-react'
+          if (id.includes('@codemirror') || id.includes('@lezer')) return 'vendor-codemirror'
+          if (id.includes('xterm')) return 'vendor-xterm'
+          if (id.includes('zustand')) return 'vendor-zustand'
         },
       },
     },

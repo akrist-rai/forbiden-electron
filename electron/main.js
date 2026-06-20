@@ -1,4 +1,4 @@
-const { app, BrowserWindow, shell, ipcMain, dialog, Menu } = require('electron')
+const { app, BrowserWindow, shell, ipcMain, dialog, Menu, session } = require('electron')
 const { spawn, exec } = require('child_process')
 const path = require('path')
 const fs   = require('fs')
@@ -198,6 +198,9 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: false,
+      webSecurity: true,
+      allowRunningInsecureContent: false,
+      experimentalFeatures: false,
     },
   })
 
@@ -222,11 +225,44 @@ function createWindow() {
     return { action: 'deny' }
   })
 
+  // Prevent navigation out of app — open external URLs in default browser instead
+  win.webContents.on('will-navigate', (event, url) => {
+    try {
+      const { hostname } = new URL(url)
+      const isLocal = hostname === 'localhost' || hostname === '127.0.0.1'
+      if (!isLocal) {
+        event.preventDefault()
+        shell.openExternal(url)
+      }
+    } catch {
+      event.preventDefault()
+    }
+  })
+
   return win
 }
 
 // ── App lifecycle ─────────────────────────────────────────────
 app.whenReady().then(async () => {
+  // CSP — allow local assets, local engine API, and external HTTPS for AI providers
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        'Content-Security-Policy': [
+          "default-src 'self' 'unsafe-inline' 'unsafe-eval' blob: data:; " +
+          "connect-src 'self' http://127.0.0.1:* ws://127.0.0.1:* https:; " +
+          "img-src 'self' data: blob:; font-src 'self' data:;"
+        ],
+      },
+    })
+  })
+
+  // Deny all non-clipboard permission requests (mic, camera, etc.)
+  session.defaultSession.setPermissionRequestHandler((_wc, permission, callback) => {
+    callback(['clipboard-read', 'clipboard-sanitized-write'].includes(permission))
+  })
+
   try {
     await startEngine()
   } catch (err) {
