@@ -432,4 +432,4 @@ const TermContainer: React.FC<TermContainerProps> = ({ id, visible, tabsRef, cre
   return <div ref={divRef} style={containerStyle(visible)} />
 }
 
-export default XTermPanel
+export default React.memo(XTermPanel)

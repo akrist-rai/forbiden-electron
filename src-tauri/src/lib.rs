@@ -151,10 +151,15 @@ pub fn run() {
                     .join(bin_name)
             };
 
-            // In dev, resolve from cwd which is the project root
+            // In dev, resolve from the executable's location:
+            // binary is at src-tauri/target/debug/forbiden → go up 3 dirs → project root
             let final_path = if cfg!(debug_assertions) {
-                std::env::current_dir()
+                std::env::current_exe()
                     .unwrap_or_default()
+                    .parent().unwrap_or(std::path::Path::new("/"))
+                    .parent().unwrap_or(std::path::Path::new("/"))
+                    .parent().unwrap_or(std::path::Path::new("/"))
+                    .parent().unwrap_or(std::path::Path::new("/"))
                     .join("engine")
                     .join(bin_name)
             } else {

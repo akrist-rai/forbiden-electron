@@ -206,7 +206,6 @@ function CodeEditor({ node, onChange, externalPalette }) {
   const highlighted = highlightCode(code, nodeLang)
   const activeLineY = (cursor.line - 1) * lineH
   const minimapLines = useMemo(() => code.split('\n').slice(0,50).map(l=>({len:Math.min(l.length,80),indent:l.match(/^\s*/)[0].length})), [code])
-  const LIGHT_IDS = ['github','gruvlight','papercolor','flexoki']
 
   return (
     <div className="editor-palette-scope" style={{display:'flex',flexDirection:'column',flex:1,minHeight:0,overflow:'hidden',background:palette.bg}}
@@ -243,14 +242,14 @@ function CodeEditor({ node, onChange, externalPalette }) {
           {showPaletteMenu && (
             <div className="ide-palette-dropdown" onClick={e=>e.stopPropagation()}>
               <div className="ide-palette-sec">DARK</div>
-              {PALETTES.filter(p=>!LIGHT_IDS.includes(p.id)).map(p=>(
+              {PALETTES.filter(p=>!PALETTE_LIGHT_IDS.has(p.id)).map(p=>(
                 <div key={p.id} className={`ide-palette-opt ${palette.id===p.id?'active':''}`} onClick={()=>{setPalette(p);setShowPaletteMenu(false)}} style={{background:p.bg}}>
                   <div className="ide-palette-swatches">{p.swatches.map((c,i)=><div key={i} className="ide-palette-swatch" style={{background:c}}/>)}</div>
                   <span className="ide-palette-name" style={{color:p.base}}>{p.name}</span>
                 </div>
               ))}
               <div className="ide-palette-sec">LIGHT</div>
-              {PALETTES.filter(p=>LIGHT_IDS.includes(p.id)).map(p=>(
+              {PALETTES.filter(p=>PALETTE_LIGHT_IDS.has(p.id)).map(p=>(
                 <div key={p.id} className={`ide-palette-opt ${palette.id===p.id?'active':''}`} onClick={()=>{setPalette(p);setShowPaletteMenu(false)}} style={{background:p.bg}}>
                   <div className="ide-palette-swatches">{p.swatches.map((c,i)=><div key={i} className="ide-palette-swatch" style={{background:c}}/>)}</div>
                   <span className="ide-palette-name" style={{color:p.base}}>{p.name}</span>
@@ -1839,7 +1838,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
   ]
 
   // ── CHAPTER SPLASH DATA ──
-  const splashImgSrc = activeTabNode ? getMangaImgSrc(activeTabNode) : null
+  const splashImgSrc = activeTabNode ? getMangaImgSrc(activeTabNode.id, activeTabNode.themeIdx ?? 0) : null
   const chapterNum = openTabs.indexOf(activeTabId) + 1
 
   // ── RENDER ──

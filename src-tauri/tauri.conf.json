@@ -6,8 +6,8 @@
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5175",
-    "beforeDevCommand": "npm run dev",
-    "beforeBuildCommand": "npm run build"
+    "beforeDevCommand": "bun run dev",
+    "beforeBuildCommand": "bun run build"
   },
   "app": {
     "windows": [
@@ -40,16 +40,12 @@
       "icons/icon.ico"
     ],
     "resources": {
-      "../engine/forbiden-engine": ".",
-      "../engine/forbiden-engine.exe": "."
+      "../engine/forbiden-engine": "."
     }
   },
   "plugins": {
     "shell": {
       "open": true
-    },
-    "window-state": {
-      "stateFlags": "ALL"
     }
   }
 }

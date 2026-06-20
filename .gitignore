@@ -3,6 +3,9 @@ node_modules/
 .pnp
 .pnp.js
 
+# npm lockfile (project uses bun)
+package-lock.json
+
 # Build output
 dist/
 release/

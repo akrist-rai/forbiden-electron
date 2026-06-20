@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, memo } from 'react'
 import { api } from '../lib/api'
 
 // ── VS Code Source Control color palette ──────────────────────
@@ -551,7 +551,7 @@ const AI_DEFAULT_MODELS: Record<string, string> = {
   gemini: 'gemini-2.0-flash', openrouter: 'openai/gpt-4o-mini', ollama: 'llama3',
 }
 
-export default function GitPanelV2({
+function GitPanelV2({
   cwd, brutal = false, onOpenFile, aiProvider = 'anthropic',
   aiKeys = {}, aiModels = {}, onOpenAiSettings,
 }: GitPanelV2Props) {
@@ -928,3 +928,5 @@ export default function GitPanelV2({
     </div>
   )
 }
+
+export default memo(GitPanelV2)

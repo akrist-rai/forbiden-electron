@@ -2,6 +2,7 @@
 //  FORBIDEN ENGINE  — language detection + execution bridge
 //  System ops run entirely in the Go engine over HTTP.
 // ══════════════════════════════════════════════════════════════
+import { api } from './api'
 
 export type Lang = 'js' | 'ts' | 'jsx' | 'tsx' | 'py' | 'c' | 'cpp' | 'go' | 'md' | 'unknown'
 

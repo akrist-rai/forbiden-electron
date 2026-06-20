@@ -19,11 +19,13 @@ Full production upgrade in progress. Plan file: `/home/akrist/.claude/plans/lets
 - editorStore: setOpenTabsDirect, setActiveTabId supports updaters
 
 **Phase 2 — All leaf components + sidebar panels extracted** (`src/features/`):
-- `features/graph/`: convexHull.ts, MangaNode.tsx (React.memo), GraphMinimap.tsx
+- `features/graph/`: convexHull.ts, MangaNode.tsx (React.memo), GraphMinimap.tsx, WelcomeNodeRow.tsx
 - `features/modals/`: CommandPalette.tsx (PALETTES inlined, no previewPalette prop), GroupEditor.tsx, FileFinderModal.tsx, JumpToLineModal.tsx
 - `features/sidebar/`: ScriptsPanel.tsx (reads workspaceStore/uiStore directly), AiChatPanel.tsx (reads aiStore/uiStore directly)
 - `features/timeline/`: TimelinePanel.tsx
 - `features/floating/`: FloatingPanel.tsx (created but FloatingPanel not yet wired in JSX)
+- `features/notebook/`: NotebookPanel.tsx (NB_TEMPLATES, NoteCell, all notebook logic; no brutal prop — unused)
+- `src/lib/renderMd.ts`: shared markdown renderer (used by NotebookPanel and IDE JSX lines ~3580/3583)
 - `src/constants/accents.ts`: ACCENTS, TL_TRACKS, TL_COL
 - `src/vite-env.d.ts`: adds import.meta.env types
 
@@ -40,9 +42,9 @@ Full production upgrade in progress. Plan file: `/home/akrist/.claude/plans/lets
 
 **Phase 2 — Monolith shrinkage**:
 - Original: 6015 lines, 135 useState calls
-- Current: 4859 lines, 24 useState calls
-- Eliminated: 1156 lines, 111 useState calls (82% reduction)
-- Modules: 107 → 125 (18 new feature modules)
+- Current: 3625 lines, 23 useState calls
+- Eliminated: 2390 lines, 112 useState calls (83% reduction)
+- Modules: 107 → 128 (21 new feature modules)
 
 **Phase 4 — Go engine fsnotify**: handleWsWatch replaced with fsnotify. ReadHeaderTimeout: 5s added.
 
@@ -55,16 +57,14 @@ Full production upgrade in progress. Plan file: `/home/akrist/.claude/plans/lets
 **Phase 2 — Wire graphStore**: nodeRunState, edgeDataLabels still as useState (2 calls)
 
 **Phase 2 — Extract remaining inline panels**:
-- `NotebookPanel` + `NoteCell` — large, still inline in monolith (~300 lines)
-- `CodeEditor` — large, still inline (~300 lines with CodeMirror)
-- `WelcomeNodeRow` — small inline component
+- `CodeEditor` — large, still inline (~300 lines with CodeMirror, lines ~375-697 original numbering)
 - Sidebar panel sections (outline, notes, project-search) — still inline JSX in monolith
 
 **Phase 3 — Physics Web Worker**: `src/features/graph/GraphPhysicsWorker.ts` + `useGraphPhysics.ts` hook.
 Canvas transform isolation: move transform to ref+DOM during pan, commit to store on pointerUp.
 
 ## Key facts
-- IDE monolith: `src/pages/IDE/index.tsx`, 4859 lines (was 6015), `// @ts-nocheck` at line 1
+- IDE monolith: `src/pages/IDE/index.tsx`, 3625 lines (was 6015), `// @ts-nocheck` at line 1
 - aiStore export: `useAiStore` (lowercase 'i', NOT useAIStore)
 - Go engine port: 49373 (default), printed as `READY:<port>` on stdout
 - getFileIcon + getFileColor still defined inline in monolith (used at line ~4230 in IDE JSX)

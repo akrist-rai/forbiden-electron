@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo, memo } from 'react'
 import { api } from '../lib/api'
 
 // ── Virtual list helpers ───────────────────────────────────
@@ -292,7 +292,7 @@ interface Props {
   refreshKey?: number
 }
 
-export default function FileExplorer({ rootPath, brutal, onOpenFile, onOpenFolder, onScanImports, onTerminalCd, refreshKey }: Props) {
+function FileExplorer({ rootPath, brutal, onOpenFile, onOpenFolder, onScanImports, onTerminalCd, refreshKey }: Props) {
   const [tree,         setTree]         = useState<any>(null)
   const [openPaths,    setOpenPaths]    = useState<Set<string>>(new Set())
   const [selectedPath, setSelectedPath] = useState<string | null>(null)
@@ -601,3 +601,5 @@ const NewItemInput = ({ ref, type, value, onChange, onCommit, onCancel, depth }:
     />
   </div>
 )
+
+export default memo(FileExplorer)
