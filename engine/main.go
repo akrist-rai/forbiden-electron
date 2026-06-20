@@ -722,8 +722,9 @@ func handleFsGetScripts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	type Script struct {
-		Name string `json:"name"`
-		Cmd  string `json:"cmd"`
+		Name   string `json:"name"`
+		Cmd    string `json:"cmd"`
+		Source string `json:"source"`
 	}
 	// Try package.json
 	pkgPath := filepath.Join(req.RootPath, "package.json")
@@ -735,7 +736,7 @@ func handleFsGetScripts(w http.ResponseWriter, r *http.Request) {
 		if json.Unmarshal(data, &pkg) == nil && len(pkg.Scripts) > 0 {
 			scripts := []Script{}
 			for name, cmd := range pkg.Scripts {
-				scripts = append(scripts, Script{Name: name, Cmd: cmd})
+				scripts = append(scripts, Script{Name: name, Cmd: cmd, Source: "npm"})
 			}
 			sort.Slice(scripts, func(i, j int) bool { return scripts[i].Name < scripts[j].Name })
 			ok200(w, map[string]any{"success": true, "scripts": scripts, "type": "npm", "name": pkg.Name})
@@ -750,7 +751,7 @@ func handleFsGetScripts(w http.ResponseWriter, r *http.Request) {
 		scripts := []Script{}
 		for _, m := range matches {
 			name := string(m[1])
-			scripts = append(scripts, Script{Name: name, Cmd: "make " + name})
+			scripts = append(scripts, Script{Name: name, Cmd: "make " + name, Source: "makefile"})
 		}
 		if len(scripts) > 0 {
 			ok200(w, map[string]any{"success": true, "scripts": scripts, "type": "make", "name": "Makefile"})
