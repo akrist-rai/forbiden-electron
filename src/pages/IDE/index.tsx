@@ -710,6 +710,9 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
   const lastMousePos = useRef({ x:0, y:0 })
   const draggingNodeRef  = useRef(null)
   const wakePhysicsRef   = useRef<() => void>(() => {})
+  const nodeElsRef       = useRef<Map<string, HTMLDivElement>>(new Map())
+  const registerNodeEl   = useCallback((id: string, el: HTMLDivElement) => { nodeElsRef.current.set(id, el) }, [])
+  const unregisterNodeEl = useCallback((id: string) => { nodeElsRef.current.delete(id) }, [])
   const canvasInputRef = useRef(null)
   const folderInputRef = useRef(null)
 
@@ -960,44 +963,98 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
 
     const tick = (now: number) => {
       const isDragging = !!draggingNodeRef.current
-      // 30fps for physics settling; skip React render entirely during node drag
-      // (the dragged node is updated via direct DOM in onPointerMove — zero latency)
-      const shouldRender = !isDragging && (now - lastRenderMs >= 1000 / 30)
+      // React re-renders at 30fps for edge SVG. Node positions are DOM-direct (see below).
+      const shouldRender = now - lastRenderMs >= 1000 / 30
 
       let updated = false
       const nds = nodesRef.current, eds = edgesRef.current
 
-      const nodeMap = new Map()
+      // ── Build node map + adjacency list for drag propagation ──
+      const nodeMap = new Map<string, any>()
       for (let i = 0; i < nds.length; i++) nodeMap.set(nds[i].id, nds[i])
 
-      for (let i=0;i<nds.length;i++) for (let j=i+1;j<nds.length;j++) {
-        const dx=nds[j].x-nds[i].x, dy=nds[j].y-nds[i].y
-        const distSq=dx*dx+dy*dy||1, dist=Math.sqrt(distSq), force=4200/distSq
-        nds[i].vx-=(dx/dist)*force; nds[i].vy-=(dy/dist)*force
-        nds[j].vx+=(dx/dist)*force; nds[j].vy+=(dy/dist)*force
-      }
+      const adj = new Map<string, string[]>()
       for (let i = 0; i < eds.length; i++) {
-        const edge = eds[i]
-        const src = nodeMap.get(edge.source)
-        const tgt = nodeMap.get(edge.target)
-        if (!src||!tgt) continue
-        const dx=tgt.x-src.x, dy=tgt.y-src.y, dist=Math.sqrt(dx*dx+dy*dy)||1, force=(dist-110)*0.05
-        src.vx+=(dx/dist)*force; src.vy+=(dy/dist)*force
-        tgt.vx-=(dx/dist)*force; tgt.vy-=(dy/dist)*force
-      }
-      for (let i = 0; i < nds.length; i++) {
-        const n = nds[i]
-        const p=n.isMain?0.2:0.005
-        n.vx+=(0-n.x)*p; n.vy+=(0-n.y)*p
-        n.vx*=0.8; n.vy*=0.8; n.x+=n.vx; n.y+=n.vy
-        if (Math.abs(n.vx)>0.05||Math.abs(n.vy)>0.05) updated=true
-      }
-      if (isDragging) {
-        const d = nodeMap.get(draggingNodeRef.current.id)
-        if (d) { d.x=draggingNodeRef.current.x; d.y=draggingNodeRef.current.y; d.vx=0; d.vy=0; updated=true }
+        const { source, target } = eds[i]
+        if (!adj.has(source)) adj.set(source, [])
+        if (!adj.has(target)) adj.set(target, [])
+        adj.get(source)!.push(target)
+        adj.get(target)!.push(source)
       }
 
-      // When drag just ended, sync React state immediately so positions are correct
+      // ── Find main node — gravity anchor for all others ──
+      let mainX = 0, mainY = 0
+      for (let i = 0; i < nds.length; i++) {
+        if (nds[i].isMain) { mainX = nds[i].x; mainY = nds[i].y; break }
+      }
+
+      // ── Repulsion between all pairs ──
+      for (let i = 0; i < nds.length; i++) {
+        for (let j = i + 1; j < nds.length; j++) {
+          const dx = nds[j].x - nds[i].x, dy = nds[j].y - nds[i].y
+          const distSq = dx*dx + dy*dy || 1, dist = Math.sqrt(distSq)
+          const force = 7000 / distSq
+          nds[i].vx -= (dx/dist)*force; nds[i].vy -= (dy/dist)*force
+          nds[j].vx += (dx/dist)*force; nds[j].vy += (dy/dist)*force
+        }
+      }
+
+      // ── Edge springs: stiffer + longer rest for snappy elastic feel ──
+      for (let i = 0; i < eds.length; i++) {
+        const src = nodeMap.get(eds[i].source), tgt = nodeMap.get(eds[i].target)
+        if (!src || !tgt) continue
+        const dx = tgt.x - src.x, dy = tgt.y - src.y
+        const dist = Math.sqrt(dx*dx + dy*dy) || 1
+        const force = (dist - 150) * 0.12
+        src.vx += (dx/dist)*force; src.vy += (dy/dist)*force
+        tgt.vx -= (dx/dist)*force; tgt.vy -= (dy/dist)*force
+      }
+
+      // ── Gravity: main node pinned gently to origin; all others orbit main ──
+      for (let i = 0; i < nds.length; i++) {
+        const n = nds[i]
+        if (n.isMain) {
+          n.vx += (0 - n.x) * 0.006; n.vy += (0 - n.y) * 0.006
+        } else {
+          n.vx += (mainX - n.x) * 0.014; n.vy += (mainY - n.y) * 0.014
+        }
+      }
+
+      // ── Integrate + dampen ──
+      for (let i = 0; i < nds.length; i++) {
+        const n = nds[i]
+        n.vx *= 0.80; n.vy *= 0.80
+        n.x += n.vx; n.y += n.vy
+        if (Math.abs(n.vx) > 0.05 || Math.abs(n.vy) > 0.05) updated = true
+      }
+
+      // ── Dragged node: pin to pointer + propagate velocity impulse to neighbors ──
+      if (isDragging) {
+        const d = draggingNodeRef.current
+        const dn = nodeMap.get(d.id)
+        if (dn) {
+          const moveX = d.x - dn.x, moveY = d.y - dn.y
+          dn.x = d.x; dn.y = d.y; dn.vx = 0; dn.vy = 0
+          updated = true
+          const neighbors = adj.get(d.id) || []
+          for (let k = 0; k < neighbors.length; k++) {
+            const nb = nodeMap.get(neighbors[k])
+            if (nb) { nb.vx += moveX * 0.55; nb.vy += moveY * 0.55 }
+          }
+        }
+      }
+
+      // ── Direct DOM: update ALL node positions — bypasses React memo for 60fps physics ──
+      const els = nodeElsRef.current
+      for (let i = 0; i < nds.length; i++) {
+        const n = nds[i], el = els.get(n.id)
+        if (!el) continue
+        const W = n.isMain ? 108 : 90, H = n.isMain ? 44 : 36
+        el.style.left = (n.x - W/2) + 'px'
+        el.style.top  = (n.y - H/2) + 'px'
+      }
+
+      // ── React render only for SVG edges (30fps) or on drag end ──
       if (wasDragging && !isDragging) {
         forceRender(); lastRenderMs = now
       } else if (updated && shouldRender) {
@@ -1363,7 +1420,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
   // ── EXPLORER: open file from tree ─────────────────────────────
   const handleExplorerOpenFile = useCallback(async (node: any) => {
     if (!api?.fs) return
-    const ext = node.ext || node.name.split('.').pop() || ''
+    const ext = (node.ext || '').replace(/^\./, '') || node.name.split('.').pop() || ''
     const isText = /^(js|ts|jsx|tsx|mjs|cjs|py|md|txt|json|csv|html|htm|css|yaml|yml|sh|bash|c|cpp|h|hpp|go|rs|rb|java|kt|swift|cs|vue|svelte|toml|xml|env|gitignore)$/i.test(ext)
     if (!isText) { addEvent('system', `Cannot open binary: ${node.name}`); return }
     const res = await api.fs.readFile(node.path)
@@ -2439,6 +2496,8 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
                     onRun={handleRunNode}
                     onCtxMenu={(nid,x,y)=>{setNodeCtxMenu({nodeId:nid,x,y});setNodeColorPicker(null)}}
                     wakePhysicsRef={wakePhysicsRef}
+                    onMountEl={registerNodeEl}
+                    onUnmountEl={unregisterNodeEl}
                   />
                 ))}
               </div>

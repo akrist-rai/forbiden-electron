@@ -1,4 +1,4 @@
-import { memo, startTransition, useRef } from 'react'
+import { memo, startTransition, useRef, useEffect } from 'react'
 import { ACCENTS } from '../../constants/accents'
 import type { GraphNode, GraphGroup } from '../../stores/types'
 
@@ -54,14 +54,21 @@ interface Props {
   onRun?: (id: string) => void
   onCtxMenu?: (id: string, x: number, y: number) => void
   wakePhysicsRef?: React.RefObject<() => void>
+  onMountEl?: (id: string, el: HTMLDivElement) => void
+  onUnmountEl?: (id: string) => void
 }
 
 function MangaNodeInner({
   node, groups, brutal, isJoinSelected, edgeMode, hoveredNodeId, setHoveredNodeId,
   draggingNodeRef, lastMousePos, transform, setNodeColorPicker, handleNodeClickInMode, openNodeInEditor,
-  nodeRunState, onRun, onCtxMenu, wakePhysicsRef,
+  nodeRunState, onRun, onCtxMenu, wakePhysicsRef, onMountEl, onUnmountEl,
 }: Props) {
   const nodeElRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (nodeElRef.current) onMountEl?.(node.id, nodeElRef.current)
+    return () => { onUnmountEl?.(node.id) }
+  }, [node.id])
   const W = node.isMain ? 108 : 90
   const H = node.isMain ? 44 : 36
   const accent = ACCENTS[node.themeIdx % ACCENTS.length]
@@ -182,10 +189,8 @@ function MangaNodeInner({
   )
 }
 
-// Memoized with custom comparator — only re-renders when visually relevant props change
+// Positions are updated via direct DOM in physics tick; re-render only for visual state changes
 export default memo(MangaNodeInner, (prev, next) =>
-  prev.node.x === next.node.x &&
-  prev.node.y === next.node.y &&
   prev.node.modified === next.node.modified &&
   prev.node.themeIdx === next.node.themeIdx &&
   prev.node.code === next.node.code &&
