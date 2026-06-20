@@ -1790,12 +1790,12 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
   // ── ICON BAR ──
   const gitChangeCount = (gitStatus as any)?.files?.length ?? 0
   const sideIconDefs = [
-    { key:'files',          icon:<I.Files/>,  tip:'Files (Ctrl+Shift+E)' },
-    { key:'git',            icon:<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M18 9a9 9 0 01-9 9"/></svg>, tip:'Source Control (Ctrl+Shift+G)', badge:gitChangeCount },
-    { key:'project-search', icon:<I.Search/>, tip:'Search in files (Ctrl+Shift+F)', badge:0 },
-    { key:'outline',        icon:<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>, tip:'Outline (Ctrl+Shift+O)' },
-    { key:'ai',             icon:<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>, tip:'AI Assistant' },
-    { key:'note',           icon:<I.Note/>,  tip:'Notes' },
+    { key:'files',          icon:<I.Files/>,  tip:'FILES' },
+    { key:'git',            icon:<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M18 9a9 9 0 01-9 9"/></svg>, tip:'GIT', badge:gitChangeCount },
+    { key:'project-search', icon:<I.Search/>, tip:'SEARCH', badge:0 },
+    { key:'outline',        icon:<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>, tip:'OUTLINE' },
+    { key:'ai',             icon:<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>, tip:'AI' },
+    { key:'note',           icon:<I.Note/>,  tip:'NOTES' },
   ]
 
   // ── CHAPTER SPLASH DATA ──
@@ -1881,10 +1881,10 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
         )}
 
         <button className="ide-topbar-btn primary" onClick={()=>setShowCreateNode(true)}>+ NODE</button>
-        <button className="ide-topbar-btn" onClick={handleOpenFolderForExplorer} title="Open folder in Explorer">📂 OPEN</button>
-        <button className="ide-topbar-btn" onClick={()=>folderInputRef.current?.click()} title="Import files as graph nodes">⬆ IMPORT</button>
+        <button className="ide-topbar-btn" onClick={handleOpenFolderForExplorer} title="Open folder">OPEN</button>
+        <button className="ide-topbar-btn" onClick={()=>folderInputRef.current?.click()} title="Import files as graph nodes">IMPORT</button>
         <input ref={folderInputRef} type="file" multiple {...{'webkitdirectory':''}} style={{display:'none'}} onChange={handleFolderUpload}/>
-        <button className="ide-topbar-btn" onClick={()=>setShowFileFinder(true)} title="Quick Open file (Ctrl+P)">⌕ FILES</button>
+        <button className="ide-topbar-btn" onClick={()=>setShowFileFinder(true)} title="Quick Open (Ctrl+P)">⌕</button>
         <button className="ide-topbar-btn" onClick={()=>setShowCmd(true)} title="Command palette (Ctrl+Shift+P)">⌘</button>
         <button className="ide-topbar-btn" onClick={()=>setZenMode(v=>!v)} title="Zen mode (Ctrl+Shift+Z)" style={zenMode?{color:'#10b981',borderColor:'rgba(16,185,129,.4)'}:{}}>ZEN</button>
         <button className="ide-topbar-btn" onClick={()=>setShowShortcuts(v=>!v)} title="Keyboard shortcuts (Ctrl+?)"
@@ -1904,7 +1904,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
         {/* ── ICON BAR (now toggles floating panels) ── */}
         <div className="ide-icon-bar">
           {sideIconDefs.map(def=>(
-            <div key={def.key} title={def.tip}
+            <div key={def.key} data-tip={def.tip}
               className={`ide-icon-btn ${sidebarMode===def.key&&sidebarOpen?'active':''}`}
               onClick={()=>{
                 if (def.key==='files' && !explorerRoot) {
@@ -1921,21 +1921,21 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
           ))}
           <div style={{flex:1}}/>
           {/* Console — opens run output */}
-          <div title="Console (run output)" className={`ide-icon-btn ${bottomOpen&&bottomTab==='console'?'active':''}`}
+          <div data-tip="Console" className={`ide-icon-btn ${bottomOpen&&bottomTab==='console'?'active':''}`}
             onClick={()=>{ if(bottomOpen&&bottomTab==='console'){setBottomOpen(false)}else{setBottomTab('console');setBottomOpen(true)} }}>
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><polyline points="3,5 7,8 3,11"/><line x1="9" y1="11" x2="13" y2="11"/></svg>
           </div>
           {/* Notebook */}
-          <div title="Notebook" className={`ide-icon-btn ${bottomOpen&&bottomTab==='notebook'?'active':''}`}
+          <div data-tip="Notebook" className={`ide-icon-btn ${bottomOpen&&bottomTab==='notebook'?'active':''}`}
             onClick={()=>{ if(bottomOpen&&bottomTab==='notebook'){setBottomOpen(false)}else{setBottomTab('notebook');setBottomOpen(true)} }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
           </div>
           {/* Editor pane toggle */}
-          <div title="Toggle editor" className={`ide-icon-btn ${editorOpen?'active':''}`} onClick={()=>setEditorOpen(o=>!o)}>
+          <div data-tip="Toggle Editor" className={`ide-icon-btn ${editorOpen?'active':''}`} onClick={()=>setEditorOpen(o=>!o)}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="16,18 22,12 16,6"/><polyline points="8,6 2,12 8,18"/></svg>
           </div>
           {/* Settings */}
-          <div title="Settings" className={`ide-icon-btn ${sidebarMode==='settings'&&sidebarOpen?'active':''}`}
+          <div data-tip="Settings" className={`ide-icon-btn ${sidebarMode==='settings'&&sidebarOpen?'active':''}`}
             onClick={()=>{setSidebarMode('settings');setSidebarOpen(o=>sidebarMode==='settings'?!o:true)}}>
             <I.Settings/>
           </div>
@@ -3081,7 +3081,14 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
         <span>{nodeCount} nodes · {edgeCount} edges</span>
         {groupsRef.current.length>0 && <><span style={{opacity:.2}}>|</span><span>{groupsRef.current.length} classes</span></>}
         {edgeMode && <><span style={{opacity:.2}}>|</span><span style={{color:edgeMode==='join'?'#10b981':'#ff435a'}}>{edgeMode==='join'?'JOIN MODE':'CUT MODE'}</span></>}
-        <span style={{marginLeft:'auto',opacity:.3}}>⌘P · N NEW · J JOIN · X CUT · ` TERMINAL</span>
+        <div className="ide-sb-hints">
+          {([['⌘P','find'],['N','node'],['J','join'],['X','cut'],['`','term']] as [string,string][]).map(([k,label])=>(
+            <div key={k} className="ide-sb-hint">
+              <kbd>{k}</kbd>
+              <span>{label}</span>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* ═══════ OVERLAYS ═══════ */}
