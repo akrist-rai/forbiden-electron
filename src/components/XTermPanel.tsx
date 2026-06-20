@@ -99,7 +99,7 @@ const S: Record<string, React.CSSProperties> = {
   addBtn: {
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     width: 28, height: '100%', background: 'transparent', border: 'none',
-    color: '#5a5a7a', fontSize: 18, cursor: 'pointer', padding: 0, flexShrink: 0,
+    color: '#5a5a7a', fontSize: 0, cursor: 'pointer', padding: 0, flexShrink: 0,
   },
   termWrap: { flex: 1, minHeight: 0, position: 'relative', overflow: 'hidden', background: '#080810' },
   empty: {
@@ -368,12 +368,18 @@ const XTermPanel: React.FC<XTermPanelProps> = ({ cwd, palette, onCwdChange, onAc
           })}
         </div>
         <button
+          type="button"
           style={S.addBtn}
           onClick={addTab}
           title="New terminal"
           onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#10b981' }}
           onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#5a5a7a' }}
-        >+</button>
+        >
+          <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+            <line x1="5.5" y1="1" x2="5.5" y2="10"/>
+            <line x1="1" y1="5.5" x2="10" y2="5.5"/>
+          </svg>
+        </button>
       </div>
 
       {/* Terminal containers */}

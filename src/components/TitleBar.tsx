@@ -343,25 +343,28 @@ export default function TitleBar({
       {/* ── Spacer — the ONLY draggable region ── */}
       <div style={{ flex: 1, height: '100%', WebkitAppRegion: 'drag' as any }} />
 
-      {/* ── Center title (absolute, pointer-events off so it doesn't block drag) ── */}
+      {/* ── Center — subtle brand watermark only (active file is already in the breadcrumb) ── */}
       <div style={{
         position: 'absolute',
         left: '50%',
         transform: 'translateX(-50%)',
         pointerEvents: 'none',
-        fontFamily: "'Share Tech Mono', monospace",
-        fontSize: '10px',
-        letterSpacing: '.1em',
-        color: subText,
-        opacity: 0.5,
+        fontFamily: "'Oswald', sans-serif",
+        fontWeight: 700,
+        fontSize: '11px',
+        letterSpacing: '.22em',
+        color: brutal ? '#000' : '#fff',
+        opacity: brutal ? 0.1 : 0.07,
         whiteSpace: 'nowrap',
+        textTransform: 'uppercase',
       }}>
-        {activeFile ? `${title} — ${activeFile}` : title}
+        {title}
       </div>
 
       {/* ── Window control buttons ── */}
       <div style={{ ...flexRow, flexShrink: 0 }}>
         <button
+          type="button"
           style={winBtnStyle('minimize')}
           onMouseEnter={() => setHoveredBtn('minimize')}
           onMouseLeave={() => setHoveredBtn(null)}
@@ -373,6 +376,7 @@ export default function TitleBar({
         </button>
 
         <button
+          type="button"
           style={winBtnStyle('maximize')}
           onMouseEnter={() => setHoveredBtn('maximize')}
           onMouseLeave={() => setHoveredBtn(null)}
@@ -384,6 +388,7 @@ export default function TitleBar({
         </button>
 
         <button
+          type="button"
           style={winBtnStyle('close')}
           onMouseEnter={() => setHoveredBtn('close')}
           onMouseLeave={() => setHoveredBtn(null)}
