@@ -5,7 +5,8 @@ import { EditorState, StateEffect, StateField } from '@codemirror/state'
 import { defaultKeymap, indentWithTab, toggleComment } from '@codemirror/commands'
 import { searchKeymap, openSearchPanel, closeSearchPanel, search } from '@codemirror/search'
 import { completionKeymap, autocompletion, closeBrackets } from '@codemirror/autocomplete'
-import { foldGutter, indentOnInput, bracketMatching, syntaxHighlighting, defaultHighlightStyle } from '@codemirror/language'
+import { foldGutter, indentOnInput, bracketMatching, syntaxHighlighting, HighlightStyle } from '@codemirror/language'
+import { tags as t } from '@lezer/highlight'
 import { javascript } from '@codemirror/lang-javascript'
 import { python } from '@codemirror/lang-python'
 import { cpp } from '@codemirror/lang-cpp'
@@ -234,22 +235,6 @@ function buildTheme(palette: Palette) {
     '.cm-cursor': {
       borderLeftColor: palette.kw,
     },
-    '.tok-keyword': { color: palette.kw },
-    '.tok-string': { color: palette.str },
-    '.tok-comment': { color: palette.cmt, fontStyle: 'italic' },
-    '.tok-number': { color: palette.num },
-    '.tok-function': { color: palette.fn },
-    '.tok-definition.tok-function': { color: palette.fn },
-    '.tok-variableName': { color: palette.base },
-    '.tok-operator': { color: palette.op },
-    '.tok-typeName': { color: palette.bi },
-    '.tok-className': { color: palette.bi },
-    '.tok-propertyName': { color: palette.base },
-    '.tok-punctuation': { color: palette.op },
-    '.tok-bracket': { color: palette.op },
-    '.tok-tagName': { color: palette.kw },
-    '.tok-attributeName': { color: palette.bi },
-    '.tok-attributeValue': { color: palette.str },
     '.cm-scroller': {
       fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
       fontSize: '13px',
@@ -297,6 +282,35 @@ function buildTheme(palette: Palette) {
       paddingLeft: '4px',
     },
   })
+}
+
+function buildHighlight(palette: Palette) {
+  return syntaxHighlighting(HighlightStyle.define([
+    { tag: t.keyword,                               color: palette.kw,  fontWeight: '500' },
+    { tag: [t.string, t.special(t.string)],          color: palette.str },
+    { tag: t.comment,                               color: palette.cmt, fontStyle: 'italic' },
+    { tag: [t.number, t.bool],                       color: palette.num },
+    { tag: [t.function(t.name), t.function(t.variableName), t.definition(t.function(t.name))],
+                                                    color: palette.fn },
+    { tag: t.variableName,                          color: palette.base },
+    { tag: t.definition(t.variableName),            color: palette.base },
+    { tag: t.operator,                              color: palette.op },
+    { tag: [t.typeName, t.className, t.namespace],  color: palette.bi },
+    { tag: t.propertyName,                          color: palette.base },
+    { tag: [t.punctuation, t.bracket],              color: palette.op },
+    { tag: t.tagName,                               color: palette.kw },
+    { tag: t.attributeName,                         color: palette.bi },
+    { tag: t.attributeValue,                        color: palette.str },
+    { tag: t.heading,                               color: palette.kw, fontWeight: 'bold' },
+    { tag: t.emphasis,                              fontStyle: 'italic' },
+    { tag: t.strong,                                fontWeight: 'bold' },
+    { tag: [t.link, t.url],                         color: palette.bi, textDecoration: 'underline' },
+    { tag: t.meta,                                  color: palette.cmt },
+    { tag: t.self,                                  color: palette.kw },
+    { tag: t.constant(t.name),                      color: palette.num },
+    { tag: t.inserted,                              color: palette.fn },
+    { tag: t.deleted,                               color: palette.kw },
+  ]))
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -474,7 +488,7 @@ export default function CodeMirrorEditor({ node, onChange, onSave, externalPalet
         { key: 'Mod-s', run: () => { onSaveRef.current?.(); return true } },
       ]),
       indentOnInput(),
-      syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+      buildHighlight(palette),
       updateListener,
       themeExt,
     ]
@@ -580,7 +594,7 @@ export default function CodeMirrorEditor({ node, onChange, onSave, externalPalet
         { key: 'Mod-s', run: () => { onSaveRef.current?.(); return true } },
       ]),
       indentOnInput(),
-      syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+      buildHighlight(palette),
       updateListener,
       themeExt,
     ]

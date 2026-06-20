@@ -4240,12 +4240,17 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
       {/* ── ZEN MODE EDITOR OVERLAY ── */}
       {zenMode && activeTabNode && (
         <div style={{position:'fixed',inset:0,zIndex:90000,background:'#06060d',display:'flex',flexDirection:'column',overflow:'hidden'}}>
-          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'6px 16px',flexShrink:0,borderBottom:'1px solid rgba(255,255,255,.04)'}}>
-            <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:'11px',color:'rgba(200,200,220,.4)'}}>{activeTabNode.label}</span>
-            <button onClick={()=>setZenMode(false)} style={{background:'transparent',border:'1px solid rgba(255,255,255,.1)',color:'rgba(200,200,220,.4)',fontFamily:"'Share Tech Mono',monospace",fontSize:'10px',padding:'2px 8px',cursor:'pointer',letterSpacing:'.06em'}}>ESC · EXIT ZEN</button>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'6px 16px',flexShrink:0,borderBottom:'1px solid rgba(255,42,56,.1)'}}>
+            <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:'11px',color:'rgba(200,200,220,.5)',letterSpacing:'.04em'}}>{activeTabNode.label}</span>
+            <div style={{display:'flex',gap:'8px',alignItems:'center'}}>
+              {canRun && (
+                <button onClick={()=>handleRunNode(activeTabId)} style={{background:'rgba(255,42,56,.1)',border:'1px solid rgba(255,42,56,.35)',color:'#ff2a38',fontFamily:"'Share Tech Mono',monospace",fontSize:'10px',padding:'3px 12px',cursor:'pointer',letterSpacing:'.1em',fontWeight:700}}>▶ RUN</button>
+              )}
+              <button onClick={()=>setZenMode(false)} style={{background:'transparent',border:'1px solid rgba(255,255,255,.1)',color:'rgba(200,200,220,.35)',fontFamily:"'Share Tech Mono',monospace",fontSize:'10px',padding:'2px 8px',cursor:'pointer',letterSpacing:'.06em'}}>ESC · EXIT ZEN</button>
+            </div>
           </div>
-          <div style={{flex:1,overflow:'hidden',display:'flex',justifyContent:'center'}}>
-            <div style={{width:'min(800px,100%)',height:'100%'}}>
+          <div style={{flex:1,minHeight:0,overflow:'hidden',display:'flex',justifyContent:'center'}}>
+            <div style={{width:'min(800px,100%)',display:'flex',flexDirection:'column',minHeight:0}}>
               <CodeMirrorEditor key={activeTabId+'_zen'} node={activeTabNode} onChange={code=>updateNodeCode(activeTabId,code)} onSave={()=>saveNodeToDisk(activeTabId)} externalPalette={globalEditorPalette} jumpToLine={jumpLineTarget??undefined} onCursorChange={(line,col)=>setEditorCursorPos({line,col})} aiProvider={aiProvider} aiKey={aiProvider==='ollama'?(aiKeys['ollama']||'http://localhost:11434'):aiKeys[aiProvider]||''} aiModel={aiModels[aiProvider]||DEFAULT_MODELS[aiProvider]||''}/>
             </div>
           </div>
