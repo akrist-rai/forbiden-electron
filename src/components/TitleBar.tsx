@@ -109,7 +109,7 @@ export default function TitleBar({
   const [openMenu, setOpenMenu] = useState<string | null>(null)
   const [recentWorkspaces, setRecentWorkspaces] = useState<string[]>([])
   const menuRef = useRef<HTMLDivElement>(null)
-  const hasWinAPI = Boolean(winAPI)
+  const hasWinAPI = Boolean(api?.window)
 
   // Load recent workspaces once on mount and whenever File menu opens
   useEffect(() => {
@@ -124,15 +124,15 @@ export default function TitleBar({
 
   // Poll initial maximized state and subscribe to changes
   useEffect(() => {
-    if (!winAPI) return
+    if (!api?.window) return
     let cancelled = false
-    winAPI.isMaximized().then((val: boolean) => {
+    api?.window.isMaximized().then((val: boolean) => {
       if (!cancelled) setIsMaximized(val)
     }).catch(() => {})
     const handler = (_event: any, val: boolean) => setIsMaximized(val)
-    winAPI.onMaximizeChange(handler)
-    return () => { cancelled = true; winAPI.offMaximizeChange(handler) }
-  }, [winAPI])
+    api?.window.onMaximizeChange(handler)
+    return () => { cancelled = true; api?.window.offMaximizeChange(handler) }
+  }, [api?.window])
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -147,19 +147,19 @@ export default function TitleBar({
   }, [openMenu])
 
   const handleMinimize = useCallback(() => {
-    if (!winAPI) return
-    winAPI.minimize().catch(() => {})
-  }, [winAPI])
+    if (!api?.window) return
+    api?.window.minimize().catch(() => {})
+  }, [api?.window])
 
   const handleMaximize = useCallback(() => {
-    if (!winAPI) return
-    winAPI.maximize().catch(() => {})
-  }, [winAPI])
+    if (!api?.window) return
+    api?.window.maximize().catch(() => {})
+  }, [api?.window])
 
   const handleClose = useCallback(() => {
-    if (!winAPI) return
-    winAPI.close().catch(() => {})
-  }, [winAPI])
+    if (!api?.window) return
+    api?.window.close().catch(() => {})
+  }, [api?.window])
 
   const handleMenuToggle = useCallback((name: string) => {
     setOpenMenu(prev => prev === name ? null : name)
