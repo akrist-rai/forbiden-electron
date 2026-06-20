@@ -67,7 +67,7 @@ export const useTerminalStore = create<TerminalState>()(
   persist(
     (set) => ({
       termCwd: '~',
-      termLines: [{ c: '#28f1c3', t: '[FORBIDEN] System boot v2.1.0 — Electron' }],
+      termLines: [{ c: '#28f1c3', t: '[FORBIDEN] System boot v2.2.0' }],
       termInput: '',
       termPalette: DEFAULT_TERM_PALETTE,
       showTermPalette: false,

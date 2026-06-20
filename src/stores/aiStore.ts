@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { api } from '../lib/api'
 
 export const DEFAULT_MODELS: Record<string, string> = {
   anthropic: 'claude-haiku-4-5-20251001',
@@ -43,10 +44,9 @@ export const useAiStore = create<AiState>()(
       setOllamaModels: (models) => set({ ollamaModels: models }),
 
       fetchOllamaModels: async () => {
-        const api = (window as any).electronAPI
         const { aiKeys } = get()
         const host = aiKeys['ollama'] || 'http://localhost:11434'
-        const res = await api?.ai?.ollamaModels?.(host)
+        const res = await api.ai?.ollamaModels?.(host) as { models?: string[] } | undefined
         if (res?.models?.length) set({ ollamaModels: res.models })
       },
 

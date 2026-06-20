@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { api } from '../lib/api'
 
 export interface GitFileStatus {
   file?: string
@@ -51,8 +52,7 @@ export const useGitStore = create<GitState>()((set) => ({
   setAiCommitLoading: (loading) => set({ aiCommitLoading: loading }),
 
   refresh: async (cwd) => {
-    const api = (window as any).electronAPI
-    if (!api?.git || !cwd) return
+    if (!api.git || !cwd) return
     set({ gitLoading: true })
     try {
       const [status, log, branch] = await Promise.all([
@@ -60,7 +60,7 @@ export const useGitStore = create<GitState>()((set) => ({
         api.git.log(cwd),
         api.git.branch(cwd),
       ])
-      set({ gitStatus: status, gitLog: log, gitBranch: branch })
+      set({ gitStatus: status as GitStatus, gitLog: log as GitCommit[], gitBranch: branch as string })
     } catch {
       // keep previous state on error
     } finally {
