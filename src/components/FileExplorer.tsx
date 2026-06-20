@@ -1,5 +1,29 @@
 // @ts-nocheck
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
+
+// ── Virtual list helpers ───────────────────────────────────
+const ROW_H = 24
+
+type FlatItem = { node: any; depth: number; isNewSlot?: true }
+
+function flattenTree(
+  children: any[],
+  depth: number,
+  openPaths: Set<string>,
+  newItemParent: string | null,
+): FlatItem[] {
+  const out: FlatItem[] = []
+  for (const n of (children || [])) {
+    out.push({ node: n, depth })
+    if (n.type === 'dir' && openPaths.has(n.path)) {
+      if (newItemParent === n.path) {
+        out.push({ node: { path: n.path + '/__new__', name: '', type: '__new__' }, depth: depth + 1, isNewSlot: true })
+      }
+      out.push(...flattenTree(n.children || [], depth + 1, openPaths, newItemParent))
+    }
+  }
+  return out
+}
 
 // ── File-type icon colors ──────────────────────────────────
 const EXT_COLOR: Record<string, string> = {
@@ -190,101 +214,67 @@ function RenameInput({ item, onCommit, onCancel }) {
   )
 }
 
-// ── Tree node ─────────────────────────────────────────────
-function TreeNode({ node, depth, openPaths, onToggle, onSelect, selectedPath, onCtxMenu, renamingPath, onRenameCommit, onRenameCancel, newItemState, newItemName, newItemRef, onNewItemChange, onNewItemCommit, onNewItemCancel }) {
-  const isOpen = openPaths.has(node.path)
-  const isSelected = selectedPath === node.path
-  const isRenaming = renamingPath === node.path
+// ── Flat row (non-recursive, used by virtual list) ────────
+function FlatRow({ node, depth, isOpen, isSelected, isRenaming, onToggle, onSelect, onCtxMenu, onRenameCommit, onRenameCancel }) {
   const isDir = node.type === 'dir'
   const extColor = EXT_COLOR[node.ext ?? ''] ?? '#8888aa'
-
   const indent = depth * 14 + 6
 
   return (
-    <div>
-      <div
-        style={{
-          display: 'flex', alignItems: 'center', gap: 3,
-          padding: `3px 8px 3px ${indent}px`,
-          cursor: 'pointer', userSelect: 'none',
-          background: isSelected ? 'rgba(16,185,129,.1)' : 'transparent',
-          borderLeft: isSelected ? '2px solid #10b981' : '2px solid transparent',
-          transition: 'background .1s',
-          minHeight: 24,
-        }}
-        onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = 'rgba(255,255,255,.04)' }}
-        onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = 'transparent' }}
-        onPointerDown={e => {
-          if (isDir) onToggle(node.path)
-          else onSelect(node)
-        }}
-        onContextMenu={e => { e.preventDefault(); onCtxMenu(e, node) }}
-      >
-        {/* Animated chevron for dirs; dot for files */}
-        <span style={{ width: 12, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          {isDir ? (
-            <svg width="7" height="7" viewBox="0 0 7 7" fill="currentColor"
-              style={{ color: isOpen ? '#10b981' : '#4a5568', transform: isOpen ? 'rotate(90deg)' : 'none', transition: 'transform .15s ease, color .15s' }}>
-              <path d="M1.5 1l4 2.5-4 2.5z"/>
-            </svg>
-          ) : (
-            <span style={{ width: 3, height: 3, borderRadius: '50%', background: '#2e3554', display: 'inline-block' }}/>
-          )}
-        </span>
+    <div
+      style={{
+        display: 'flex', alignItems: 'center', gap: 3, height: ROW_H,
+        padding: `0 8px 0 ${indent}px`,
+        cursor: 'pointer', userSelect: 'none',
+        background: isSelected ? 'rgba(16,185,129,.1)' : 'transparent',
+        borderLeft: isSelected ? '2px solid #10b981' : '2px solid transparent',
+      }}
+      onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = 'rgba(255,255,255,.04)' }}
+      onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = isSelected ? 'rgba(16,185,129,.1)' : 'transparent' }}
+      onPointerDown={() => { if (isDir) onToggle(node.path); else onSelect(node) }}
+      onContextMenu={e => { e.preventDefault(); onCtxMenu(e, node) }}
+    >
+      <span style={{ width: 12, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        {isDir ? (
+          <svg width="7" height="7" viewBox="0 0 7 7" fill="currentColor"
+            style={{ color: isOpen ? '#10b981' : '#4a5568', transform: isOpen ? 'rotate(90deg)' : 'none', transition: 'transform .15s ease, color .15s' }}>
+            <path d="M1.5 1l4 2.5-4 2.5z"/>
+          </svg>
+        ) : (
+          <span style={{ width: 3, height: 3, borderRadius: '50%', background: '#2e3554', display: 'inline-block' }}/>
+        )}
+      </span>
 
-        {/* Icon */}
-        <span style={{ width: 18, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          {isDir ? (
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" strokeLinecap="round" strokeLinejoin="round"
-              style={{ stroke: isOpen ? '#89b4fa' : '#4a5a8a', strokeWidth: 1.5, transition: 'stroke .15s' }}>
-              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"
-                fill={isOpen ? 'rgba(137,180,250,0.08)' : 'none'}/>
-            </svg>
-          ) : (
-            <span style={{
-              fontFamily: "'JetBrains Mono',monospace", fontSize: '7px', fontWeight: 700,
-              letterSpacing: '-.01em', padding: '1px 2px', borderRadius: 2,
-              background: `${extColor}18`, color: extColor,
-              minWidth: 18, textAlign: 'center', lineHeight: '14px', display: 'inline-block',
-            }}>
-              {(node.ext ?? '').slice(0, 3).toUpperCase() || '···'}
-            </span>
-          )}
-        </span>
-
-        {/* Name */}
-        {isRenaming ? (
-          <RenameInput item={node} onCommit={onRenameCommit} onCancel={onRenameCancel}/>
+      <span style={{ width: 18, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        {isDir ? (
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" strokeLinecap="round" strokeLinejoin="round"
+            style={{ stroke: isOpen ? '#89b4fa' : '#4a5a8a', strokeWidth: 1.5, transition: 'stroke .15s' }}>
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"
+              fill={isOpen ? 'rgba(137,180,250,0.08)' : 'none'}/>
+          </svg>
         ) : (
           <span style={{
-            flex: 1, fontSize: '11.5px', fontFamily: "'JetBrains Mono',monospace",
-            color: isSelected ? '#e8ecf8' : isDir ? (isOpen ? '#c8d0e8' : '#7a85a0') : '#a8b0c8',
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-            letterSpacing: '-.01em', transition: 'color .1s',
+            fontFamily: "'JetBrains Mono',monospace", fontSize: '7px', fontWeight: 700,
+            letterSpacing: '-.01em', padding: '1px 2px', borderRadius: 2,
+            background: `${extColor}18`, color: extColor,
+            minWidth: 18, textAlign: 'center', lineHeight: '14px', display: 'inline-block',
           }}>
-            {node.name}
+            {(node.ext ?? '').slice(0, 3).toUpperCase() || '···'}
           </span>
         )}
-      </div>
+      </span>
 
-      {/* Children + new-item input — works at any nesting depth */}
-      {node.type === 'dir' && isOpen && (
-        <div>
-          {newItemState?.parentPath === node.path && (
-            <NewItemInput ref={newItemRef} type={newItemState.type} value={newItemName}
-              onChange={onNewItemChange} onCommit={onNewItemCommit} onCancel={onNewItemCancel}
-              depth={depth + 1}/>
-          )}
-          {node.children?.map(child => (
-            <TreeNode key={child.path} node={child} depth={depth + 1}
-              openPaths={openPaths} onToggle={onToggle} onSelect={onSelect}
-              selectedPath={selectedPath} onCtxMenu={onCtxMenu}
-              renamingPath={renamingPath} onRenameCommit={onRenameCommit} onRenameCancel={onRenameCancel}
-              newItemState={newItemState} newItemName={newItemName} newItemRef={newItemRef}
-              onNewItemChange={onNewItemChange} onNewItemCommit={onNewItemCommit} onNewItemCancel={onNewItemCancel}
-            />
-          ))}
-        </div>
+      {isRenaming ? (
+        <RenameInput item={node} onCommit={onRenameCommit} onCancel={onRenameCancel}/>
+      ) : (
+        <span style={{
+          flex: 1, fontSize: '11.5px', fontFamily: "'JetBrains Mono',monospace",
+          color: isSelected ? '#e8ecf8' : isDir ? (isOpen ? '#c8d0e8' : '#7a85a0') : '#a8b0c8',
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          letterSpacing: '-.01em',
+        }}>
+          {node.name}
+        </span>
       )}
     </div>
   )
@@ -313,6 +303,25 @@ export default function FileExplorer({ rootPath, brutal, onOpenFile, onOpenFolde
   const [newItemState, setNewItemState] = useState<{ parentPath: string; type: 'file' | 'dir' } | null>(null)
   const [newItemName,  setNewItemName]  = useState('')
   const newItemRef = useRef<HTMLInputElement>(null)
+
+  // Virtual scrolling state
+  const [scrollTop, setScrollTop] = useState(0)
+  const [scrollH,   setScrollH]   = useState(500)
+  const scrollRef = useRef<HTMLDivElement>(null)
+
+  const flatItems = useMemo(
+    () => tree ? flattenTree(tree.children || [], 0, openPaths, newItemState?.parentPath ?? null) : [],
+    [tree, openPaths, newItemState?.parentPath]
+  )
+
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const ro = new ResizeObserver(() => setScrollH(el.clientHeight))
+    ro.observe(el)
+    setScrollH(el.clientHeight)
+    return () => ro.disconnect()
+  }, [])
 
   const api = (window as any).electronAPI?.fs
 
@@ -493,25 +502,47 @@ export default function FileExplorer({ rootPath, brutal, onOpenFile, onOpenFolde
         {loading && <span style={{ fontSize: '10px', opacity: .25, marginLeft: 2 }}>…</span>}
       </div>
 
-      {/* Tree */}
-      <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
-        {tree && (
-          <div>
-            {/* New item input at root level */}
-            {newItemState?.parentPath === rootPath && (
-              <NewItemInput ref={newItemRef} type={newItemState.type} value={newItemName} onChange={setNewItemName} onCommit={handleNewItemCommit} onCancel={() => setNewItemState(null)} depth={0}/>
-            )}
-            {tree.children?.map((child: any) => (
-              <TreeNode key={child.path} node={child} depth={0}
-                openPaths={openPaths} onToggle={toggle} onSelect={handleSelect}
-                selectedPath={selectedPath!} onCtxMenu={handleCtxMenu}
-                renamingPath={renamingPath!} onRenameCommit={handleRenameCommit} onRenameCancel={() => setRenamingPath(null)}
-                newItemState={newItemState} newItemName={newItemName} newItemRef={newItemRef}
-                onNewItemChange={setNewItemName} onNewItemCommit={handleNewItemCommit} onNewItemCancel={() => setNewItemState(null)}
-              />
-            ))}
-          </div>
-        )}
+      {/* Virtual Tree */}
+      <div
+        ref={scrollRef}
+        onScroll={e => setScrollTop((e.currentTarget as HTMLDivElement).scrollTop)}
+        style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', position: 'relative' }}
+      >
+        {tree && (() => {
+          const OVERSCAN = 8
+          const startIdx = Math.max(0, Math.floor(scrollTop / ROW_H) - OVERSCAN)
+          const endIdx   = Math.min(flatItems.length - 1, Math.ceil((scrollTop + scrollH) / ROW_H) + OVERSCAN)
+          return (
+            <div style={{ height: flatItems.length * ROW_H, position: 'relative' }}>
+              {flatItems.slice(startIdx, endIdx + 1).map((item, i) => {
+                const absIdx = startIdx + i
+                if (item.isNewSlot) {
+                  return (
+                    <div key={item.node.path} style={{ position: 'absolute', top: absIdx * ROW_H, left: 0, right: 0 }}>
+                      <NewItemInput ref={newItemRef} type={newItemState!.type} value={newItemName} onChange={setNewItemName} onCommit={handleNewItemCommit} onCancel={() => setNewItemState(null)} depth={item.depth}/>
+                    </div>
+                  )
+                }
+                return (
+                  <div key={item.node.path} style={{ position: 'absolute', top: absIdx * ROW_H, left: 0, right: 0 }}>
+                    <FlatRow
+                      node={item.node}
+                      depth={item.depth}
+                      isOpen={item.node.type === 'dir' && openPaths.has(item.node.path)}
+                      isSelected={selectedPath === item.node.path}
+                      isRenaming={renamingPath === item.node.path}
+                      onToggle={toggle}
+                      onSelect={handleSelect}
+                      onCtxMenu={handleCtxMenu}
+                      onRenameCommit={handleRenameCommit}
+                      onRenameCancel={() => setRenamingPath(null)}
+                    />
+                  </div>
+                )
+              })}
+            </div>
+          )
+        })()}
       </div>
 
       {/* Context menu */}

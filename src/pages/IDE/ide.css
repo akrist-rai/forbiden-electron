@@ -1320,6 +1320,8 @@ body {
 }
 .ide-tab-close:hover { opacity:1; background:rgba(255,67,90,.2); color:#ff435a; }
 .theme-brutal .ide-tab-close:hover { background:#c8001a; color:#fff; opacity:1; border-radius:0; }
+.theme-cyber .ide-file-tab.pinned { border-bottom-color:rgba(255,200,50,.35); }
+.theme-brutal .ide-file-tab.pinned { border-bottom-color:rgba(242,193,46,.45); }
 
 /* Welcome panel — base */
 .ide-welcome { flex:1; display:flex; flex-direction:row; overflow:hidden; }
@@ -1898,17 +1900,6 @@ body {
   background: #0f0f0f;
   border-bottom: 2px solid #0a0a0a;
 }
-
-/* Window chrome dots */
-.ide-tb-chrome { display:flex; align-items:center; gap:5px; flex-shrink:0; }
-.ide-tb-dot {
-  width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0;
-  transition: filter .15s, opacity .15s;
-}
-.ide-tb-dot--red    { background: #ff5f57; box-shadow: 0 0 5px rgba(255,95,87,.35); }
-.ide-tb-dot--yellow { background: #febc2e; box-shadow: 0 0 5px rgba(254,188,46,.25); }
-.ide-tb-dot--green  { background: #28c840; box-shadow: 0 0 5px rgba(40,200,64,.25); }
-.ide-tb-chrome:hover .ide-tb-dot { filter: brightness(1.2); }
 
 /* File info */
 .ide-tb-fileinfo {
