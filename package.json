@@ -60,6 +60,7 @@
     "appId": "com.forbiden.ide",
     "productName": "FORBIDEN",
     "copyright": "Copyright © 2025 FORBIDEN",
+    "icon": "assets/icon.png",
     "directories": {
       "output": "release",
       "buildResources": "assets"
