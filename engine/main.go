@@ -16,6 +16,23 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+// ── Shared helpers ─────────────────────────────────────────────
+
+var skipDirs = map[string]bool{
+	"node_modules": true, ".git": true, "dist": true, "build": true,
+	".next": true, "__pycache__": true, ".venv": true, "venv": true,
+	".cache": true, "coverage": true, "target": true, "out": true, "vendor": true,
+}
+
+func shouldIgnore(name string) bool {
+	return skipDirs[name] || (len(name) > 0 && name[0] == '.')
+}
+
+func jsonResp(w http.ResponseWriter, data any) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(data)
+}
+
 // ── PTY session registry ───────────────────────────────────────
 
 type PTYSession struct {
@@ -32,9 +49,6 @@ var (
 		WriteBufferSize: 8192,
 		CheckOrigin:     func(_ *http.Request) bool { return true },
 	}
-
-	cosApprox func(float64) float64
-	sinApprox func(float64) float64
 )
 
 func extendedPath() string {
@@ -67,14 +81,22 @@ func handleWsPTY(w http.ResponseWriter, r *http.Request) {
 	cols, rows := 80, 24
 	cwd, _ := os.UserHomeDir()
 
-	if v := q.Get("cols"); v != "" { fmt.Sscan(v, &cols) }
-	if v := q.Get("rows"); v != "" { fmt.Sscan(v, &rows) }
+	if v := q.Get("cols"); v != "" {
+		fmt.Sscan(v, &cols)
+	}
+	if v := q.Get("rows"); v != "" {
+		fmt.Sscan(v, &rows)
+	}
 	if v := q.Get("cwd"); v != "" {
-		if _, err := os.Stat(v); err == nil { cwd = v }
+		if _, err := os.Stat(v); err == nil {
+			cwd = v
+		}
 	}
 
 	conn, err := wsUpgrader.Upgrade(w, r, nil)
-	if err != nil { return }
+	if err != nil {
+		return
+	}
 	defer conn.Close()
 
 	env := append(os.Environ(), "PATH="+extendedPath(), "TERM=xterm-256color", "COLORTERM=truecolor")
@@ -107,7 +129,9 @@ func handleWsPTY(w http.ResponseWriter, r *http.Request) {
 				conn.WriteMessage(websocket.BinaryMessage, buf[:n])
 				wsMu.Unlock()
 			}
-			if err != nil { break }
+			if err != nil {
+				break
+			}
 		}
 		wsMu.Lock()
 		conn.WriteMessage(websocket.TextMessage, []byte(`{"type":"exit"}`))
@@ -116,7 +140,9 @@ func handleWsPTY(w http.ResponseWriter, r *http.Request) {
 
 	for {
 		mt, data, err := conn.ReadMessage()
-		if err != nil { break }
+		if err != nil {
+			break
+		}
 		if mt == websocket.TextMessage {
 			var ctrl struct {
 				Type string `json:"type"`
@@ -150,18 +176,17 @@ func handlePtyWrite(w http.ResponseWriter, r *http.Request) {
 	ptyMu.RLock()
 	sess := ptys[req.ID]
 	ptyMu.RUnlock()
-	w.Header().Set("Content-Type", "application/json")
 	if sess == nil {
-		json.NewEncoder(w).Encode(map[string]any{"success": false, "error": "session not found"})
+		jsonResp(w, map[string]any{"success": false, "error": "session not found"})
 		return
 	}
 	sess.mu.Lock()
 	sess.ptmx.WriteString(req.Text)
 	sess.mu.Unlock()
-	json.NewEncoder(w).Encode(map[string]any{"success": true})
+	jsonResp(w, map[string]any{"success": true})
 }
 
-// ── Run inject (PTY injection only) ───────────────────────────
+// ── Run inject (PTY text injection only) ──────────────────────
 
 func handleRun(w http.ResponseWriter, r *http.Request) {
 	var req struct {
@@ -171,46 +196,49 @@ func handleRun(w http.ResponseWriter, r *http.Request) {
 		Cwd   string `json:"cwd"`
 	}
 	json.NewDecoder(r.Body).Decode(&req)
-	w.Header().Set("Content-Type", "application/json")
 	ptyMu.RLock()
 	sess := ptys[req.PtyID]
 	ptyMu.RUnlock()
 	if sess == nil {
-		json.NewEncoder(w).Encode(map[string]any{"success": false, "error": "no active terminal"})
+		jsonResp(w, map[string]any{"success": false, "error": "no active terminal"})
 		return
 	}
-	// Inject the code as a command line
 	cmd := strings.TrimSpace(req.Code)
 	sess.mu.Lock()
 	sess.ptmx.WriteString(cmd + "\n")
 	sess.mu.Unlock()
-	json.NewEncoder(w).Encode(map[string]any{"success": true, "injected": true})
+	jsonResp(w, map[string]any{"success": true, "injected": true})
 }
 
-// ── AI streaming SSE proxy ────────────────────────────────────
-
-var watchSkipDirs = map[string]bool{
-	"node_modules": true, ".git": true, ".next": true,
-	"dist": true, "build": true, "out": true, ".cache": true,
-	"__pycache__": true, "target": true, ".venv": true, "venv": true,
-}
+// ── File watcher WebSocket ─────────────────────────────────────
 
 func handleWsWatch(w http.ResponseWriter, r *http.Request) {
 	root := r.URL.Query().Get("root")
-	if root == "" { http.Error(w, "root param required", 400); return }
+	if root == "" {
+		http.Error(w, "root param required", 400)
+		return
+	}
 
 	conn, err := wsUpgrader.Upgrade(w, r, nil)
-	if err != nil { return }
+	if err != nil {
+		return
+	}
 	defer conn.Close()
 
 	watcher, err := fsnotify.NewWatcher()
-	if err != nil { return }
+	if err != nil {
+		return
+	}
 	defer watcher.Close()
 
 	filepath.WalkDir(root, func(path string, d os.DirEntry, _ error) error {
-		if d == nil { return nil }
+		if d == nil {
+			return nil
+		}
 		if d.IsDir() {
-			if watchSkipDirs[d.Name()] { return filepath.SkipDir }
+			if skipDirs[d.Name()] {
+				return filepath.SkipDir
+			}
 			watcher.Add(path)
 		}
 		return nil
@@ -225,7 +253,9 @@ func handleWsWatch(w http.ResponseWriter, r *http.Request) {
 	go func() {
 		defer close(closed)
 		for {
-			if _, _, err := conn.ReadMessage(); err != nil { return }
+			if _, _, err := conn.ReadMessage(); err != nil {
+				return
+			}
 		}
 	}()
 
@@ -239,29 +269,42 @@ func handleWsWatch(w http.ResponseWriter, r *http.Request) {
 		case <-closed:
 			return
 		case event, ok := <-watcher.Events:
-			if !ok { return }
-			if event.Has(fsnotify.Chmod) { continue }
+			if !ok {
+				return
+			}
+			if event.Has(fsnotify.Chmod) {
+				continue
+			}
 			if event.Has(fsnotify.Create) {
 				if info, err := os.Stat(event.Name); err == nil && info.IsDir() {
 					watcher.Add(event.Name)
 				}
 			}
 			mu.Lock()
-			if debounce != nil { debounce.Stop() }
+			if debounce != nil {
+				debounce.Stop()
+			}
 			debounce = time.AfterFunc(80*time.Millisecond, notify)
 			mu.Unlock()
 		case _, ok := <-watcher.Errors:
-			if !ok { return }
+			if !ok {
+				return
+			}
 		}
 	}
 }
+
+// ── CORS middleware ────────────────────────────────────────────
 
 func cors(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-		if r.Method == http.MethodOptions { w.WriteHeader(204); return }
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(204)
+			return
+		}
 		next.ServeHTTP(w, r)
 	})
 }
@@ -269,26 +312,83 @@ func cors(next http.Handler) http.Handler {
 func findPort(start int) int {
 	for p := start; p < start+200; p++ {
 		l, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", p))
-		if err == nil { l.Close(); return p }
+		if err == nil {
+			l.Close()
+			return p
+		}
 	}
 	return start
 }
-
-func init() { import_math() }
 
 func main() {
 	os.Setenv("PATH", extendedPath())
 	port := findPort(49373)
 
 	mux := http.NewServeMux()
+
+	// Status
 	mux.HandleFunc("/api/status", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]any{"ok": true, "pid": os.Getpid()})
+		jsonResp(w, map[string]any{"ok": true, "pid": os.Getpid()})
 	})
+
+	// PTY + file watch (WebSocket)
 	mux.HandleFunc("/ws/pty", handleWsPTY)
 	mux.HandleFunc("/ws/watch", handleWsWatch)
 	mux.HandleFunc("/api/pty/write", handlePtyWrite)
 	mux.HandleFunc("/api/run", handleRun)
+
+	// Filesystem
+	mux.HandleFunc("/api/fs/tree", handleFsTree)
+	mux.HandleFunc("/api/fs/read", handleFsRead)
+	mux.HandleFunc("/api/fs/write", handleFsWrite)
+	mux.HandleFunc("/api/fs/create-file", handleFsCreateFile)
+	mux.HandleFunc("/api/fs/create-dir", handleFsCreateDir)
+	mux.HandleFunc("/api/fs/delete", handleFsDelete)
+	mux.HandleFunc("/api/fs/rename", handleFsRename)
+	mux.HandleFunc("/api/fs/copy-file", handleFsCopyFile)
+	mux.HandleFunc("/api/fs/copy-folder", handleFsCopyFolder)
+	mux.HandleFunc("/api/fs/list-all", handleFsListAll)
+	mux.HandleFunc("/api/fs/search", handleFsSearch)
+	mux.HandleFunc("/api/fs/scan-imports", handleFsScanImports)
+	mux.HandleFunc("/api/fs/get-scripts", handleFsGetScripts)
+	mux.HandleFunc("/api/fs/format", handleFsFormat)
+
+	// Git
+	mux.HandleFunc("/api/git/status", handleGitStatus)
+	mux.HandleFunc("/api/git/log", handleGitLog)
+	mux.HandleFunc("/api/git/log-graph", handleGitLogGraph)
+	mux.HandleFunc("/api/git/branch", handleGitBranch)
+	mux.HandleFunc("/api/git/branches", handleGitBranches)
+	mux.HandleFunc("/api/git/commit", handleGitCommit)
+	mux.HandleFunc("/api/git/stage", handleGitStage)
+	mux.HandleFunc("/api/git/unstage", handleGitUnstage)
+	mux.HandleFunc("/api/git/checkout", handleGitCheckout)
+	mux.HandleFunc("/api/git/push", handleGitPush)
+	mux.HandleFunc("/api/git/pull", handleGitPull)
+	mux.HandleFunc("/api/git/stash", handleGitStash)
+	mux.HandleFunc("/api/git/stash-pop", handleGitStashPop)
+	mux.HandleFunc("/api/git/init", handleGitInit)
+	mux.HandleFunc("/api/git/discard", handleGitDiscard)
+	mux.HandleFunc("/api/git/diff", handleGitDiff)
+	mux.HandleFunc("/api/git/blame", handleGitBlame)
+
+	// Code execution
+	mux.HandleFunc("/api/code/run", handleCodeRun)
+
+	// AI
+	mux.HandleFunc("/api/ai/chat", handleAiChat)
+	mux.HandleFunc("/api/ai/stream", handleAiStream)
+	mux.HandleFunc("/api/ai/ollama-models", handleOllamaModels)
+
+	// Workspace
+	mux.HandleFunc("/api/workspace/get", handleWorkspaceGet)
+	mux.HandleFunc("/api/workspace/save", handleWorkspaceSave)
+	mux.HandleFunc("/api/workspace/recent-get", handleWorkspaceRecentGet)
+	mux.HandleFunc("/api/workspace/recent-add", handleWorkspaceRecentAdd)
+	mux.HandleFunc("/api/workspace/ensure-default", handleWorkspaceEnsureDefault)
+
+	// Terminal
+	mux.HandleFunc("/api/terminal/exec", handleTerminalExec)
 
 	addr := fmt.Sprintf("127.0.0.1:%d", port)
 	server := &http.Server{

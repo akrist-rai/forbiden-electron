@@ -970,27 +970,37 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
 
       let updated = false
       const nds = nodesRef.current, eds = edgesRef.current
+      
+      // Build O(N) lookup Map
+      const nodeMap = new Map()
+      for (let i = 0; i < nds.length; i++) {
+        nodeMap.set(nds[i].id, nds[i])
+      }
+
       for (let i=0;i<nds.length;i++) for (let j=i+1;j<nds.length;j++) {
         const dx=nds[j].x-nds[i].x, dy=nds[j].y-nds[i].y
         const distSq=dx*dx+dy*dy||1, dist=Math.sqrt(distSq), force=4200/distSq
         nds[i].vx-=(dx/dist)*force; nds[i].vy-=(dy/dist)*force
         nds[j].vx+=(dx/dist)*force; nds[j].vy+=(dy/dist)*force
       }
-      eds.forEach(edge => {
-        const src=nds.find(n=>n.id===edge.source), tgt=nds.find(n=>n.id===edge.target)
-        if (!src||!tgt) return
+      for (let i = 0; i < eds.length; i++) {
+        const edge = eds[i]
+        const src = nodeMap.get(edge.source)
+        const tgt = nodeMap.get(edge.target)
+        if (!src||!tgt) continue
         const dx=tgt.x-src.x, dy=tgt.y-src.y, dist=Math.sqrt(dx*dx+dy*dy)||1, force=(dist-110)*0.05
         src.vx+=(dx/dist)*force; src.vy+=(dy/dist)*force
         tgt.vx-=(dx/dist)*force; tgt.vy-=(dy/dist)*force
-      })
-      nds.forEach(n => {
+      }
+      for (let i = 0; i < nds.length; i++) {
+        const n = nds[i]
         const p=n.isMain?0.2:0.005
         n.vx+=(0-n.x)*p; n.vy+=(0-n.y)*p
         n.vx*=0.8; n.vy*=0.8; n.x+=n.vx; n.y+=n.vy
         if (Math.abs(n.vx)>0.05||Math.abs(n.vy)>0.05) updated=true
-      })
+      }
       if (draggingNodeRef.current) {
-        const d=nds.find(n=>n.id===draggingNodeRef.current.id)
+        const d = nodeMap.get(draggingNodeRef.current.id)
         if (d) { d.x=draggingNodeRef.current.x; d.y=draggingNodeRef.current.y; d.vx=0; d.vy=0; updated=true }
       }
       if (updated) {
@@ -1207,8 +1217,17 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
 
   const codeEditTimerRef = useRef({})
   const updateNodeCode = (id, code) => {
-    nodesRef.current = nodesRef.current.map(n=>n.id===id?{...n,code,modified:true}:n)
-    forceRender({})
+    let wasModified = false
+    nodesRef.current = nodesRef.current.map(n => {
+      if (n.id === id) {
+        wasModified = n.modified
+        return { ...n, code, modified: true }
+      }
+      return n
+    })
+    if (!wasModified) {
+      forceRender({})
+    }
     clearTimeout(codeEditTimerRef.current[id])
     codeEditTimerRef.current[id] = setTimeout(() => {
       const node = nodesRef.current.find(n=>n.id===id)
@@ -2444,6 +2463,30 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
                     })}
                   </defs>
                   <g transform="translate(9999,9999)">
+                    {/* Group hulls rendered inside the same SVG translation group */}
+                    {groupsRef.current.map(grp=>{
+                      const grpNodes=visibleNodes.filter(n=>grp.nodeIds.includes(n.id))
+                      if (grpNodes.length<2) return null
+                      const pts=grpNodes.map(n=>[n.x,n.y])
+                      const hull=convexHull(pts)
+                      if (hull.length<2) return null
+                      const pad=brutal?54:48
+                      const expanded=hull.map(([x,y])=>{
+                        const cx=hull.reduce((s,[px])=>s+px,0)/hull.length
+                        const cy=hull.reduce((s,[,py])=>s+py,0)/hull.length
+                        const dx=x-cx, dy=y-cy, dist=Math.sqrt(dx*dx+dy*dy)||1
+                        return [x+(dx/dist)*pad, y+(dy/dist)*pad]
+                      })
+                      const pointsStr=expanded.map(p=>p.join(',')).join(' ')
+                      return (
+                        <polygon key={'hull-'+grp.id} points={pointsStr} className="group-hull"
+                          stroke={grp.color} strokeWidth={brutal?2.5:1.5} strokeOpacity=".45"
+                          fill={grp.color} fillOpacity=".07"
+                          strokeDasharray={brutal?"6 3":"5 3"}/>
+                      )
+                    })}
+
+                    {/* Edges */}
                     {visibleEdges.map(e=>{
                       const src=visibleNodes.find(n=>n.id===e.source), tgt=visibleNodes.find(n=>n.id===e.target)
                       if(!src||!tgt) return null
@@ -2485,7 +2528,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
                   </g>
                 </svg>
 
-                {/* Group hulls */}
+                {/* Group labels positioned absolutely on canvas */}
                 {groupsRef.current.map(grp=>{
                   const grpNodes=visibleNodes.filter(n=>grp.nodeIds.includes(n.id))
                   if (grpNodes.length<2) return null
@@ -2499,30 +2542,14 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
                     const dx=x-cx, dy=y-cy, dist=Math.sqrt(dx*dx+dy*dy)||1
                     return [x+(dx/dist)*pad, y+(dy/dist)*pad]
                   })
-                  const pointsStr=expanded.map(p=>p.join(',')).join(' ')
+                  const cx=expanded.reduce((s,[x])=>s+x,0)/expanded.length
+                  const cy=Math.min(...expanded.map(([,y])=>y))-14
                   return (
-                    <div key={grp.id} style={{position:'absolute',left:0,top:0,pointerEvents:'none'}}>
-                      <svg style={{position:'absolute',left:-9999,top:-9999,width:19998,height:19998,overflow:'visible',pointerEvents:'none'}}>
-                        <g transform="translate(9999,9999)">
-                          <polygon points={pointsStr} className="group-hull"
-                            stroke={grp.color} strokeWidth={brutal?2.5:1.5} strokeOpacity=".45"
-                            fill={grp.color} fillOpacity=".07"
-                            strokeDasharray={brutal?"6 3":"5 3"}/>
-                        </g>
-                      </svg>
-                      {/* Group label — positioned at hull centroid */}
-                      {(() => {
-                        const cx=expanded.reduce((s,[x])=>s+x,0)/expanded.length
-                        const cy=Math.min(...expanded.map(([,y])=>y))-14
-                        return (
-                          <div style={{position:'absolute',left:9999+cx,top:9999+cy,transform:'translateX(-50%)',pointerEvents:'auto',cursor:'pointer',zIndex:2}}
-                            onClick={()=>setOpenGroupId(grp.id)}>
-                            <span className="mn-group-label" style={{background:brutal?'#0f0f0f':'rgba(5,5,12,.92)',color:grp.color,border:`1px solid ${grp.color}44`}}>
-                              {grp.name}
-                            </span>
-                          </div>
-                        )
-                      })()}
+                    <div key={'lbl-'+grp.id} style={{position:'absolute',left:9999+cx,top:9999+cy,transform:'translateX(-50%)',pointerEvents:'auto',cursor:'pointer',zIndex:2}}
+                      onClick={()=>setOpenGroupId(grp.id)}>
+                      <span className="mn-group-label" style={{background:brutal?'#0f0f0f':'rgba(5,5,12,.92)',color:grp.color,border:`1px solid ${grp.color}44`}}>
+                        {grp.name}
+                      </span>
                     </div>
                   )
                 })}

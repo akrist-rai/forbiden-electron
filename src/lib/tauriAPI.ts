@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════════════════════════════════════
-//  TAURI NATIVE API
-//  All heavy ops (FS, git, run, AI) go through Tauri IPC invoke — zero TCP.
-//  Only PTY WebSocket + file-watcher WS still route to the Go sidecar.
+//  FORBIDEN API BRIDGE
+//  All heavy ops (FS, git, run, AI, workspace) go to the Go engine via HTTP.
+//  Tauri is used only for: engine URL discovery, window management, dialogs.
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { invoke } from '@tauri-apps/api/core'
@@ -9,10 +9,20 @@ import { getCurrentWindow } from '@tauri-apps/api/window'
 import { open as dialogOpen, save as dialogSave } from '@tauri-apps/plugin-dialog'
 import { revealItemInDir } from '@tauri-apps/plugin-opener'
 
-// ── PTY/WS engine URL (only needed for WebSocket terminal) ────────────────────
+// ── Engine URL (updated once in initTauriAPI) ─────────────────────────────────
 
+let engineUrl = 'http://127.0.0.1:49373'
 let engineHost = '127.0.0.1:49373'
 let WS = `ws://${engineHost}`
+
+// ── HTTP helper — all Go API calls go through this ────────────────────────────
+
+const api = <T = any>(path: string, body: Record<string, unknown> = {}): Promise<T> =>
+  fetch(`${engineUrl}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  }).then(r => r.json())
 
 // ── Maximize subscriptions ────────────────────────────────────────────────────
 
@@ -48,17 +58,18 @@ function emitMenuEvent(channel: MenuChannel, ...args: unknown[]) {
 // ── Init ──────────────────────────────────────────────────────────────────────
 
 export async function initTauriAPI(): Promise<void> {
-  // Fetch Go engine URL — only needed for PTY WS
+  // Fetch Go engine URL — one Tauri invoke, then all calls go to Go HTTP
   try {
     const url = await invoke<string>('get_engine_url')
     if (url) {
+      engineUrl = url
       const match = url.match(/https?:\/\/(.+)/)
       if (match) {
         engineHost = match[1]
         WS = url.replace(/^http/, 'ws')
       }
     }
-  } catch { /* PTY will use fallback port */ }
+  } catch { /* use fallback port */ }
 
   await setupMaximizeListener()
 
@@ -70,46 +81,44 @@ export async function initTauriAPI(): Promise<void> {
     homeDir,
 
     engine: {
-      url:   `http://${engineHost}`,
+      url:   engineUrl,
       wsUrl: WS,
       host:  engineHost,
     },
 
-    // ── Code run (Rust native) ─────────────────────────────────────────────
+    // ── Code run (Go engine) ──────────────────────────────────────────────
     run: {
       code: (lang: string, code: string, stdin = '') =>
-        invoke('run_code', { lang, code, stdin }),
+        api('/api/code/run', { lang, code, stdin }),
     },
 
-    runInTerminal: (ptyId: string, lang: string, code: string, cwd: string) => {
-      // PTY inject still goes via Go WS; use engine HTTP for this one
-      return fetch(`http://${engineHost}/api/run`, {
+    runInTerminal: (ptyId: string, lang: string, code: string, cwd: string) =>
+      fetch(`${engineUrl}/api/run`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ptyId, lang, code, cwd }),
-      }).then(r => r.json())
-    },
+      }).then(r => r.json()),
 
-    // ── PTY WebSocket (Go engine handles terminal I/O) ─────────────────────
+    // ── PTY WebSocket (Go engine) ─────────────────────────────────────────
     pty: {
       wsUrl: (id: string, cols: number, rows: number, cwd: string) => {
         const p = new URLSearchParams({ id, cols: String(cols), rows: String(rows), cwd })
         return `${WS}/ws/pty?${p}`
       },
       write: (id: string, text: string) =>
-        fetch(`http://${engineHost}/api/pty/write`, {
+        fetch(`${engineUrl}/api/pty/write`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id, text }),
         }).then(r => r.json()),
     },
 
-    // ── File watcher WS (Go engine) ────────────────────────────────────────
+    // ── File watcher WebSocket (Go engine) ───────────────────────────────
     watch: {
       wsUrl: (root: string) => `${WS}/ws/watch?root=${encodeURIComponent(root)}`,
     },
 
-    // ── Window controls ────────────────────────────────────────────────────
+    // ── Window controls (Tauri) ───────────────────────────────────────────
     window: {
       minimize: () => getCurrentWindow().minimize(),
       maximize: async () => {
@@ -128,7 +137,7 @@ export async function initTauriAPI(): Promise<void> {
       toggleDevTools: () => invoke('plugin:webview|open_devtools').catch(() => {}),
     },
 
-    // ── File dialogs ───────────────────────────────────────────────────────
+    // ── File dialogs (Tauri native) + Go for actual I/O ──────────────────
     dialog: {
       openFolder: async () => {
         const result = await dialogOpen({ directory: true, multiple: false })
@@ -140,7 +149,7 @@ export async function initTauriAPI(): Promise<void> {
         const filePath = await dialogSave({ defaultPath: defaultName })
         if (!filePath) return { success: false }
         try {
-          await invoke('fs_write', { filePath, content })
+          await api('/api/fs/write', { filePath, content })
           return { success: true, filePath }
         } catch { return { success: false } }
       },
@@ -154,10 +163,10 @@ export async function initTauriAPI(): Promise<void> {
           ],
         })
         if (!result) return []
-        const paths = Array.isArray(result) ? result : [result]
+        const paths = Array.isArray(result) ? result : [result as string]
         return Promise.all(paths.map(async (p: string) => {
-          const r = await invoke<{ content?: string }>('fs_read', { filePath: p })
-          return { path: p, name: p.split('/').pop() ?? p, content: (r as any)?.content ?? '' }
+          const r = await api<{ content?: string }>('/api/fs/read', { filePath: p })
+          return { path: p, name: p.split('/').pop() ?? p, content: r?.content ?? '' }
         }))
       },
 
@@ -167,75 +176,71 @@ export async function initTauriAPI(): Promise<void> {
       },
     },
 
-    // ── Git (Rust native, zero TCP) ───────────────────────────────────────
+    // ── Git (Go engine, all 17 commands) ─────────────────────────────────
     git: {
-      status:   (cwd: string)                  => invoke('git_status',   { cwd }),
-      log:      (cwd: string)                  => invoke('git_log',      { cwd }),
-      logGraph: (cwd: string, limit: number)   => invoke('git_log_graph',{ cwd, limit }),
-      branch:   (cwd: string)                  => invoke('git_branch',   { cwd }),
-      branches: (cwd: string)                  => invoke('git_branches', { cwd }),
-      commit:   (cwd: string, message: string) => invoke('git_commit',   { cwd, message }),
-      stage:    (cwd: string, files: string[]) => invoke('git_stage',    { cwd, files }),
-      unstage:  (cwd: string, files: string[]) => invoke('git_unstage',  { cwd, files }),
-      checkout: (cwd: string, branch: string)  => invoke('git_checkout', { cwd, branch }),
-      push:     (cwd: string)                  => invoke('git_push',     { cwd }),
-      pull:     (cwd: string)                  => invoke('git_pull',     { cwd }),
-      stash:    (cwd: string)                  => invoke('git_stash',    { cwd }),
-      stashPop: (cwd: string)                  => invoke('git_stash_pop',{ cwd }),
-      init:     (cwd: string)                  => invoke('git_init',     { cwd }),
-      discard:  (cwd: string, file: string)    => invoke('git_discard',  { cwd, file }),
-      diff:     (cwd: string, file: string)    => invoke('git_diff',     { cwd, file }),
+      status:   (cwd: string)                  => api('/api/git/status',    { cwd }),
+      log:      (cwd: string)                  => api('/api/git/log',       { cwd }),
+      logGraph: (cwd: string, limit: number)   => api('/api/git/log-graph', { cwd, limit }),
+      branch:   (cwd: string)                  => api('/api/git/branch',    { cwd }),
+      branches: (cwd: string)                  => api('/api/git/branches',  { cwd }),
+      commit:   (cwd: string, message: string) => api('/api/git/commit',    { cwd, message }),
+      stage:    (cwd: string, files: string[]) => api('/api/git/stage',     { cwd, files }),
+      unstage:  (cwd: string, files: string[]) => api('/api/git/unstage',   { cwd, files }),
+      checkout: (cwd: string, branch: string)  => api('/api/git/checkout',  { cwd, branch }),
+      push:     (cwd: string)                  => api('/api/git/push',      { cwd }),
+      pull:     (cwd: string)                  => api('/api/git/pull',      { cwd }),
+      stash:    (cwd: string)                  => api('/api/git/stash',     { cwd }),
+      stashPop: (cwd: string)                  => api('/api/git/stash-pop', { cwd }),
+      init:     (cwd: string)                  => api('/api/git/init',      { cwd }),
+      discard:  (cwd: string, file: string)    => api('/api/git/discard',   { cwd, file }),
+      diff:     (cwd: string, file: string)    => api('/api/git/diff',      { cwd, file }),
     },
 
     gitEx: {
-      blame: (cwd: string, file: string) => invoke('git_blame', { cwd, file }),
+      blame: (cwd: string, file: string) => api('/api/git/blame', { cwd, file }),
     },
 
-    // ── Filesystem (Rust native, zero TCP) ───────────────────────────────
+    // ── Filesystem (Go engine) ────────────────────────────────────────────
     fs: {
-      readTree:               (rootPath: string, maxDepth?: number)                => invoke('fs_tree',              { rootPath, maxDepth }),
-      readFile:               (filePath: string)                                    => invoke('fs_read',              { filePath }),
-      writeFile:              (filePath: string, content: string)                   => invoke('fs_write',             { filePath, content }),
-      createFile:             (filePath: string)                                    => invoke('fs_create_file',       { filePath }),
-      createFolder:           (folderPath: string)                                  => invoke('fs_create_dir',        { folderPath }),
-      deleteItem:             (itemPath: string)                                    => invoke('fs_delete',            { itemPath }),
-      renameItem:             (oldPath: string, newPath: string)                    => invoke('fs_rename',            { oldPath, newPath }),
-      copyFolder:             (srcPath: string, destPath: string)                   => invoke('fs_copy_folder',       { srcPath, destPath }),
-      copyFile:               (srcPath: string, destPath: string)                   => invoke('fs_copy_file',         { srcPath, destPath }),
+      readTree:               (rootPath: string, maxDepth?: number)                 => api('/api/fs/tree',         { rootPath, maxDepth }),
+      readFile:               (filePath: string)                                    => api('/api/fs/read',         { filePath }),
+      writeFile:              (filePath: string, content: string)                   => api('/api/fs/write',        { filePath, content }),
+      createFile:             (filePath: string)                                    => api('/api/fs/create-file',  { filePath }),
+      createFolder:           (folderPath: string)                                  => api('/api/fs/create-dir',   { folderPath }),
+      deleteItem:             (itemPath: string)                                    => api('/api/fs/delete',       { itemPath }),
+      renameItem:             (oldPath: string, newPath: string)                    => api('/api/fs/rename',       { oldPath, newPath }),
+      copyFolder:             (srcPath: string, destPath: string)                   => api('/api/fs/copy-folder',  { srcPath, destPath }),
+      copyFile:               (srcPath: string, destPath: string)                   => api('/api/fs/copy-file',    { srcPath, destPath }),
       showInFolder:           (itemPath: string)                                    => revealItemInDir(itemPath).catch(() => {}),
-      scanImports:            (rootPath: string)                                    => invoke('fs_scan_imports',      { rootPath }),
-      ensureDefaultWorkspace: ()                                                    => invoke('workspace_ensure_default'),
-      getWorkspace:           ()                                                    => invoke('workspace_get'),
-      saveWorkspace:          (workspacePath: string)                               => invoke('workspace_save',       { workspacePath }),
-      getRecentWorkspaces:    ()                                                    => invoke('workspace_recent_get'),
-      addRecentWorkspace:     (workspacePath: string)                               => invoke('workspace_recent_add', { workspacePath }),
-      listAllFiles:           (rootPath: string, maxFiles?: number)                 => invoke('fs_list_all',          { rootPath, maxFiles }),
-      searchInFiles:          (rootPath: string, query: string, maxResults?: number)=> invoke('fs_search',            { rootPath, query, maxResults }),
+      scanImports:            (rootPath: string)                                    => api('/api/fs/scan-imports', { rootPath }),
+      ensureDefaultWorkspace: ()                                                    => api('/api/workspace/ensure-default'),
+      getWorkspace:           ()                                                    => api('/api/workspace/get'),
+      saveWorkspace:          (workspacePath: string)                               => api('/api/workspace/save',        { workspacePath }),
+      getRecentWorkspaces:    ()                                                    => api('/api/workspace/recent-get'),
+      addRecentWorkspace:     (workspacePath: string)                               => api('/api/workspace/recent-add',  { workspacePath }),
+      listAllFiles:           (rootPath: string, maxFiles?: number)                 => api('/api/fs/list-all',    { rootPath, maxFiles }),
+      searchInFiles:          (rootPath: string, query: string, maxResults?: number)=> api('/api/fs/search',      { rootPath, query, maxResults }),
     },
 
-    // ── AI (Rust reqwest proxy, no JS fetch overhead) ─────────────────────
+    // ── AI (Go engine proxy) ──────────────────────────────────────────────
     ai: {
       chat: (messages: unknown[], apiKey: string, model: string, system: string, provider: string) =>
-        invoke('ai_chat', { provider, apiKey, model, system, messages }),
-      // Streaming still goes via Go SSE endpoint (Tauri IPC doesn't stream yet)
-      streamUrl: () => `http://${engineHost}/api/ai/stream`,
+        api('/api/ai/chat', { provider, apiKey, model, system, messages }),
+      streamUrl: () => `${engineUrl}/api/ai/stream`,
       ollamaModels: (host: string) =>
-        fetch(`http://${engineHost}/api/ai/ollama-models`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ host }),
-        }).then(r => r.json()),
+        api('/api/ai/ollama-models', { host }),
     },
 
-    // ── Code tools (Rust native) ──────────────────────────────────────────
+    // ── Code tools (Go engine) ────────────────────────────────────────────
     tools: {
-      formatCode: (code: string, lang: string) => invoke('fs_format_code', { code, lang }),
-      getScripts:  (rootPath: string)           => invoke('fs_get_scripts', { rootPath }),
+      formatCode: (code: string, lang: string) => api('/api/fs/format',      { code, lang }),
+      getScripts:  (rootPath: string)           => api('/api/fs/get-scripts', { rootPath }),
     },
 
-    // ── Terminal shell exec ───────────────────────────────────────────────
+    // ── Terminal shell exec (Go engine) ──────────────────────────────────
     terminal: {
       exec: (cmd: string, cwd: string) =>
-        invoke<{ stdout: string; stderr: string }>('terminal_exec', { cmd, cwd }),
+        api<{ stdout: string; stderr: string }>('/api/terminal/exec', { cmd, cwd }),
     },
 
     // ── Menu event bus ────────────────────────────────────────────────────

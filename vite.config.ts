@@ -2,17 +2,25 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { resolve } from 'path'
 
-// Tauri expects a fixed origin in dev; for production it uses the file:// dist
 const host = process.env.TAURI_DEV_HOST
 
 export default defineConfig({
-  base: '/',
-  plugins: [react()],
+  base: './',
+  plugins: [
+    react(),
+    // Remove <link rel="preload" as="style"> tags that Tauri's custom protocol
+    // (tauri://localhost) cannot serve — causes "Unable to preload CSS" warnings.
+    {
+      name: 'tauri-css-preload-fix',
+      transformIndexHtml(html: string) {
+        return html.replace(/<link rel="preload"[^>]*as="style"[^>]*>/g, '')
+      },
+    },
+  ],
   server: {
     port: 5175,
     host: host || false,
     strictPort: true,
-    // Tauri handles the Go engine; proxy not needed in dev (engine runs as sidecar)
   },
   resolve: {
     alias: { '@': resolve(__dirname, './src') },
@@ -25,6 +33,9 @@ export default defineConfig({
     minify: 'esbuild',
     target: 'esnext',
     sourcemap: false,
+    // Disable JS module preloading — Tauri's tauri:// protocol rejects
+    // <link rel="modulepreload"> fetches, causing console noise and stalled loads.
+    modulePreload: false,
     rollupOptions: {
       output: {
         manualChunks: (id) => {

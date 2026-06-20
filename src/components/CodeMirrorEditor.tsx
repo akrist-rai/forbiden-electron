@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter, Decoration, WidgetType } from '@codemirror/view'
-import { EditorState, StateEffect, StateField } from '@codemirror/state'
+import { EditorState, StateEffect, StateField, Compartment } from '@codemirror/state'
 import { defaultKeymap, indentWithTab, toggleComment } from '@codemirror/commands'
 import { searchKeymap, openSearchPanel, closeSearchPanel, search } from '@codemirror/search'
 import { completionKeymap, autocompletion, closeBrackets } from '@codemirror/autocomplete'
@@ -391,18 +391,14 @@ export default function CodeMirrorEditor({ node, onChange, onSave, externalPalet
     setTimeout(() => setToastMsg(''), 1800)
   }, [])
 
-  // Build and mount CodeMirror when palette changes (full recreate)
+  const themeCompartment = useMemo(() => new Compartment(), [])
+  const wrapCompartment = useMemo(() => new Compartment(), [])
+
+  // Build and mount CodeMirror (mount once)
   useEffect(() => {
     if (!containerRef.current) return
 
-    // Destroy previous view
-    if (viewRef.current) {
-      viewRef.current.destroy()
-      viewRef.current = null
-    }
-
     const langExt = getLanguageExtension(nodeRef.current.label)
-    const themeExt = buildTheme(palette)
 
     const updateListener = EditorView.updateListener.of((update) => {
       if (update.docChanged) {
@@ -490,13 +486,12 @@ export default function CodeMirrorEditor({ node, onChange, onSave, externalPalet
         { key: 'Mod-s', run: () => { onSaveRef.current?.(); return true } },
       ]),
       indentOnInput(),
-      buildHighlight(palette),
       updateListener,
-      themeExt,
+      themeCompartment.of([buildTheme(paletteRef.current), buildHighlight(paletteRef.current)]),
+      wrapCompartment.of(wordWrapRef.current ? EditorView.lineWrapping : []),
     ]
 
     if (langExt) extensions.push(langExt)
-    if (wordWrapRef.current) extensions.push(EditorView.lineWrapping)
 
     const state = EditorState.create({
       doc: nodeRef.current.code || '',
@@ -515,6 +510,14 @@ export default function CodeMirrorEditor({ node, onChange, onSave, externalPalet
       view.destroy()
       viewRef.current = null
     }
+  }, [])
+
+  // Update theme dynamically
+  useEffect(() => {
+    if (!viewRef.current) return
+    viewRef.current.dispatch({
+      effects: themeCompartment.reconfigure([buildTheme(palette), buildHighlight(palette)])
+    })
   }, [palette.id])
 
   // Sync node content when node changes
@@ -537,78 +540,12 @@ export default function CodeMirrorEditor({ node, onChange, onSave, externalPalet
     }
   }, [fontSize])
 
-  // Toggle word wrap by reconfiguring
+  // Toggle word wrap dynamically
   useEffect(() => {
     if (!viewRef.current) return
-    const view = viewRef.current
-    const langExt = getLanguageExtension(node.label)
-    const themeExt = buildTheme(palette)
-    const updateListener = EditorView.updateListener.of((update) => {
-      if (update.docChanged) {
-        onChangeRef.current(update.state.doc.toString())
-      }
-      if (update.selectionSet || update.docChanged) {
-        const head = update.state.selection.main.head
-        const line = update.state.doc.lineAt(head)
-        const lineNum = line.number
-        const colNum = head - line.from + 1
-        setCursor({ line: lineNum, col: colNum })
-        onCursorChangeRef.current?.(lineNum, colNum)
-      }
+    viewRef.current.dispatch({
+      effects: wrapCompartment.reconfigure(wordWrap ? EditorView.lineWrapping : [])
     })
-
-    const extensions = [
-      lineNumbers(),
-      highlightActiveLineGutter(),
-      highlightActiveLine(),
-      foldGutter(),
-      bracketMatching(),
-      closeBrackets(),
-      ghostTextField,
-      autocompletion(),
-      search({ top: false }),
-      keymap.of([
-        {
-          key: 'Tab',
-          run: (v) => {
-            const ghost = v.state.field(ghostTextField, false)
-            if (!ghost) return false
-            v.dispatch({
-              changes: { from: ghost.pos, insert: ghost.text },
-              effects: setGhostText.of(null),
-              selection: { anchor: ghost.pos + ghost.text.length },
-            })
-            setHasGhostText(false)
-            return true
-          },
-        },
-        {
-          key: 'Escape',
-          run: (v) => {
-            const ghost = v.state.field(ghostTextField, false)
-            if (!ghost) return false
-            v.dispatch({ effects: setGhostText.of(null) })
-            setHasGhostText(false)
-            return true
-          },
-        },
-        ...defaultKeymap, ...searchKeymap, ...completionKeymap, indentWithTab,
-        { key: 'Mod-s', run: () => { onSaveRef.current?.(); return true } },
-      ]),
-      indentOnInput(),
-      buildHighlight(palette),
-      updateListener,
-      themeExt,
-    ]
-    if (langExt) extensions.push(langExt)
-    if (wordWrap) extensions.push(EditorView.lineWrapping)
-
-    const currentCode = view.state.doc.toString()
-    const newState = EditorState.create({
-      doc: currentCode,
-      extensions,
-    })
-    view.setState(newState)
   }, [wordWrap])
 
   // Toolbar handlers

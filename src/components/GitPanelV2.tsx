@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { useState, useEffect, useRef, useCallback, memo } from 'react'
 import { api } from '../lib/api'
+import { useFileWatcher } from '../hooks'
 
 // ── VS Code Source Control color palette ──────────────────────
 const STATUS_COLOR: Record<string, string> = {
@@ -594,15 +595,22 @@ function GitPanelV2({
     setRefreshing(false)
   }, [loadStatus, loadLog])
 
+  // Event-driven watcher via sidecar WebSocket (no periodic polling idle load)
+  useFileWatcher({
+    explorerRoot: cwd,
+    onChanged: useCallback(() => {
+      loadStatus()
+      loadLog()
+    }, [loadStatus, loadLog])
+  })
+
   useEffect(() => {
     if (!cwd) return
     setLoading(true)
     Promise.all([loadStatus(), loadLog()]).finally(() => setLoading(false))
-    timerRef.current = setInterval(() => { loadStatus(); loadLog() }, 5000)
     const onFocus = () => { loadStatus(); loadLog() }
     window.addEventListener('focus', onFocus)
     return () => {
-      if (timerRef.current) clearInterval(timerRef.current)
       window.removeEventListener('focus', onFocus)
     }
   }, [cwd, loadStatus, loadLog])

@@ -1,0 +1,131 @@
+package main
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"time"
+)
+
+// ── Code execution ─────────────────────────────────────────────
+
+func findExec(candidates []string) string {
+	for _, c := range candidates {
+		if _, err := exec.LookPath(c); err == nil {
+			return c
+		}
+	}
+	return ""
+}
+
+func buildRunCmd(lang, file string) string {
+	switch lang {
+	case "js", "jsx":
+		if b := findExec([]string{"bun"}); b != "" {
+			return "bun run " + file
+		}
+		if n := findExec([]string{"node"}); n != "" {
+			return "node " + file
+		}
+	case "ts", "tsx":
+		if b := findExec([]string{"bun"}); b != "" {
+			return "bun run " + file
+		}
+	case "py":
+		if p := findExec([]string{"python3", "python"}); p != "" {
+			return p + " " + file
+		}
+	case "go":
+		return "go run " + file
+	case "c":
+		out := strings.TrimSuffix(file, filepath.Ext(file)) + ".out"
+		if cc := findExec([]string{"gcc", "clang", "cc"}); cc != "" {
+			return fmt.Sprintf("%s -o %s %s -lm && %s", cc, out, file, out)
+		}
+	case "cpp":
+		out := strings.TrimSuffix(file, filepath.Ext(file)) + ".out"
+		if cc := findExec([]string{"g++", "clang++", "c++"}); cc != "" {
+			return fmt.Sprintf("%s -o %s %s && %s", cc, out, file, out)
+		}
+	}
+	return ""
+}
+
+func handleCodeRun(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Lang  string `json:"lang"`
+		Code  string `json:"code"`
+		Stdin string `json:"stdin"`
+		Cwd   string `json:"cwd"`
+	}
+	json.NewDecoder(r.Body).Decode(&req)
+
+	extMap := map[string]string{
+		"js": "js", "jsx": "jsx", "ts": "ts", "tsx": "tsx",
+		"py": "py", "go": "go", "c": "c", "cpp": "cpp",
+	}
+	ext, ok := extMap[req.Lang]
+	if !ok {
+		ext = "txt"
+	}
+
+	tmp, err := os.CreateTemp("", fmt.Sprintf("forbiden_run_*.%s", ext))
+	if err != nil {
+		jsonResp(w, map[string]any{"logs": []any{}, "error": err.Error(), "ms": 0})
+		return
+	}
+	tmpPath := tmp.Name()
+	tmp.WriteString(req.Code)
+	tmp.Close()
+	defer os.Remove(tmpPath)
+
+	// For compiled languages, also clean up the binary
+	if req.Lang == "c" || req.Lang == "cpp" {
+		defer os.Remove(strings.TrimSuffix(tmpPath, filepath.Ext(tmpPath)) + ".out")
+	}
+
+	cmdStr := buildRunCmd(req.Lang, tmpPath)
+	if cmdStr == "" {
+		jsonResp(w, map[string]any{
+			"logs":  []any{map[string]any{"type": "error", "val": "no runtime for " + req.Lang, "ts": 0}},
+			"error": "unsupported", "ms": 0,
+		})
+		return
+	}
+
+	t0 := time.Now()
+	cmd := exec.Command("sh", "-c", cmdStr)
+	cmd.Env = append(os.Environ(), "PATH="+extendedPath())
+	if req.Cwd != "" {
+		cmd.Dir = req.Cwd
+	}
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	if req.Stdin != "" {
+		cmd.Stdin = strings.NewReader(req.Stdin)
+	}
+
+	cmd.Run()
+	ms := time.Since(t0).Milliseconds()
+
+	logs := []map[string]any{}
+	for _, l := range strings.Split(stdout.String(), "\n") {
+		if l != "" {
+			logs = append(logs, map[string]any{"type": "log", "val": l, "ts": 0})
+		}
+	}
+	for _, l := range strings.Split(stderr.String(), "\n") {
+		if l != "" {
+			logs = append(logs, map[string]any{"type": "error", "val": l, "ts": 0})
+		}
+	}
+	jsonResp(w, map[string]any{"logs": logs, "error": nil, "ms": ms})
+}
