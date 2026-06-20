@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
+import { api } from '../../lib/api'
 
 interface FileEntry {
   name: string
@@ -52,7 +53,6 @@ export default function FileFinderModal({ isOpen, onClose, onOpenFile, rootPath,
 
   useEffect(() => {
     if (!isOpen || !rootPath) return
-    const api = (window as any).electronAPI
     api?.fs?.listAllFiles?.(rootPath, 6000).then((list: FileEntry[]) => setFiles(list || [])).catch(() => {})
   }, [isOpen, rootPath])
 

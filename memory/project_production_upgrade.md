@@ -9,7 +9,7 @@ Full production upgrade in progress. Plan file: `/home/akrist/.claude/plans/lets
 
 **Why:** User requested making FORBIDEN lightning fast, reliable, and robust — full latitude given.
 
-**How to apply:** Continue from where we left off — next is extracting remaining inline panels (NotebookPanel, NoteCell, CodeEditor, WelcomeNodeRow), then GraphCanvas/EditorPane extraction.
+**How to apply:** Continue from where we left off — next is extracting CodeEditor, then GraphCanvas/EditorPane extraction.
 
 ## Completed
 

@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useUIStore } from '../../stores/uiStore'
 import { useAiStore } from '../../stores/aiStore'
+import { api } from '../../lib/api'
 
 const PROVIDER_COLORS: Record<string, string> = {
   anthropic: '#bb9af7', openai: '#10b981', gemini: '#4285f4', openrouter: '#ffc410', ollama: '#89ddff',
@@ -68,8 +69,7 @@ export default function AiChatPanel({ activeNode, explorerRoot, onOpenSettings }
       ? `You are an expert programmer assistant. The user has this file open:\n\nFilename: ${activeNode.label}\n\`\`\`\n${activeNode.code.slice(0, 8000)}\n\`\`\`\n\nBe concise, code-focused, and practical.`
       : 'You are an expert programmer assistant. Be concise, code-focused, and practical.'
 
-    const electronAPI = (window as any).electronAPI
-    const streamUrl = electronAPI?.ai?.streamUrl?.()
+    const streamUrl = api.ai?.streamUrl?.()
     if (!streamUrl) {
       setStreaming(false)
       setMessages(prev => [...prev, { role: 'assistant', content: '⚠ Error: stream endpoint unavailable' }])

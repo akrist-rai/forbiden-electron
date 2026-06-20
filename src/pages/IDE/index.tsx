@@ -16,6 +16,8 @@ import MangaNode from '../../features/graph/MangaNode'
 import GraphMinimap from '../../features/graph/GraphMinimap'
 import { convexHull } from '../../features/graph/convexHull'
 import TimelinePanel from '../../features/timeline/TimelinePanel'
+import NotebookPanel from '../../features/notebook/NotebookPanel'
+import WelcomeNodeRow from '../../features/graph/WelcomeNodeRow'
 import CommandPalette from '../../features/modals/CommandPalette'
 import GroupEditor from '../../features/modals/GroupEditor'
 import FileFinderModal from '../../features/modals/FileFinderModal'
@@ -30,343 +32,13 @@ import CodeMirrorEditor from '../../components/CodeMirrorEditor'
 import XTermPanel from '../../components/XTermPanel'
 import TitleBar from '../../components/TitleBar'
 import GitPanelV2 from '../../components/GitPanelV2'
+import { Icons as I } from '../../components/Icons'
+import { highlightCode } from '../../lib/highlight'
+import { api } from '../../lib/api'
+import { ACCENTS, TL_TRACKS, TL_COL } from '../../constants/accents'
+import { PALETTES, PALETTE_LIGHT_IDS, TERM_PALETTES } from '../../constants/palettes'
+import { getMangaImgSrc, getPanelImg } from '../../constants/manga'
 
-// ══════════════════════════════════════════════════════════════
-//  CONSTANTS
-// ══════════════════════════════════════════════════════════════
-
-const ACCENTS = ['#10b981','#ff435a','#ffc410','#4285f4','#28f1c3','#bb9af7','#ff1650','#5ccfe6','#ffbd5e','#e36209','#72f1b8','#ff8080','#89ddff','#e5c07b','#4ec9b0','#c792ea']
-
-
-const TL_TRACKS = [
-  { key:'create', types:['node-create'],            label:'CREATE', color:'#10b981', icon:'⊕' },
-  { key:'edit',   types:['code-edit'],              label:'EDIT',   color:'#ffc410', icon:'✏' },
-  { key:'run',    types:['run-ok','run-err'],        label:'RUN',    color:'#4285f4', icon:'▶' },
-  { key:'edge',   types:['edge-add','edge-del'],     label:'EDGE',   color:'#bb9af7', icon:'⇢' },
-  { key:'import', types:['import','group'],          label:'IMPORT', color:'#c792ea', icon:'⬆' },
-  { key:'commit', types:['commit'],                  label:'COMMIT', color:'#ff2a38', icon:'◆' },
-  { key:'sys',    types:['system','node-delete'],    label:'SYSTEM', color:'#607080', icon:'⚡' },
-]
-const TL_COL = {
-  'node-create':'#10b981','node-delete':'#ff435a','code-edit':'#ffc410',
-  'edge-add':'#4285f4','edge-del':'#bb9af7','run-ok':'#10b981','run-err':'#ff435a',
-  'import':'#c792ea','group':'#c792ea','commit':'#ff2a38','system':'#607080',
-}
-const INITIAL_NODES = [
-  { id:'n1', type:'entry', label:'main.js', isMain:true, x:0, y:0, vx:0, vy:0, themeIdx:0, modified:false, code:
-`// FORBIDEN — Main entry point
-const PROJECT = 'FORBIDEN NGO'
-const VERSION  = '2.1.0'
-const MODULES  = ['utils', 'DataPipeline', 'graph']
-
-console.log(\`[BOOT] \${PROJECT} v\${VERSION}\`)
-MODULES.forEach(m => console.log(\`  ↳ loading: \${m}\`))
-
-const uptime = performance.now().toFixed(2)
-console.log(\`[READY] Runtime up — \${uptime}ms\`)
-
-return { project: PROJECT, version: VERSION, modules: MODULES, uptime }`
-  },
-  { id:'n2', type:'function', label:'utils.js', isMain:false, x:150, y:-140, vx:0, vy:0, themeIdx:5, classId:'g1', modified:true, code:
-`// Utility helpers
-function capitalize(str) {
-  return str.charAt(0).toUpperCase() + str.slice(1)
-}
-
-function randomId(len = 8) {
-  return Math.random().toString(36).slice(2, 2 + len).toUpperCase()
-}
-
-function clamp(n, min, max) {
-  return Math.min(Math.max(n, min), max)
-}
-
-function debounce(fn, delay) {
-  let t
-  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), delay) }
-}
-
-// Smoke test
-console.log(capitalize('forbiden'))
-console.log('ID:', randomId())
-console.log('clamp(15, 0, 10):', clamp(15, 0, 10))
-
-return { capitalize, randomId, clamp, debounce }`
-  },
-  { id:'n3', type:'class', label:'DataPipeline.js', isMain:false, x:-110, y:160, vx:0, vy:0, themeIdx:6, classId:'g1', modified:false, code:
-`// Composable data pipeline
-class DataPipeline {
-  constructor(name) {
-    this.name = name
-    this.stages = []
-    this.runs = 0
-  }
-
-  pipe(fn) {
-    this.stages.push(fn)
-    return this // chainable
-  }
-
-  run(input) {
-    this.runs++
-    return this.stages.reduce((acc, fn) => fn(acc), input)
-  }
-}
-
-// Demo — process an array of numbers
-const pipeline = new DataPipeline('demo')
-  .pipe(data => data.map(x => x * 2))
-  .pipe(data => data.filter(x => x > 4))
-  .pipe(data => ({
-    values: data,
-    sum: data.reduce((a, b) => a + b, 0),
-    avg: data.reduce((a, b) => a + b, 0) / data.length
-  }))
-
-const result = pipeline.run([1, 2, 3, 4, 5])
-console.log('Pipeline:', pipeline.name)
-console.log('Result:', result)
-console.warn('Runs so far:', pipeline.runs)
-
-return result`
-  },
-  { id:'n4', type:'function', label:'graph.js', isMain:false, x:70, y:190, vx:0, vy:0, themeIdx:4, classId:null, modified:false, code:
-`// Graph traversal utilities
-function buildGraph(edges) {
-  const g = {}
-  for (const [from, to] of edges) {
-    ;(g[from] ??= []).push(to)
-    ;(g[to]   ??= [])
-  }
-  return g
-}
-
-function bfs(graph, start) {
-  const visited = new Set([start])
-  const queue = [start]
-  const order = []
-  while (queue.length) {
-    const node = queue.shift()
-    order.push(node)
-    for (const nb of (graph[node] || [])) {
-      if (!visited.has(nb)) { visited.add(nb); queue.push(nb) }
-    }
-  }
-  return order
-}
-
-function pageRank(graph, iters = 20, d = 0.85) {
-  const nodes = Object.keys(graph)
-  const N = nodes.length
-  const rank = Object.fromEntries(nodes.map(n => [n, 1 / N]))
-  for (let i = 0; i < iters; i++) {
-    const next = Object.fromEntries(nodes.map(n => [n, (1 - d) / N]))
-    for (const [src, dsts] of Object.entries(graph)) {
-      for (const dst of dsts) {
-        next[dst] = (next[dst] || 0) + d * (rank[src] / (dsts.length || 1))
-      }
-    }
-    Object.assign(rank, next)
-  }
-  return rank
-}
-
-const edges = [
-  ['main', 'utils'], ['main', 'DataPipeline'],
-  ['utils', 'graph'], ['DataPipeline', 'graph'],
-]
-const G = buildGraph(edges)
-const traversal = bfs(G, 'main')
-const ranks = pageRank(G)
-
-console.log('BFS from main:', traversal)
-console.table(Object.entries(ranks).map(([n,r]) => ({ node:n, rank: r.toFixed(4) })))
-
-return { graph: G, traversal, ranks }`
-  },
-]
-const INITIAL_EDGES = [{id:'e1',source:'n1',target:'n2'},{id:'e2',source:'n1',target:'n3'},{id:'e3',source:'n2',target:'n4'},{id:'e4',source:'n3',target:'n4'}]
-const INITIAL_GROUPS = [{id:'g1',name:'CoreLayer',color:'#10b981',nodeIds:['n2','n3']}]
-const INITIAL_BOARD = {
-  cols:[{id:'c1',title:'BACKLOG',color:'#4a4a6a'},{id:'c2',title:'TO DO',color:'#4285f4'},{id:'c3',title:'IN PROGRESS',color:'#ffc410'},{id:'c4',title:'REVIEW',color:'#ff435a'},{id:'c5',title:'DONE',color:'#10b981'}],
-  cards:[
-    {id:'k1',colId:'c3',title:'Build graph force simulation',priority:'HIGH',tags:['core','physics'],progress:70,due:'Mar 12',assignee:0},
-    {id:'k2',colId:'c2',title:'WebSocket sync protocol',priority:'HIGH',tags:['backend','net'],progress:0,due:'Mar 18',assignee:1},
-    {id:'k3',colId:'c2',title:'Class grouping thread UI',priority:'MED',tags:['ui','graph'],progress:20,due:'Mar 15',assignee:0},
-    {id:'k5',colId:'c4',title:'Syntax highlight engine',priority:'MED',tags:['editor','parser'],progress:90,due:'Mar 10',assignee:0},
-    {id:'k6',colId:'c5',title:'Babel JSX setup',priority:'DONE',tags:['infra'],progress:100,due:'Feb 28',assignee:1},
-    {id:'k7',colId:'c5',title:'Boot sequence modal',priority:'DONE',tags:['ui'],progress:100,due:'Feb 25',assignee:0},
-    {id:'k8',colId:'c3',title:'Color palette engine',priority:'MED',tags:['editor','ui'],progress:45,due:'Mar 14',assignee:2},
-  ],
-}
-
-const CMD_ITEMS = [
-  { icon:'F', label:'New file node', hint:'N' },
-  { icon:'D', label:'New doc node (.md)', hint:'' },
-  { icon:'G', label:'New class group', hint:'G' },
-  { icon:'J', label:'Join nodes (add edge)', hint:'J' },
-  { icon:'X', label:'Cut edge', hint:'X' },
-  { icon:'▶', label:'Run current file (JS)', hint:'Ctrl+Enter' },
-  { icon:'>', label:'Open JS console', hint:'' },
-  { icon:'/', label:'Toggle comment', hint:'Ctrl+/' },
-  { icon:'T', label:'Open terminal', hint:'`' },
-  { icon:'B', label:'Open board', hint:'' },
-  { icon:'⌘', label:'Open Command Palette', hint:'Ctrl+P' },
-]
-
-const PALETTES = [
-  { id:'forbinden',  name:'FORBINDEN',    bg:'#0b0b0f', base:'#c0c8d8', lineNum:'#2e2e42', activeLine:'rgba(255,255,255,0.035)', kw:'#ff435a', str:'#ffc410', cmt:'#3e3e5a', num:'#4285f4', fn:'#10b981', bi:'#28f1c3', op:'#6a6a8a', swatches:['#ff435a','#ffc410','#10b981','#28f1c3'] },
-  { id:'dracula',    name:'DRACULA',       bg:'#282a36', base:'#f8f8f2', lineNum:'#44475a', activeLine:'rgba(68,71,90,0.4)',     kw:'#ff79c6', str:'#f1fa8c', cmt:'#6272a4', num:'#bd93f9', fn:'#50fa7b', bi:'#8be9fd', op:'#ff79c6', swatches:['#ff79c6','#f1fa8c','#50fa7b','#8be9fd'] },
-  { id:'monokai',    name:'MONOKAI',       bg:'#272822', base:'#f8f8f2', lineNum:'#3e3d32', activeLine:'rgba(73,72,62,0.4)',     kw:'#f92672', str:'#e6db74', cmt:'#75715e', num:'#ae81ff', fn:'#a6e22e', bi:'#66d9e8', op:'#f92672', swatches:['#f92672','#e6db74','#a6e22e','#ae81ff'] },
-  { id:'nord',       name:'NORD',          bg:'#2e3440', base:'#d8dee9', lineNum:'#3b4252', activeLine:'rgba(67,76,94,0.4)',     kw:'#81a1c1', str:'#a3be8c', cmt:'#4c566a', num:'#b48ead', fn:'#88c0d0', bi:'#8fbcbb', op:'#81a1c1', swatches:['#81a1c1','#a3be8c','#88c0d0','#b48ead'] },
-  { id:'tokyo',      name:'TOKYO NIGHT',   bg:'#1a1b2e', base:'#a9b1d6', lineNum:'#2a2b3d', activeLine:'rgba(42,43,61,0.5)',     kw:'#bb9af7', str:'#9ece6a', cmt:'#3b4261', num:'#ff9e64', fn:'#7dcfff', bi:'#2ac3de', op:'#c0caf5', swatches:['#bb9af7','#9ece6a','#7dcfff','#ff9e64'] },
-  { id:'gruvbox',    name:'GRUVBOX',       bg:'#282828', base:'#ebdbb2', lineNum:'#3c3836', activeLine:'rgba(60,56,54,0.5)',     kw:'#fb4934', str:'#b8bb26', cmt:'#665c54', num:'#d3869b', fn:'#fabd2f', bi:'#8ec07c', op:'#fe8019', swatches:['#fb4934','#b8bb26','#fabd2f','#8ec07c'] },
-  { id:'onedark',    name:'ONE DARK',      bg:'#282c34', base:'#abb2bf', lineNum:'#3b4048', activeLine:'rgba(40,44,52,0.6)',     kw:'#c678dd', str:'#98c379', cmt:'#5c6370', num:'#d19a66', fn:'#61afef', bi:'#56b6c2', op:'#e06c75', swatches:['#c678dd','#98c379','#61afef','#d19a66'] },
-  { id:'solarized',  name:'SOLARIZED',     bg:'#002b36', base:'#839496', lineNum:'#073642', activeLine:'rgba(7,54,66,0.6)',      kw:'#859900', str:'#2aa198', cmt:'#586e75', num:'#d33682', fn:'#268bd2', bi:'#cb4b16', op:'#657b83', swatches:['#859900','#2aa198','#268bd2','#d33682'] },
-  { id:'nightowl',   name:'NIGHT OWL',     bg:'#011627', base:'#d6deeb', lineNum:'#1d3b53', activeLine:'rgba(1,56,95,0.45)',     kw:'#c792ea', str:'#addb67', cmt:'#637777', num:'#f78c6c', fn:'#82aaff', bi:'#7fdbca', op:'#c792ea', swatches:['#c792ea','#addb67','#82aaff','#7fdbca'] },
-  { id:'ayu',        name:'AYU MIRAGE',    bg:'#1f2430', base:'#cccac2', lineNum:'#2d3443', activeLine:'rgba(45,52,67,0.5)',     kw:'#ffa759', str:'#bae67e', cmt:'#5c6773', num:'#ffcc66', fn:'#5ccfe6', bi:'#73d0ff', op:'#f29e74', swatches:['#ffa759','#bae67e','#5ccfe6','#ffcc66'] },
-  { id:'catppuccin', name:'CATPPUCCIN',    bg:'#1e1e2e', base:'#cdd6f4', lineNum:'#313244', activeLine:'rgba(49,50,68,0.5)',     kw:'#cba6f7', str:'#a6e3a1', cmt:'#585b70', num:'#fab387', fn:'#89b4fa', bi:'#94e2d5', op:'#f38ba8', swatches:['#cba6f7','#a6e3a1','#89b4fa','#fab387'] },
-  { id:'rosepine',   name:'ROSÉ PINE',     bg:'#191724', base:'#e0def4', lineNum:'#26233a', activeLine:'rgba(38,35,58,0.5)',     kw:'#c4a7e7', str:'#f6c177', cmt:'#6e6a86', num:'#ebbcba', fn:'#9ccfd8', bi:'#31748f', op:'#eb6f92', swatches:['#c4a7e7','#f6c177','#9ccfd8','#eb6f92'] },
-  { id:'kanagawa',   name:'KANAGAWA',      bg:'#1f1f28', base:'#dcd7ba', lineNum:'#2a2a37', activeLine:'rgba(42,42,55,0.5)',     kw:'#957fb8', str:'#98bb6c', cmt:'#727169', num:'#d27e99', fn:'#7e9cd8', bi:'#6a9589', op:'#c0a36e', swatches:['#957fb8','#98bb6c','#7e9cd8','#c0a36e'] },
-  { id:'vesper',     name:'VESPER',        bg:'#101010', base:'#c2c2c2', lineNum:'#1e1e1e', activeLine:'rgba(30,30,30,0.6)',     kw:'#ff8080', str:'#99ffe4', cmt:'#404040', num:'#ffbd5e', fn:'#b8a4ff', bi:'#5ef1ff', op:'#ff6e6e', swatches:['#ff8080','#99ffe4','#b8a4ff','#ffbd5e'] },
-  { id:'everforest', name:'EVERFOREST',    bg:'#272e33', base:'#d3c6aa', lineNum:'#333c43', activeLine:'rgba(51,60,67,0.5)',     kw:'#e67e80', str:'#a7c080', cmt:'#5b6770', num:'#dbbc7f', fn:'#7fbbb3', bi:'#83c092', op:'#d699b6', swatches:['#e67e80','#a7c080','#7fbbb3','#dbbc7f'] },
-  { id:'oxocarbon',  name:'OXOCARBON',     bg:'#161616', base:'#f2f4f8', lineNum:'#262626', activeLine:'rgba(38,38,38,0.55)',    kw:'#ff7eb6', str:'#42be65', cmt:'#393939', num:'#82cfff', fn:'#ee5396', bi:'#3ddbd9', op:'#be95ff', swatches:['#ff7eb6','#42be65','#ee5396','#82cfff'] },
-  { id:'synthwave',  name:'SYNTHWAVE 84',  bg:'#262335', base:'#ffffff', lineNum:'#34294f', activeLine:'rgba(52,41,79,0.5)',     kw:'#ff7edb', str:'#ff8b39', cmt:'#848bbd', num:'#f97e72', fn:'#36f9f6', bi:'#72f1b8', op:'#fe4450', swatches:['#ff7edb','#36f9f6','#72f1b8','#fe4450'] },
-  { id:'moonlight',  name:'MOONLIGHT',     bg:'#212337', base:'#c8d3f5', lineNum:'#2f334d', activeLine:'rgba(47,51,77,0.5)',     kw:'#ff98a4', str:'#c3e88d', cmt:'#444a73', num:'#ff995e', fn:'#82aaff', bi:'#b4f9f8', op:'#c099ff', swatches:['#ff98a4','#c3e88d','#82aaff','#c099ff'] },
-  { id:'github',     name:'GITHUB LIGHT',  bg:'#ffffff', base:'#24292e', lineNum:'#e1e4e8', activeLine:'rgba(225,228,232,0.5)', kw:'#d73a49', str:'#032f62', cmt:'#6a737d', num:'#005cc5', fn:'#6f42c1', bi:'#e36209', op:'#d73a49', swatches:['#d73a49','#032f62','#6f42c1','#005cc5'] },
-  { id:'gruvlight',  name:'GRUVBOX LIGHT', bg:'#fbf1c7', base:'#3c3836', lineNum:'#d5c4a1', activeLine:'rgba(213,196,161,0.5)', kw:'#9d0006', str:'#79740e', cmt:'#928374', num:'#8f3f71', fn:'#b57614', bi:'#076678', op:'#af3a03', swatches:['#9d0006','#79740e','#b57614','#076678'] },
-  { id:'papercolor', name:'PAPERCOLOR',    bg:'#eeeeee', base:'#444444', lineNum:'#d0d0d0', activeLine:'rgba(208,208,208,0.5)', kw:'#005f87', str:'#718c00', cmt:'#a8a8a8', num:'#8700af', fn:'#d75f00', bi:'#0087af', op:'#d70000', swatches:['#005f87','#718c00','#d75f00','#8700af'] },
-  { id:'flexoki',    name:'FLEXOKI',       bg:'#fffcf0', base:'#100f0f', lineNum:'#e6e4d9', activeLine:'rgba(230,228,217,0.5)', kw:'#af3029', str:'#66800b', cmt:'#b7b5ac', num:'#8b7ec8', fn:'#205ea6', bi:'#24837b', op:'#bc5215', swatches:['#af3029','#66800b','#205ea6','#24837b'] },
-]
-
-const TERM_PALETTES = [
-  { id:'matrix',    name:'MATRIX',       bg:'#020c02', text:'#00ff41', prompt:'#00cc33', dim:'#005c17', error:'#ff435a', warn:'#ffc410', info:'#00ff41', border:'#005c17', cursor:'#00ff41', selection:'rgba(0,255,65,0.2)' },
-  { id:'forbinden', name:'FORBINDEN',     bg:'#080810', text:'#c0c8d8', prompt:'#10b981', dim:'#3e3e5a', error:'#ff435a', warn:'#ffc410', info:'#28f1c3', border:'#1a1a2c', cursor:'#10b981', selection:'rgba(16,185,129,0.15)' },
-  { id:'dracula',   name:'DRACULA',       bg:'#282a36', text:'#f8f8f2', prompt:'#50fa7b', dim:'#6272a4', error:'#ff5555', warn:'#f1fa8c', info:'#8be9fd', border:'#44475a', cursor:'#f8f8f2', selection:'rgba(68,71,90,0.5)' },
-  { id:'tokyo',     name:'TOKYO NIGHT',   bg:'#1a1b2e', text:'#a9b1d6', prompt:'#7dcfff', dim:'#3b4261', error:'#f7768e', warn:'#ff9e64', info:'#2ac3de', border:'#2a2b3d', cursor:'#7dcfff', selection:'rgba(42,43,61,0.6)' },
-  { id:'nord',      name:'NORD',          bg:'#2e3440', text:'#d8dee9', prompt:'#88c0d0', dim:'#4c566a', error:'#bf616a', warn:'#ebcb8b', info:'#81a1c1', border:'#3b4252', cursor:'#88c0d0', selection:'rgba(67,76,94,0.5)' },
-  { id:'synthwave', name:'SYNTHWAVE',     bg:'#1a1030', text:'#ff7edb', prompt:'#36f9f6', dim:'#5c5080', error:'#fe4450', warn:'#ff8b39', info:'#72f1b8', border:'#34294f', cursor:'#36f9f6', selection:'rgba(54,249,246,0.1)' },
-  { id:'gruvbox',   name:'GRUVBOX',       bg:'#1d2021', text:'#ebdbb2', prompt:'#fabd2f', dim:'#504945', error:'#cc241d', warn:'#d79921', info:'#689d6a', border:'#3c3836', cursor:'#fabd2f', selection:'rgba(250,189,47,0.12)' },
-  { id:'catppuccin',name:'CATPPUCCIN',    bg:'#1e1e2e', text:'#cdd6f4', prompt:'#a6e3a1', dim:'#585b70', error:'#f38ba8', warn:'#fab387', info:'#89dceb', border:'#313244', cursor:'#a6e3a1', selection:'rgba(166,227,161,0.1)' },
-  { id:'kanagawa',  name:'KANAGAWA',      bg:'#1f1f28', text:'#dcd7ba', prompt:'#7e9cd8', dim:'#727169', error:'#e82424', warn:'#ff9e3b', info:'#6a9589', border:'#2a2a37', cursor:'#7e9cd8', selection:'rgba(126,156,216,0.12)' },
-  { id:'rosepine',  name:'ROSÉ PINE',     bg:'#191724', text:'#e0def4', prompt:'#9ccfd8', dim:'#6e6a86', error:'#eb6f92', warn:'#f6c177', info:'#31748f', border:'#26233a', cursor:'#9ccfd8', selection:'rgba(156,207,216,0.1)' },
-  { id:'hacker',    name:'HACKER',        bg:'#000000', text:'#39ff14', prompt:'#39ff14', dim:'#1a5c09', error:'#ff073a', warn:'#ffe600', info:'#00ffff', border:'#0d3305', cursor:'#39ff14', selection:'rgba(57,255,20,0.15)' },
-  { id:'amber',     name:'AMBER',         bg:'#0d0800', text:'#ffb000', prompt:'#ffd700', dim:'#5c3d00', error:'#ff4500', warn:'#ffc400', info:'#ffb000', border:'#2a1a00', cursor:'#ffd700', selection:'rgba(255,176,0,0.15)' },
-  { id:'iceberg',   name:'ICEBERG',       bg:'#161821', text:'#c6c8d1', prompt:'#84a0c6', dim:'#444b71', error:'#e27878', warn:'#e2a478', info:'#89b8c2', border:'#2c2f45', cursor:'#84a0c6', selection:'rgba(132,160,198,0.15)' },
-  { id:'monokai',   name:'MONOKAI',       bg:'#272822', text:'#f8f8f2', prompt:'#a6e22e', dim:'#75715e', error:'#f92672', warn:'#e6db74', info:'#66d9e8', border:'#3e3d32', cursor:'#a6e22e', selection:'rgba(166,226,46,0.1)' },
-  { id:'classic',   name:'CLASSIC',       bg:'#0c0c0c', text:'#cccccc', prompt:'#ffffff', dim:'#666666', error:'#c50f1f', warn:'#c19c00', info:'#3b78ff', border:'#333333', cursor:'#ffffff', selection:'rgba(255,255,255,0.1)' },
-  { id:'solarized', name:'SOLARIZED',     bg:'#002b36', text:'#839496', prompt:'#268bd2', dim:'#586e75', error:'#dc322f', warn:'#b58900', info:'#2aa198', border:'#073642', cursor:'#268bd2', selection:'rgba(38,139,210,0.1)' },
-]
-
-// ══════════════════════════════════════════════════════════════
-//  UTILITIES
-// ══════════════════════════════════════════════════════════════
-
-const PANEL_IMGS = [
-  // Curated manga/art posters
-  'Guts.jpeg','Whitebeard.jpeg','Roronoa Zoro.jpeg','PANTHEON.jpeg',
-  'Thorfinn _ Vinland saga.jpeg','Choujin X.jpeg','THE CONTROL DEVIL _ GRAPHIC DESIGN.jpeg',
-  'God Valley.jpeg','MATT TAYLOR.jpeg','SUBWAY DIMENSIONS.jpeg',
-  'Queen Marika the Eternal.jpeg','VOGUE.jpeg','Sight - SKJEGG.jpeg',
-  'Poster - Veil.jpeg','SONS OF THE DEVIL Covers 1-5 - toni infante.jpeg',
-  'denji starboy album cover.jpeg','yhwach god of the Quincy.jpeg',
-  'Makima! 🩸__#Makima #ChainsawMan_#ChainsawManFanart #AnimeArt_#DigitalPainting.jpeg',
-  'チェンソーマン ＃１.jpeg','𝐔𝐬𝐨𝐩𝐩.jpeg','Poster One Piece - Wanted Whitebeard 61x91,5cm _ bol.jpeg',
-  'CHAOS SMILE.jpeg','Fire Punch.jpeg','Nelliel Brutalism.jpeg',
-  // New additions from not-used folder
-  '#chainsawman.jpeg',
-  'Burning - Inspired by Van Gogh.jpeg',
-  'I\'LL TAKE CARE OF YOU _ TYLER THE CREATOR _ DON\'T TAP THE GLASS _ FLOWER BOY.jpeg',
-  'Kagurabachi X Bleach.jpeg','Kyora Sazanami Poster.jpeg',
-  '0xMC001x.jpeg','0xMC002x.jpeg','0xMC003x.jpeg',
-  // Episode art panels
-  '0xEP001p.jpeg','0xEP002p.jpeg','0xEP003p.jpeg','0xEP004p.jpeg','0xEP005p.jpeg',
-  '0xEP006p.jpeg','0xEP007p.jpeg','0xEP008p.jpeg','0xEP009p.jpeg','0xEP010p.jpeg',
-  '0xEP011p.jpeg','0xEP012p.jpeg','0xEP013p.jpeg','0xEP014p.jpeg','0xEP015p.jpeg',
-  '0xEP016p.jpeg','0xEP017p.jpeg','0xEP018p.jpeg','0xEP019p.jpeg','0xEP020p.jpeg',
-  '0xEP021p.jpeg','0xEP022p.jpeg','0xEP023p.jpeg','0xEP024p.jpeg','0xEP025p.jpeg',
-  '0xEP026p.jpeg','0xEP027p.jpeg','0xEP028p.jpeg','0xEP029p.jpeg','0xEP030p.jpeg',
-  '0xEP031p.jpeg','0xEP032p.jpeg','0xEP033p.jpeg','0xEP034p.jpeg','0xEP035p.jpeg',
-  '0xEP036p.jpeg','0xEP037p.jpeg','0xEP038p.jpeg','0xEP039p.jpeg','0xEP040p.jpeg',
-  '0xEP041p.jpeg','0xEP042p.jpeg','0xEP043p.jpeg','0xEP044p.jpeg','0xEP045p.jpeg',
-  '0xEP046p.jpeg','0xEP047p.jpeg','0xEP048p.jpeg','0xEP049p.jpeg','0xEP050p.jpeg',
-  '0xEP051p.jpeg','0xEP052p.jpeg','0xEP053p.jpeg','0xEP054p.jpeg','0xEP055p.jpeg',
-  '0xEP056p.jpeg','0xEP057p.jpeg','0xEP058p.jpeg','0xEP059p.jpeg','0xEP060p.jpeg',
-  '0xEP061p.jpeg','0xEP062p.jpeg','0xEP069p.jpeg','0xEP070p.jpeg','0xEP071p.jpeg',
-  '0xEP072p.jpeg','0xEP073p.jpeg','0xEP074p.jpeg','0xEP075p.jpeg','0xEP076t.jpeg',
-  '0xEP077t.jpeg','0xEP078t.jpeg','0xEP079t.jpeg','0xEP080t.jpeg','0xEP081t.jpeg',
-  '0xEP082t.jpeg','0xEP083t.jpeg',
-]
-
-function getMangaImgSrc(node) {
-  const numId = parseInt((node.id || '').replace(/\D/g,'')) || 0
-  const idx = (numId * 11 + (node.themeIdx || 0) * 7) % PANEL_IMGS.length
-  return `${import.meta.env.BASE_URL}manga/${encodeURIComponent(PANEL_IMGS[idx])}`
-}
-
-function getPanelImg(seed) {
-  return `${import.meta.env.BASE_URL}manga/${encodeURIComponent(PANEL_IMGS[seed % PANEL_IMGS.length])}`
-}
-
-function highlightCode(code, lang = null) {
-  if (!code) return ''
-  // Language keywords
-  const PY_KW   = /\b(def|class|import|from|return|if|elif|else|for|while|in|not|and|or|True|False|None|pass|break|continue|try|except|finally|with|as|yield|lambda|self|raise|del|global|nonlocal|assert|async|await)\b/g
-  const JS_KW   = /\b(function|const|let|var|return|if|else|for|while|in|of|class|import|export|from|default|new|this|true|false|null|undefined|try|catch|finally|async|await|typeof|instanceof|break|continue|switch|case|throw|delete|void|static|extends|super)\b/g
-  const SYS_KW  = /\b(int|long|short|char|double|float|bool|void|unsigned|signed|struct|enum|union|typedef|public|private|protected|namespace|template|typename|auto|register|volatile|const|extern|static|inline|virtual|override|final|nullptr|printf|scanf|malloc|free|sizeof|NULL)\b/g
-  const GO_KW_RE = /\b(func|package|import|return|if|else|for|range|switch|case|default|break|continue|var|const|type|struct|interface|map|chan|go|defer|select|fallthrough|nil|true|false|make|new|len|cap|append|copy|delete|close|panic|recover|error|string|int|int8|int16|int32|int64|uint|uint8|uint16|uint32|uint64|float32|float64|bool|byte|rune|any|fmt|os|io)\b/g
-  const BUILTINS = /\b(len|range|type|str|int|float|list|dict|set|tuple|map|filter|zip|enumerate|open|super|object|bool|abs|max|min|sum|sorted|reversed|console|Math|JSON|Array|Object|Promise|setTimeout|clearTimeout|setInterval|parseInt|parseFloat|isNaN|fetch|document|window|print|input|repr|println|Println|Printf|Fprintf|Sprintf)\b/g
-  const STRINGS  = /("""[\s\S]*?"""|'''[\s\S]*?'''|`(?:[^`\\]|\\.)*`|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')/g
-  const COMMENTS = /(\/\/.*$|#.*$|\/\*[\s\S]*?\*\/)/gm
-  const NUMBERS  = /(?<![a-zA-Z_$])\b(0x[\da-fA-F]+|0o[0-7]+|0b[01]+|\d+\.?\d*(?:[eE][+-]?\d+)?)\b(?![a-zA-Z_])/g
-  const FUNCS    = /\b([a-zA-Z_$]\w*)(?=\s*\()/g
-  const PREPROC  = /^(#\s*(?:include|define|ifndef|ifdef|endif|pragma|undef|if|elif|else)\b.*)$/gm
-
-  let html = code.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-  const stored:string[] = []
-  const ph = (n:number) => '\x00P' + n + '\x01'
-  const store = (cls:string, content:string) => { stored.push(`<span class="${cls}">${content}</span>`); return ph(stored.length-1) }
-
-  html = html.replace(PREPROC,   m  => store('syn-builtin',  m))
-  html = html.replace(COMMENTS,  m  => store('syn-comment',  m))
-  html = html.replace(STRINGS,   m  => store('syn-string',   m))
-  html = html.replace(FUNCS,    (_,fn) => store('syn-function', fn))
-  if (lang === 'go') {
-    html = html.replace(GO_KW_RE, m => store('syn-keyword', m))
-  } else {
-    html = html.replace(PY_KW,   m  => store('syn-keyword',  m))
-    html = html.replace(JS_KW,   m  => store('syn-keyword',  m))
-    html = html.replace(SYS_KW,  m  => store('syn-keyword',  m))
-    html = html.replace(GO_KW_RE,m  => store('syn-keyword',  m))
-  }
-  html = html.replace(BUILTINS,  m  => store('syn-builtin',  m))
-  html = html.replace(NUMBERS,   m  => store('syn-number',   m))
-  return html.replace(/\x00P(\d+)\x01/g, (_,i) => stored[+i])
-}
-
-// ══════════════════════════════════════════════════════════════
-//  ICONS
-// ══════════════════════════════════════════════════════════════
-
-const I = {
-  Files:    () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>,
-  Search:   () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
-  Git:      () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M6 9v12"/><path d="M18 15v-2a3 3 0 0 0-3-3H9"/></svg>,
-  Terminal: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>,
-  Timeline: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>,
-  Message:  () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>,
-  Note:     () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>,
-  Board:    () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>,
-  Settings: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>,
-  Plus:     () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>,
-  Copy:     () => <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>,
-  Wrap:     () => <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 014-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>,
-  Format:   () => <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="21" y1="6" x2="3" y2="6"/><line x1="15" y1="12" x2="3" y2="12"/><line x1="17" y1="18" x2="3" y2="18"/></svg>,
-  Find:     () => <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
-  Diff:     () => <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>,
-  X:        () => <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
-  Cmd:      () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 3a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3H6a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3V6a3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3h12a3 3 0 0 0 3-3 3 3 0 0 0-3-3z"/></svg>,
-}
 
 // ══════════════════════════════════════════════════════════════
 //  CODE EDITOR COMPONENT
@@ -737,361 +409,6 @@ function renderMd(raw) {
 // ══════════════════════════════════════════════════════════════
 
 const LS_KEY    = 'forbiden-ide-v1'
-const NB_LS_KEY = 'forbiden-nb-v1'
-
-const NB_TEMPLATES = {
-  // ── CYBERSEC ──────────────────────────────────────────────────
-  '🔐 Hash Toolkit': { lang:'python', code:
-`# Hash Toolkit — MD5 / SHA family
-import hashlib
-text = "hello world"          # ← change this
-for algo in ['md5','sha1','sha224','sha256','sha384','sha512']:
-    h = hashlib.new(algo, text.encode()).hexdigest()
-    print(f"{algo.upper():<10} {h}")` },
-  '🔐 Base64 / Hex': { lang:'python', code:
-`import base64, binascii
-data = "FORBIDEN_OPERATOR"    # ← change this
-b64  = base64.b64encode(data.encode()).decode()
-hx   = binascii.hexlify(data.encode()).decode()
-print("[Base64]  encode:", b64)
-print("[Base64]  decode:", base64.b64decode(b64).decode())
-print("[Hex]     encode:", hx)
-print("[Hex]     decode:", binascii.unhexlify(hx).decode())` },
-  '🔐 XOR Cipher': { lang:'python', code:
-`# XOR cipher — CTF staple
-def xor(data, key):
-    return bytes(b ^ key[i % len(key)] for i, b in enumerate(data))
-
-plaintext  = b"Hello, Operator!"
-key        = b"\\x2a\\x4f"          # ← change key
-ciphertext = xor(plaintext, key)
-print("Cipher (hex):", ciphertext.hex())
-print("Decrypted:   ", xor(ciphertext, key).decode())` },
-  '🔐 CIDR Calc': { lang:'python', code:
-`import ipaddress
-cidr = "10.0.0.0/8"           # ← change this
-net  = ipaddress.ip_network(cidr, strict=False)
-print(f"Network    {net.network_address}")
-print(f"Broadcast  {net.broadcast_address}")
-print(f"Netmask    {net.netmask}  /  Wildcard {net.hostmask}")
-print(f"Num hosts  {net.num_addresses - 2:,}")
-hosts = list(net.hosts())
-print(f"First 5:   {', '.join(str(h) for h in hosts[:5])}")
-print(f"Last  5:   {', '.join(str(h) for h in hosts[-5:])}")` },
-  '🔐 JWT Decoder': { lang:'js', code:
-`// Decode JWT token — inspect without verifying signature
-const jwt = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0IiwibmFtZSI6Ik9wZXJhdG9yIiwiaWF0IjoxNTE2MjM5MDIyLCJleHAiOjk5OTk5OTk5OTl9.sig"
-// ↑ paste your JWT above
-const decode = s => JSON.parse(atob(s.replace(/-/g,'+').replace(/_/g,'/')))
-const [hB64, pB64] = jwt.split('.')
-const header  = decode(hB64)
-const payload = decode(pB64)
-const exp = payload.exp ? new Date(payload.exp*1000).toISOString() : 'none'
-const iat = payload.iat ? new Date(payload.iat*1000).toISOString() : 'none'
-console.log("── HEADER  ──")
-console.log(JSON.stringify(header, null, 2))
-console.log("── PAYLOAD ──")
-console.log(JSON.stringify(payload, null, 2))
-console.log("── TIMING  ──")
-console.log("Issued  :", iat)
-console.log("Expires :", exp)
-const expired = payload.exp && Date.now()/1000 > payload.exp
-console.log("Status  :", expired ? "⚠ EXPIRED" : "✓ VALID (sig not verified)")` },
-  '🔐 Entropy': { lang:'python', code:
-`# Shannon entropy — detect encrypted / compressed / random data
-import math
-
-def entropy(data: bytes) -> float:
-    if not data: return 0.0
-    freq = {}
-    for b in data:
-        freq[b] = freq.get(b, 0) + 1
-    n = len(data)
-    return -sum((c/n)*math.log2(c/n) for c in freq.values())
-
-samples = {
-    "plaintext": b"Hello world, this is a normal English sentence",
-    "base64"   : b"SGVsbG8gd29ybGQsIHRoaXMgaXMgYSBub3JtYWwgRW5nbGlzaA==",
-    "hex_data" : bytes.fromhex("deadbeefcafebabe1337c0de" * 4),
-    "xor_enc"  : bytes([i ^ 0xa5 for i in range(64)]),
-}
-print(f"{'Sample':<12} {'Bits':>6}  Assessment")
-print("-" * 44)
-for name, data in samples.items():
-    e = entropy(data)
-    flag = "HIGH — likely encrypted/random" if e > 7.0 else "MED  — compressed/base64" if e > 5.0 else "LOW  — plain text"
-    print(f"{name:<12} {e:>5.2f}  {flag}")` },
-  '🔐 ROT13 / Caesar': { lang:'js', code:
-`// ROT13 & Caesar brute-force — CTF classic
-const shift = (text, n) =>
-  text.replace(/[a-zA-Z]/g, c => {
-    const b = c <= 'Z' ? 65 : 97
-    return String.fromCharCode((c.charCodeAt(0) - b + n + 26) % 26 + b)
-  })
-
-const input = "Gur dhvpx oebja sbk whzcf bire gur ynml qbt"  // ← change
-console.log("Input:", input)
-console.log("ROT13:", shift(input, 13))
-console.log("")
-console.log("Brute-force all shifts (likely hits marked with +):")
-for (let s = 1; s <= 25; s++) {
-  const d = shift(input, s)
-  const hit = /the |and |for |ing |tion /.test(d.toLowerCase())
-  console.log(\`  \${hit?'[+]':'   '} +\${String(s).padStart(2,'0')}: \${d}\`)
-}` },
-  // ── AI / ML ──────────────────────────────────────────────────
-  '🤖 Token Counter': { lang:'js', code:
-`// Token + cost estimator across major LLM providers
-const text = \`Paste your prompt or context here to estimate tokens and cost across models.\`
-const tokens = Math.ceil(text.length / 4)
-const OUT    = 3  // assumed output multiplier
-const models = [
-  { name:"GPT-4o",         in:5,     out:15    },
-  { name:"GPT-4o mini",    in:0.15,  out:0.6   },
-  { name:"Claude S 4.6",   in:3,     out:15    },
-  { name:"Claude H 4.5",   in:0.8,   out:4     },
-  { name:"Gemini 1.5 Pro", in:3.5,   out:10.5  },
-  { name:"Gemini Flash",   in:0.075, out:0.3   },
-]
-console.log(\`Input: \${text.trim().split(/\\s+/).length} words  ~\${tokens} tokens  \${text.length} chars\\n\`)
-console.log(\`\${"Model".padEnd(20)} \${"per 1K reqs".padStart(12)} \${"per 100K".padStart(12)}\`)
-console.log("-".repeat(46))
-models.forEach(m => {
-  const cost = (tokens*m.in + tokens*OUT*m.out) / 1e6
-  console.log(\`\${m.name.padEnd(20)} $\${(cost*1000).toFixed(3).padStart(10)} $\${(cost*100000).toFixed(0).padStart(10)}\`)
-})` },
-  '🤖 Cosine Sim': { lang:'python', code:
-`# Cosine similarity — quick embedding sanity check
-import math
-def cosine(a, b):
-    dot = sum(x*y for x,y in zip(a,b))
-    na  = math.sqrt(sum(x*x for x in a))
-    nb  = math.sqrt(sum(x*x for x in b))
-    return dot / (na * nb) if na and nb else 0.0
-
-# Replace with real embedding vectors
-v1 = [1, 0, 1, 0, 1, 0, 1, 0]
-v2 = [1, 1, 0, 0, 1, 0, 0, 1]
-print(f"Cosine similarity: {cosine(v1, v2):.4f}")
-print("(1.0 = identical, 0.0 = orthogonal)")` },
-  '🤖 JSON Extract': { lang:'js', code:
-`// JSON path extractor — parse API responses
-const json = {
-  status: "ok",
-  data: { user: { id: 42, role: "admin" }, items: [1,2,3] }
-}
-const get = (o, path) => path.split('.').reduce((x,k) => x?.[k], o)
-console.log(JSON.stringify(json, null, 2))
-console.log("---")
-console.log("data.user.role →", get(json, "data.user.role"))
-console.log("data.items     →", get(json, "data.items"))` },
-  '🤖 Regex Tester': { lang:'python', code:
-`import re
-
-# ── Configure ──
-PATTERN = r'(?P<ip>\\d{1,3}(?:\\.\\d{1,3}){3})\\s+\\[(?P<date>[^\\]]+)\\]\\s+"(?P<method>\\w+)\\s+(?P<path>\\S+)[^"]*"\\s+(?P<status>\\d{3})\\s+(?P<bytes>\\d+)'
-
-TEST_STRINGS = [
-    '10.0.0.1 [15/Jan/2024:12:34:56] "GET /api/users HTTP/1.1" 200 1234',
-    '192.168.1.5 [15/Jan/2024:12:35:01] "POST /auth/login HTTP/1.1" 401 89',
-    '10.0.0.2 [15/Jan/2024:12:35:10] "GET /static/app.js HTTP/1.1" 304 0',
-    'not a valid log line — no match expected',
-]
-print(f"Pattern: {PATTERN}\\n")
-for i, s in enumerate(TEST_STRINGS):
-    m = re.search(PATTERN, s)
-    if m:
-        print(f"[{i}] MATCH ✓")
-        for k, v in m.groupdict().items():
-            print(f"     {k:<10} → {v}")
-    else:
-        print(f"[{i}] NO MATCH  \"{s[:45]}...\"")
-    print()` },
-  '🤖 Text Stats': { lang:'python', code:
-`# Text analysis — word freq, reading time, top terms
-import re
-from collections import Counter
-
-text = """
-Claude is a large language model built by Anthropic. It is designed
-to be helpful, harmless, and honest. Claude can write code, analyze
-data, answer questions, and assist with many complex tasks.
-"""  # ← paste your text
-
-words   = re.findall(r"\\b[a-zA-Z]{3,}\\b", text.lower())
-sents   = len(re.split(r'[.!?]+', text.strip()))
-stop    = {'the','and','for','that','this','with','are','was','can','not','from','its','has','have','been','they'}
-kwords  = [w for w in words if w not in stop]
-freq    = Counter(kwords).most_common(10)
-reading = max(1, round(len(words)/200))
-
-print(f"Words:        {len(words)}")
-print(f"Sentences:    {sents}")
-print(f"Avg w/sent:   {len(words)/max(1,sents):.1f}")
-print(f"Reading time: ~{reading} min")
-print(f"\\nTop 10 keywords:")
-for word, count in freq:
-    bar = '█' * count
-    print(f"  {word:<15} {count:>3}  {bar}")` },
-  // ── DEVOPS ───────────────────────────────────────────────────
-  '🐳 Log Parser': { lang:'python', code:
-`import re
-logs = """2024-01-15 12:34:56 ERROR [auth] Failed login: admin from 10.0.0.5
-2024-01-15 12:34:57 WARN  [auth] Rate limit: 10.0.0.5 (5 req/s)
-2024-01-15 12:35:01 INFO  [app]  Service started port 8080
-2024-01-15 12:35:10 ERROR [db]   Connection timeout postgresql://localhost:5432"""
-pat = r'(\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}) (\\w+)\\s+\\[(\\w+)\\] (.+)'
-for line in logs.strip().split('\\n'):
-    m = re.match(pat, line)
-    if m:
-        ts, lvl, mod, msg = m.groups()
-        print(f"[{lvl:5}] {mod:6} | {ts} | {msg[:55]}")` },
-  '🐳 Cron Explainer': { lang:'js', code:
-`// Cron expression decoder
-const explain = expr => {
-  const [min,hr,dom,mon,dow] = expr.split(' ')
-  const H  = hr==='*'?'every hour':\`at \${hr}:00\`
-  const M  = min==='*'?'every minute':min.startsWith('*/')?\`every \${min.slice(2)}min\`:\`min \${min}\`
-  const D  = dow==='*'?'daily':{0:'Sunday',1:'Monday',2:'Tuesday',3:'Wednesday',4:'Thursday',5:'Friday',6:'Saturday','1-5':'weekdays','0,6':'weekends'}[dow]||dow
-  return \`\${M}, \${H}, \${D}\`
-}
-const crons = ['0 * * * *','0 9 * * 1-5','*/5 * * * *','0 0 1 * *','0 2 * * 0','30 6 * * *']
-crons.forEach(c => console.log(c.padEnd(17), '→', explain(c)))` },
-  '🐳 ENV Redactor': { lang:'python', code:
-`# Extract + redact env vars / config files
-config = """
-DATABASE_URL=postgresql://admin:s3cr3t@db:5432/prod
-REDIS_URL=redis://localhost:6379
-API_KEY=sk-proj-abc123def456ghi789
-DEBUG=false
-MAX_POOL=20
-JWT_SECRET=my-super-secret-key
-"""
-SECRETS = {'KEY','SECRET','PASSWORD','TOKEN','PASS','AUTH','CRED'}
-for line in config.strip().split('\\n'):
-    if '=' not in line: continue
-    key, _, val = line.partition('=')
-    if any(s in key.upper() for s in SECRETS):
-        val = val[:3] + '···' + val[-3:] if len(val) > 6 else '···'
-    print(f"{key:<25} = {val}")` },
-  '🐳 URL Parser': { lang:'js', code:
-`// URL component parser + query string decoder
-const url = "https://api.example.com:8080/v2/users?filter=active&page=2&sort=asc#results"
-// ↑ paste your URL above
-
-const u = new URL(url)
-console.log("Full     :", url)
-console.log("Protocol :", u.protocol)
-console.log("Host     :", u.host)
-console.log("Hostname :", u.hostname)
-console.log("Port     :", u.port || "(default)")
-console.log("Path     :", u.pathname)
-console.log("Hash     :", u.hash || "(none)")
-console.log("")
-console.log("Query params:")
-u.searchParams.forEach((v,k) => console.log(\`  \${k.padEnd(14)} = \${v}\`))
-const segments = u.pathname.split('/').filter(Boolean)
-console.log("")
-console.log("Path segments:", segments)` },
-  '🐳 JSON Diff': { lang:'js', code:
-`// JSON deep diff — additions, removals, changes
-function diff(a, b, path='') {
-  const changes = []
-  const keys = new Set([...Object.keys(a||{}), ...Object.keys(b||{})])
-  for (const k of keys) {
-    const p = path ? \`\${path}.\${k}\` : k
-    if (!(k in (a||{})))      changes.push({ op:'+', p, v:b[k] })
-    else if (!(k in (b||{}))) changes.push({ op:'-', p, v:a[k] })
-    else if (typeof a[k]==='object' && a[k] && typeof b[k]==='object' && b[k])
-      changes.push(...diff(a[k], b[k], p))
-    else if (JSON.stringify(a[k]) !== JSON.stringify(b[k]))
-      changes.push({ op:'~', p, from:a[k], to:b[k] })
-  }
-  return changes
-}
-
-const before = { version:"1.2", user:{name:"Alice",role:"user"}, debug:true }
-const after  = { version:"1.3", user:{name:"Alice",role:"admin"}, newField:"hello" }
-
-const changes = diff(before, after)
-if (!changes.length) { console.log("Objects are identical") }
-else {
-  console.log(\`\${changes.length} difference(s):\`)
-  changes.forEach(c => {
-    if (c.op==='+') console.log(\`  + \${c.p}: \${JSON.stringify(c.v)}\`)
-    if (c.op==='-') console.log(\`  - \${c.p}: \${JSON.stringify(c.v)}\`)
-    if (c.op==='~') console.log(\`  ~ \${c.p}: \${JSON.stringify(c.from)} → \${JSON.stringify(c.to)}\`)
-  })
-}` },
-  '🐳 HTTP Tester': { lang:'js', code:
-`// HTTP request tester with timing + headers
-const URL  = "https://httpbin.org/post"   // ← change
-const OPTS = {
-  method: "POST",
-  headers: { "Content-Type":"application/json", "X-Operator":"forbiden" },
-  body: JSON.stringify({ ping: true, ts: Date.now() }),
-}
-
-const t0 = performance.now()
-try {
-  const res = await fetch(URL, OPTS)
-  const ms  = (performance.now() - t0).toFixed(0)
-  const body = await res.json().catch(() => res.text())
-  console.log(\`HTTP \${res.status} \${res.statusText}  (\${ms}ms)\`)
-  console.log("")
-  console.log("Response headers:")
-  res.headers.forEach((v,k) => console.log(\`  \${k}: \${v}\`))
-  console.log("")
-  console.log("Body:", JSON.stringify(body, null, 2))
-} catch(e) {
-  console.log("Error:", e.message)
-  console.log("(Check CORS — use httpbin.org or your own API)")
-}` },
-  // ── PACKAGES ─────────────────────────────────────────────────
-  '📦 numpy arrays': { lang:'python', code:
-`%pip install numpy
-import numpy as np
-
-a = np.array([[1,2,3],[4,5,6],[7,8,9]], dtype=float)
-b = np.random.randint(1, 9, size=(3,3)).astype(float)
-print("Matrix A:"); print(a)
-print("\\nMatrix B (random):"); print(b)
-print("\\nA @ B ="); print(a @ b)
-print("\\nA stats:  mean =", a.mean().round(3), " std =", a.std().round(3))
-print("A T (transpose):"); print(a.T)
-vals, vecs = np.linalg.eig(a)
-print("\\nEigenvalues:", vals.round(3))` },
-  '📦 pandas CSV': { lang:'python', code:
-`%pip install pandas
-import pandas as pd
-from io import StringIO
-
-csv = """name,dept,salary,yoe
-Alice,Engineering,95000,5
-Bob,Engineering,88000,3
-Carol,Security,92000,7
-Dave,DevOps,85000,4
-Eve,AI/ML,105000,6
-Frank,DevOps,81000,2"""
-
-df = pd.read_csv(StringIO(csv))
-print("=== Full DataFrame ===")
-print(df.to_string(index=False))
-print("\\n=== Dept avg salary ===")
-print(df.groupby('dept')['salary'].mean().sort_values(ascending=False).round(0).to_string())
-print("\\n=== Top 3 earners ===")
-print(df.nlargest(3,'salary')[['name','dept','salary']].to_string(index=False))
-print("\\nCorr salary↔yoe:", df[['salary','yoe']].corr().loc['salary','yoe'].round(3))` },
-}
-
-function loadNB() {
-  try {
-    const d = JSON.parse(localStorage.getItem(NB_LS_KEY) || 'null')
-    if (d?.cells?.length) return d.cells
-  } catch {}
-  return []
-}
-
 function loadSaved() {
   try {
     const raw = localStorage.getItem(LS_KEY)
@@ -1184,539 +501,6 @@ async function parseFolderToGraph(fileList) {
   return { nodes, edges, groups:[] }
 }
 
-// ══════════════════════════════════════════════════════════════
-//  NOTEBOOK — Jupyter-style cell runner
-// ══════════════════════════════════════════════════════════════
-
-const _nbBtnS:any = {
-  background:'transparent', border:'1px solid rgba(255,255,255,.1)', cursor:'pointer',
-  fontFamily:"'Oswald',sans-serif", fontWeight:700, fontSize:'9px', letterSpacing:'.1em',
-  padding:'2px 7px', color:'rgba(200,200,220,.6)', lineHeight:1.6,
-}
-
-function _renderCellOutput(output:any[]) {
-  return output.map((entry:any, i:number) => {
-    const text:string = entry.val || ''
-    if (entry.type === 'error') {
-      return (
-        <div key={i} style={{ color:'#ff6b7a', whiteSpace:'pre-wrap', wordBreak:'break-word',
-          borderLeft:'2px solid rgba(255,67,90,.4)', paddingLeft:8, marginBottom:3, lineHeight:1.6 }}>
-          {text}
-        </div>
-      )
-    }
-    // Pretty-print JSON return values / log entries that look like JSON
-    if (entry.type === 'return' || entry.type === 'log') {
-      const trimmed = text.trim()
-      if ((trimmed.startsWith('{') || trimmed.startsWith('[')) && trimmed.length > 4) {
-        try {
-          const parsed = JSON.parse(trimmed)
-          return (
-            <pre key={i} style={{ color:'#c792ea', margin:'0 0 2px', fontFamily:"'JetBrains Mono',monospace",
-              fontSize:'11px', lineHeight:1.6, whiteSpace:'pre-wrap', wordBreak:'break-word' }}>
-              {JSON.stringify(parsed, null, 2)}
-            </pre>
-          )
-        } catch {}
-      }
-    }
-    const col:any = { log:'#c0c8d8', warn:'#ffc410', error:'#ff435a', info:'#4285f4', return:'#a3e8c4' }[entry.type] || '#c0c8d8'
-    return <div key={i} style={{ color:col, whiteSpace:'pre-wrap', wordBreak:'break-word', lineHeight:1.6 }}>{text}</div>
-  })
-}
-
-const NB_LANG_META:any = {
-  js:       { color:'#ffc410', bg:'rgba(255,196,16,.08)',  border:'rgba(255,196,16,.25)',  label:'JS',     caret:'#ffc410' },
-  python:   { color:'#4fc3f7', bg:'rgba(79,195,247,.08)', border:'rgba(79,195,247,.25)',  label:'PYTHON', caret:'#4fc3f7' },
-  markdown: { color:'#ce93d8', bg:'rgba(206,147,216,.08)',border:'rgba(206,147,216,.25)', label:'MD',     caret:'#ce93d8' },
-}
-
-function NoteCell({ cell, idx, brutal, onRun, onDelete, onCodeChange, onLangChange, onMoveUp, onMoveDown, onDuplicate }:any) {
-  const taRef = useRef<any>(null)
-  const [collapsed, setCollapsed] = useState(false)
-
-  const meta = NB_LANG_META[cell.lang] || NB_LANG_META.js
-  const LH = 19.2
-
-  const statusAccent = cell.status === 'running' ? '#ffc410'
-    : cell.status === 'ok'    ? '#10b981'
-    : cell.status === 'error' ? '#ff435a'
-    : meta.color
-
-  const lineCount = (cell.code || '').split('\n').length
-  const codeRows  = Math.max(3, lineCount)
-
-  const handleKeyDown = (e:any) => {
-    if (e.key === 'Enter' && e.shiftKey) { e.preventDefault(); onRun() }
-    if (e.key === 'Tab') {
-      e.preventDefault()
-      const ta = e.target, s = ta.selectionStart
-      onCodeChange(cell.code.slice(0,s) + '  ' + cell.code.slice(ta.selectionEnd))
-      setTimeout(() => { ta.selectionStart = ta.selectionEnd = s + 2 }, 0)
-    }
-  }
-
-  const iconBtn = (icon:string, title:string, onClick:any, hoverColor = meta.color) => (
-    <button key={title} title={title} onClick={onClick}
-      style={{ background:'transparent', border:'none', cursor:'pointer',
-        color:'rgba(200,200,220,.18)', fontSize:'11px', padding:'2px 3px', lineHeight:1,
-        transition:'color .12s' }}
-      onMouseEnter={e=>(e.currentTarget.style.color=hoverColor)}
-      onMouseLeave={e=>(e.currentTarget.style.color='rgba(200,200,220,.18)')}>
-      {icon}
-    </button>
-  )
-
-  return (
-    <div style={{
-      borderBottom:'1px solid rgba(255,255,255,.05)',
-      borderLeft:`3px solid ${statusAccent}`,
-      transition:'border-color .25s, background .2s',
-      background: cell.status==='running' ? 'rgba(255,196,16,.018)'
-        : cell.status==='error' ? 'rgba(255,67,90,.018)'
-        : cell.status==='ok'   ? 'rgba(16,185,129,.012)' : 'transparent',
-    }}>
-
-      {/* ── Header ── */}
-      <div style={{ display:'flex', alignItems:'center', gap:5, padding:'5px 10px',
-        background:'rgba(0,0,0,.5)', cursor:'pointer', userSelect:'none' }}
-        onClick={() => setCollapsed(c => !c)}>
-
-        <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:'9px', minWidth:32,
-          color: cell.execCount ? meta.color : 'rgba(200,200,220,.18)', letterSpacing:'.04em' }}>
-          In[{cell.execCount ?? ' '}]
-        </span>
-
-        <select value={cell.lang}
-          onChange={(e:any) => { e.stopPropagation(); onLangChange(e.target.value) }}
-          onClick={(e:any) => e.stopPropagation()}
-          style={{ background:meta.bg, border:`1px solid ${meta.border}`, color:meta.color,
-            fontFamily:"'Oswald',sans-serif", fontWeight:700, fontSize:'8px',
-            letterSpacing:'.14em', cursor:'pointer', outline:'none',
-            padding:'1px 6px', borderRadius:2 }}>
-          <option value="js">JS</option>
-          <option value="python">PYTHON</option>
-          <option value="markdown">MARKDOWN</option>
-        </select>
-
-        <span style={{ fontSize:'7px', color:'rgba(200,200,220,.18)', transition:'transform .12s',
-          transform: collapsed ? 'rotate(-90deg)' : 'rotate(0)' }}>▼</span>
-        <div style={{ flex:1 }}/>
-
-        {cell.status === 'running' && (
-          <span style={{ fontSize:'8px', color:'#ffc410', fontFamily:"'Share Tech Mono',monospace",
-            letterSpacing:'.1em' }}>RUNNING…</span>
-        )}
-        {cell.execMs != null && cell.status !== 'idle' && cell.status !== 'running' && (
-          <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:'8px',
-            color: cell.status==='error' ? '#ff435a' : 'rgba(200,200,220,.22)' }}>
-            {cell.execMs}ms
-          </span>
-        )}
-
-        {iconBtn('↑', 'Move up',   (e:any)=>{e.stopPropagation();onMoveUp()})}
-        {iconBtn('↓', 'Move down', (e:any)=>{e.stopPropagation();onMoveDown()})}
-        {iconBtn('⧉', 'Duplicate', (e:any)=>{e.stopPropagation();onDuplicate()})}
-
-        <button onClick={(e:any)=>{e.stopPropagation();onRun()}} title="Run (Shift+Enter)"
-          style={{ background:meta.bg, border:`1px solid ${meta.border}`, cursor:'pointer',
-            color:meta.color, fontSize:'9px', padding:'2px 9px',
-            fontFamily:"'Oswald',sans-serif", fontWeight:700, letterSpacing:'.1em',
-            transition:'background .12s' }}
-          onMouseEnter={e=>(e.currentTarget.style.background=`${meta.color}28`)}
-          onMouseLeave={e=>(e.currentTarget.style.background=meta.bg)}>
-          ▶ RUN
-        </button>
-
-        {iconBtn('×', 'Delete', (e:any)=>{e.stopPropagation();onDelete()}, '#ff435a')}
-      </div>
-
-      {/* ── Body ── */}
-      {!collapsed && (
-        <>
-          {cell.lang === 'markdown' ? (
-            <div style={{ display:'flex', flexDirection:'column' }}>
-              <textarea value={cell.code} onChange={(e:any)=>onCodeChange(e.target.value)}
-                onKeyDown={handleKeyDown} rows={Math.max(3, lineCount)} spellCheck={false}
-                placeholder="# Markdown — live preview below"
-                style={{ width:'100%', boxSizing:'border-box', background:'#060613',
-                  border:'none', outline:'none', resize:'none',
-                  fontFamily:"'JetBrains Mono',monospace", fontSize:'12px', lineHeight:'1.6',
-                  color:'#9ba8c4', padding:'8px 12px 8px 14px', caretColor:meta.caret }}/>
-              <div className="md-preview" style={{ padding:'10px 16px',
-                borderTop:`1px solid ${meta.color}18`, background:'#040410',
-                fontSize:'13px', minHeight:36 }}
-                dangerouslySetInnerHTML={{ __html: renderMd(cell.code || '') }}/>
-            </div>
-          ) : (
-            <CodeMirrorEditor
-              compact
-              minHeight="80px"
-              node={{
-                id: cell.id,
-                label: `cell.${cell.lang === 'python' ? 'py' : cell.lang === 'typescript' ? 'ts' : cell.lang === 'markdown' ? 'md' : 'js'}`,
-                code: cell.code || '',
-                type: 'function',
-                modified: false,
-              }}
-              onChange={onCodeChange}
-            />
-          )}
-
-          {/* Output */}
-          {cell.output.length > 0 && (
-            <div style={{
-              background:'#020208',
-              borderTop:`1px solid ${cell.status==='error' ? 'rgba(255,67,90,.2)' : `${meta.color}18`}`,
-            }}>
-              <div style={{ display:'flex', alignItems:'center', gap:6, padding:'4px 10px',
-                borderBottom:'1px solid rgba(255,255,255,.04)' }}>
-                <span style={{ fontFamily:"'Oswald',sans-serif", fontSize:'8px', fontWeight:700,
-                  letterSpacing:'.12em',
-                  color: cell.status==='error' ? '#ff435a' : '#10b981', opacity:.7 }}>
-                  Out[{cell.execCount}]
-                </span>
-                <div style={{flex:1}}/>
-                <button onClick={()=>navigator.clipboard.writeText(cell.output.map((e:any)=>e.val).join('\n')).catch(()=>{})}
-                  title="Copy" style={{ background:'transparent', border:'none', cursor:'pointer',
-                    color:'rgba(200,200,220,.15)', fontSize:'10px', transition:'color .12s' }}
-                  onMouseEnter={e=>(e.currentTarget.style.color='#10b981')}
-                  onMouseLeave={e=>(e.currentTarget.style.color='rgba(200,200,220,.15)')}>⎘</button>
-              </div>
-              <div style={{ padding:'6px 12px 8px 14px', maxHeight:200, overflowY:'auto',
-                fontFamily:"'JetBrains Mono',monospace", fontSize:'11px',
-                scrollbarWidth:'thin', scrollbarColor:'rgba(255,255,255,.06) transparent' }}>
-                {_renderCellOutput(cell.output)}
-              </div>
-            </div>
-          )}
-        </>
-      )}
-    </div>
-  )
-}
-
-function NotebookPanel({ brutal }:any) {
-  const [cells, setCells]         = useState<any[]>(() => loadNB())
-  const [showTemplates, setShowTemplates] = useState(false)
-  const execCounterRef = useRef(0)
-
-  useEffect(() => {
-    try { localStorage.setItem(NB_LS_KEY, JSON.stringify({ cells })) } catch {}
-  }, [cells])
-
-  const runCell = useCallback(async (cellId:string) => {
-    const cell = cells.find((c:any) => c.id === cellId)
-    if (!cell) return
-    if (cell.lang === 'markdown') {
-      setCells(cs => cs.map((c:any) => c.id === cellId ? { ...c, output:[], status:'ok' } : c))
-      return
-    }
-    const execCount = ++execCounterRef.current
-    const t0 = performance.now()
-    setCells(cs => cs.map((c:any) => c.id === cellId ? { ...c, status:'running', output:[], execCount, execMs:null } : c))
-    const cellLang = cell.lang === 'python' ? 'py' : cell.lang === 'typescript' ? 'ts' : 'js'
-    const result = await runByLang(cellLang, cell.code)
-    const ms = Math.round(performance.now() - t0)
-    setCells(cs => cs.map((c:any) => c.id === cellId
-      ? { ...c, status: result.error ? 'error' : 'ok', output: result.logs, execMs: ms }
-      : c))
-  }, [cells])
-
-  const runAll = async () => { for (const cell of cells) await runCell(cell.id) }
-
-  const addCell = (lang = 'js', code = '') => {
-    const id = 'nb' + Date.now()
-    const def = lang === 'python' ? '# Python\n' : lang === 'markdown' ? '## Notes\n\n' : '// JavaScript\n'
-    setCells((cs:any) => [...cs, { id, lang, code: code || def, output:[], status:'idle', execCount:null, execMs:null }])
-    setShowTemplates(false)
-  }
-
-  const moveCell = (idx:number, dir:-1|1) => {
-    setCells((cs:any) => {
-      const next = [...cs]; const t = idx + dir
-      if (t < 0 || t >= next.length) return cs
-      ;[next[idx], next[t]] = [next[t], next[idx]]
-      return next
-    })
-  }
-
-  const domainGroups = [
-    { label:'🔐 CYBERSEC', color:'#ff6b7a', keys:['🔐 Hash Toolkit','🔐 Base64 / Hex','🔐 XOR Cipher','🔐 CIDR Calc','🔐 JWT Decoder','🔐 Entropy','🔐 ROT13 / Caesar'] },
-    { label:'🤖 AI / ML',  color:'#ce93d8', keys:['🤖 Token Counter','🤖 Cosine Sim','🤖 JSON Extract','🤖 Regex Tester','🤖 Text Stats'] },
-    { label:'🐳 DEVOPS',   color:'#4fc3f7', keys:['🐳 Log Parser','🐳 Cron Explainer','🐳 ENV Redactor','🐳 URL Parser','🐳 JSON Diff','🐳 HTTP Tester'] },
-    { label:'📦 PACKAGES', color:'#10b981', keys:['📦 numpy arrays','📦 pandas CSV'] },
-  ]
-
-  // Pick a panel image for the empty state
-  const emptyArtImg = `${import.meta.env.BASE_URL}manga/0xEP007p.jpeg`
-
-  const tbBtn = (label:string, color:string, onClick:any, extra:any = {}) => (
-    <button onClick={onClick} style={{
-      background:`${color}12`, border:`1px solid ${color}30`, cursor:'pointer',
-      fontFamily:"'Oswald',sans-serif", fontWeight:700, fontSize:'8px',
-      letterSpacing:'.12em', padding:'2px 8px', color, lineHeight:1.8,
-      transition:'background .12s', ...extra,
-    }}
-    onMouseEnter={e=>(e.currentTarget.style.background=`${color}25`)}
-    onMouseLeave={e=>(e.currentTarget.style.background=`${color}12`)}>
-      {label}
-    </button>
-  )
-
-  return (
-    <div style={{ flex:1, display:'flex', flexDirection:'column', background:'#05050f', overflow:'hidden' }}>
-
-      {/* ── Toolbar ── */}
-      <div style={{ display:'flex', alignItems:'center', gap:5, padding:'4px 10px', flexShrink:0,
-        borderBottom:'1px solid rgba(255,255,255,.07)',
-        background:'rgba(0,0,0,.6)', position:'relative' }}>
-
-        <span style={{ fontFamily:"'Oswald',sans-serif", fontWeight:700, fontSize:'9px',
-          letterSpacing:'.18em', color:'rgba(200,200,220,.35)', marginRight:4 }}>◎ NB</span>
-
-        {/* Add-cell buttons — colored per language */}
-        {tbBtn('+ JS',  '#ffc410', () => addCell('js'))}
-        {tbBtn('+ PY',  '#4fc3f7', () => addCell('python'))}
-        {tbBtn('+ MD',  '#ce93d8', () => addCell('markdown'))}
-
-        {/* Templates */}
-        <button onClick={() => setShowTemplates(s=>!s)} style={{
-          background: showTemplates ? 'rgba(255,107,122,.12)' : 'transparent',
-          border:'1px solid rgba(255,107,122,.22)', cursor:'pointer',
-          fontFamily:"'Oswald',sans-serif", fontWeight:700, fontSize:'8px',
-          letterSpacing:'.12em', padding:'2px 8px', color:'#ff6b7a', lineHeight:1.8,
-          transition:'background .12s',
-        }}>TEMPLATES ▾</button>
-
-        {showTemplates && (
-          <div style={{ position:'absolute', top:'100%', left:0, zIndex:300, minWidth:240,
-            background:'#0a0a16', border:'1px solid rgba(255,107,122,.2)',
-            boxShadow:'0 16px 48px rgba(0,0,0,.95)', maxHeight:400, overflowY:'auto',
-            scrollbarWidth:'thin', scrollbarColor:'rgba(255,255,255,.06) transparent' }}
-            onMouseLeave={() => setShowTemplates(false)}>
-            {domainGroups.map(grp => (
-              <div key={grp.label}>
-                <div style={{ padding:'5px 10px 4px', fontFamily:"'Oswald',sans-serif", fontWeight:700,
-                  fontSize:'8px', letterSpacing:'.14em', color:grp.color,
-                  borderBottom:'1px solid rgba(255,255,255,.05)', background:'rgba(0,0,0,.4)' }}>
-                  {grp.label}
-                </div>
-                {grp.keys.map(k => (
-                  <div key={k}
-                    onClick={() => { const t=(NB_TEMPLATES as any)[k]; if(t) addCell(t.lang,t.code) }}
-                    style={{ padding:'5px 14px', fontFamily:"'Share Tech Mono',monospace",
-                      fontSize:'11px', color:'#a0aac0', cursor:'pointer', transition:'background .1s' }}
-                    onMouseEnter={e=>(e.currentTarget.style.background='rgba(255,255,255,.05)')}
-                    onMouseLeave={e=>(e.currentTarget.style.background='transparent')}>
-                    {k}
-                  </div>
-                ))}
-              </div>
-            ))}
-          </div>
-        )}
-
-        <div style={{ flex:1 }}/>
-
-        {/* Cell count */}
-        {cells.length > 0 && (
-          <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:'8px',
-            color:'rgba(200,200,220,.2)' }}>{cells.length} cells</span>
-        )}
-
-        <div style={{ width:1, height:10, background:'rgba(255,255,255,.08)', margin:'0 3px' }}/>
-
-        {tbBtn('▶ ALL', '#10b981', runAll)}
-        <button onClick={() => setCells((cs:any) => cs.map((c:any) => ({ ...c, output:[], status:'idle', execMs:null })))}
-          style={{ background:'transparent', border:'none', cursor:'pointer',
-            fontFamily:"'Oswald',sans-serif", fontSize:'8px', letterSpacing:'.1em',
-            color:'rgba(200,200,220,.25)', padding:'2px 5px', lineHeight:1.8 }}
-          onMouseEnter={e=>(e.currentTarget.style.color='rgba(200,200,220,.6)')}
-          onMouseLeave={e=>(e.currentTarget.style.color='rgba(200,200,220,.25)')}>CLR</button>
-        <button onClick={() => {
-          const src = cells.map((c:any) => {
-            if (c.lang === 'python')   return `# ── [PYTHON] ──\n${c.code}`
-            if (c.lang === 'markdown') return `<!-- [MD] -->\n${c.code}`
-            return `// ── [JS] ──\n${c.code}`
-          }).join('\n\n')
-          const ext = cells.some((c:any) => c.lang === 'python') ? '.py' : '.js'
-          const blob = new Blob([src], { type:'text/plain' })
-          const a = document.createElement('a'); a.href = URL.createObjectURL(blob)
-          a.download = 'notebook' + ext; a.click()
-        }} title="Export" style={{ background:'transparent', border:'none', cursor:'pointer',
-          color:'rgba(200,200,220,.2)', fontSize:'11px', padding:'2px 4px', lineHeight:1 }}
-          onMouseEnter={e=>(e.currentTarget.style.color='#4fc3f7')}
-          onMouseLeave={e=>(e.currentTarget.style.color='rgba(200,200,220,.2)')}>⬇</button>
-        <button onClick={() => { if (confirm('Clear all cells?')) setCells([]) }}
-          title="Delete all" style={{ background:'transparent', border:'none', cursor:'pointer',
-            color:'rgba(200,200,220,.12)', fontSize:'13px', padding:'0 3px', lineHeight:1 }}
-          onMouseEnter={e=>(e.currentTarget.style.color='#ff435a')}
-          onMouseLeave={e=>(e.currentTarget.style.color='rgba(200,200,220,.12)')}>⊖</button>
-      </div>
-
-      {/* ── Cells or empty state ── */}
-      {cells.length === 0 ? (
-        /* ── Empty state with manga art ── */
-        <div style={{ flex:1, display:'flex', overflow:'hidden', position:'relative' }}>
-          {/* Left: manga artwork */}
-          <div style={{ width:'42%', flexShrink:0, position:'relative', overflow:'hidden' }}>
-            <img src={emptyArtImg} alt="" style={{
-              width:'100%', height:'100%', objectFit:'cover', objectPosition:'center top',
-              filter:'brightness(.55) saturate(1.3)',
-            }}/>
-            {/* gradient to blend into right panel */}
-            <div style={{ position:'absolute', inset:0,
-              background:'linear-gradient(to right, transparent 50%, #05050f 100%)' }}/>
-            {/* scanlines overlay */}
-            <div style={{ position:'absolute', inset:0, opacity:.15,
-              backgroundImage:'repeating-linear-gradient(0deg, rgba(0,0,0,.5) 0px, rgba(0,0,0,.5) 1px, transparent 1px, transparent 3px)' }}/>
-            {/* bottom label */}
-            <div style={{ position:'absolute', bottom:12, left:12,
-              fontFamily:"'Oswald',sans-serif", fontWeight:700, fontSize:'9px',
-              letterSpacing:'.2em', color:'rgba(255,255,255,.35)' }}>
-              NOTEBOOK // SESSION
-            </div>
-          </div>
-
-          {/* Right: CTA */}
-          <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center',
-            justifyContent:'center', padding:'32px 28px', gap:20 }}>
-
-            <div style={{ textAlign:'center' }}>
-              <div style={{ fontFamily:"'Oswald',sans-serif", fontWeight:700, fontSize:'22px',
-                letterSpacing:'.12em', color:'rgba(200,200,220,.9)', lineHeight:1.1 }}>
-                NEW SESSION
-              </div>
-              <div style={{ fontFamily:"'Share Tech Mono',monospace", fontSize:'10px',
-                color:'rgba(200,200,220,.3)', letterSpacing:'.1em', marginTop:6 }}>
-                pick a cell type to begin
-              </div>
-            </div>
-
-            {/* Big language buttons */}
-            <div style={{ display:'flex', flexDirection:'column', gap:8, width:'100%', maxWidth:200 }}>
-              {([
-                { lang:'js',       color:'#ffc410', label:'JavaScript', sub:'browser + node APIs' },
-                { lang:'python',   color:'#4fc3f7', label:'Python',     sub:'native · pip install supported' },
-                { lang:'markdown', color:'#ce93d8', label:'Markdown',   sub:'rich text & notes' },
-              ] as const).map(item => (
-                <button key={item.lang} onClick={() => addCell(item.lang as string)}
-                  style={{ display:'flex', alignItems:'center', gap:12, padding:'10px 14px',
-                    background:`${item.color}0e`, border:`1px solid ${item.color}30`,
-                    cursor:'pointer', textAlign:'left', transition:'all .15s',
-                    width:'100%' }}
-                  onMouseEnter={e=>{
-                    e.currentTarget.style.background=`${item.color}20`
-                    e.currentTarget.style.borderColor=`${item.color}60`
-                  }}
-                  onMouseLeave={e=>{
-                    e.currentTarget.style.background=`${item.color}0e`
-                    e.currentTarget.style.borderColor=`${item.color}30`
-                  }}>
-                  <span style={{ fontFamily:"'Oswald',sans-serif", fontWeight:700, fontSize:'16px',
-                    color:item.color, lineHeight:1, flexShrink:0 }}>+</span>
-                  <div>
-                    <div style={{ fontFamily:"'Oswald',sans-serif", fontWeight:700, fontSize:'11px',
-                      color:item.color, letterSpacing:'.1em' }}>{item.label.toUpperCase()}</div>
-                    <div style={{ fontFamily:"'Share Tech Mono',monospace", fontSize:'9px',
-                      color:'rgba(200,200,220,.3)', marginTop:1 }}>{item.sub}</div>
-                  </div>
-                </button>
-              ))}
-            </div>
-
-            {/* Templates shortcut */}
-            <button onClick={() => setShowTemplates(s=>!s)}
-              style={{ background:'rgba(255,107,122,.08)', border:'1px solid rgba(255,107,122,.22)',
-                cursor:'pointer', padding:'6px 18px', color:'#ff6b7a',
-                fontFamily:"'Oswald',sans-serif", fontWeight:700, fontSize:'9px',
-                letterSpacing:'.14em', transition:'background .12s' }}
-              onMouseEnter={e=>(e.currentTarget.style.background='rgba(255,107,122,.16)')}
-              onMouseLeave={e=>(e.currentTarget.style.background='rgba(255,107,122,.08)')}>
-              BROWSE TEMPLATES ▾
-            </button>
-
-          </div>
-        </div>
-      ) : (
-        <div style={{ flex:1, overflowY:'auto',
-          scrollbarWidth:'thin', scrollbarColor:'rgba(255,255,255,.07) transparent' }}>
-          {cells.map((cell:any, idx:number) => (
-            <NoteCell
-              key={cell.id} cell={cell} idx={idx} brutal={brutal}
-              onRun={() => runCell(cell.id)}
-              onDelete={() => setCells((cs:any) => cs.filter((c:any) => c.id !== cell.id))}
-              onCodeChange={(code:string) => setCells((cs:any) => cs.map((c:any) => c.id === cell.id ? { ...c, code } : c))}
-              onLangChange={(lang:string) => setCells((cs:any) => cs.map((c:any) => c.id === cell.id ? { ...c, lang, output:[], status:'idle' } : c))}
-              onMoveUp={() => moveCell(idx, -1)}
-              onMoveDown={() => moveCell(idx, 1)}
-              onDuplicate={() => {
-                const dup = { ...cell, id:'nb'+Date.now(), output:[], status:'idle' }
-                setCells((cs:any) => { const next=[...cs]; next.splice(idx+1,0,dup); return next })
-              }}
-            />
-          ))}
-          <div style={{ height:24 }}/>
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ══════════════════════════════════════════════════════════════
-//  WELCOME PANEL — NODE ROW
-// ══════════════════════════════════════════════════════════════
-
-function WelcomeNodeRow({ n, active, onClick, groups, searchQuery = '' }:any) {
-  const grp = groups.find((g:any) => g.nodeIds.includes(n.id))
-  const acc = grp ? grp.color : ACCENTS[n.themeIdx % ACCENTS.length]
-  const typeCol:any = { entry:'#ff2a38', function:'#ffc410', class:'#10b981', module:'#4285f4', doc:'#c792ea' }
-  const tCol = typeCol[n.type] || '#888'
-  const label:string = n.label
-  let labelEl:any = label
-  if (searchQuery) {
-    const idx = label.toLowerCase().indexOf(searchQuery)
-    if (idx >= 0) {
-      labelEl = <>{label.slice(0,idx)}<span style={{background:'rgba(255,196,16,.25)',color:'#ffc410'}}>{label.slice(idx,idx+searchQuery.length)}</span>{label.slice(idx+searchQuery.length)}</>
-    }
-  }
-  const ctxLine = searchQuery && n.code
-    ? n.code.split('\n').find((l:string)=>l.toLowerCase().includes(searchQuery)) || ''
-    : ''
-
-  return (
-    <div onClick={onClick}
-      style={{
-        display:'flex', alignItems:'center', gap:8, padding:'6px 12px',
-        cursor:'pointer', borderLeft:`2px solid transparent`,
-        background: active ? 'rgba(255,255,255,.05)' : 'transparent',
-        transition:'all .1s',
-      }}
-      onMouseEnter={(e:any)=>{e.currentTarget.style.background='rgba(255,255,255,.05)';e.currentTarget.style.borderLeftColor=acc}}
-      onMouseLeave={(e:any)=>{e.currentTarget.style.background=active?'rgba(255,255,255,.05)':'transparent';e.currentTarget.style.borderLeftColor='transparent'}}>
-      <div style={{width:6,height:6,borderRadius:'50%',background:acc,flexShrink:0}}/>
-      <div style={{flex:1,minWidth:0}}>
-        <div style={{fontFamily:"'Share Tech Mono',monospace",fontSize:'13px',color:'#c0c8d8',
-          overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',display:'flex',alignItems:'center',gap:6}}>
-          {labelEl}
-          {n.modified && <span style={{color:'#ffc410',fontSize:'11px',flexShrink:0}}>●</span>}
-          {n.isMain && <span style={{color:acc,fontSize:'10px',fontFamily:"'Oswald',sans-serif",fontWeight:700,flexShrink:0}}>MAIN</span>}
-        </div>
-        {ctxLine && (
-          <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:'11px',color:'rgba(200,200,220,.3)',
-            overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',marginTop:1}}>
-            {ctxLine.trim().slice(0,55)}
-          </div>
-        )}
-      </div>
-      <span style={{fontFamily:"'Oswald',sans-serif",fontWeight:700,fontSize:'10px',letterSpacing:'.08em',
-        color:tCol,opacity:.6,flexShrink:0}}>
-        {n.type.slice(0,3).toUpperCase()}
-      </span>
-    </div>
-  )
-}
 
 // ══════════════════════════════════════════════════════════════
 //  FUZZY FILE FINDER MODAL
@@ -1969,7 +753,6 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
   // eventLog, addEvent → timelineStore (above)
 
   const refreshGit = useCallback(async () => {
-    const api = (window as any).electronAPI
     if (api?.git && (window as any).__forbiddenCwd) {
       const cwd = (window as any).__forbiddenCwd
       setGitLoading(true)
@@ -1999,7 +782,6 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
   }, [eventLog])
 
   const handleAiCommitMsg = async () => {
-    const api = (window as any).electronAPI
     const cwd = (window as any).__forbiddenCwd
     if (!cwd || !api?.git) return
     const activeKey = aiProvider === 'ollama' ? (aiKeys['ollama'] || 'http://localhost:11434') : (aiKeys[aiProvider] || '')
@@ -2026,7 +808,6 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
   const handleGitCommit = async () => {
     if (!gitCommitMsg.trim()) return
     const msg = gitCommitMsg.trim()
-    const api = (window as any).electronAPI
     if (api?.git && (window as any).__forbiddenCwd) {
       setGitLoading(true)
       const result = await api.git.commit((window as any).__forbiddenCwd, msg).catch((e:any) => ({ success:false, error: e.message }))
@@ -2071,7 +852,6 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
   // mdPreviewMode, mdFontSize → terminalStore
   const PC = { HIGH:'#ff435a', MED:'#ffc410', LOW:'#4285f4', DONE:'#10b981' }
   const playheadDragRef = useRef({ isDragging:false })
-  const eAPI = (window as any).electronAPI
   const activePtyIdRef = useRef<string | null>(null)
   const termEndRef = useRef(null)
   const [nodeRunState, setNodeRunState] = useState({})
@@ -2123,7 +903,6 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
 
   // ── Init workspace folder on startup ────────────────────────
   useEffect(() => {
-    const api = (window as any).electronAPI
     if (!api?.fs) return
     ;(async () => {
       const [defaultRes, savedRes] = await Promise.all([
@@ -2247,7 +1026,6 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
 
   // ── FOLDER OPEN (sets explorer root) ─────────────────────────
   const handleOpenFolderForExplorer = useCallback(async () => {
-    const api = (window as any).electronAPI
     if (!api?.dialog) return
     const folder = await api.dialog.openFolder()
     if (!folder) return
@@ -2271,7 +1049,6 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
 
   // Native menu events (Electron)
   useEffect(() => {
-    const api = (window as any).electronAPI
     if (!api?.on) return
     const handleMenuOpenFolder = () => handleOpenFolderForExplorer()
     const handleMenuSaveFile = async () => {
@@ -2403,7 +1180,6 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
   const saveNodeToDisk = useCallback(async (id: string, skipFormat = false) => {
     const node = nodesRef.current.find(n => n.id === id)
     if (!node) return
-    const api = (window as any).electronAPI
     const fsApi = api?.fs
     if (!fsApi) return
     const fp = node.filepath
@@ -2537,7 +1313,6 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
 
     // Determine absolute filepath — use workspace folder if available
     const workspaceFolder = (window as any).__forbiddenCwd
-    const fsApi = (window as any).electronAPI?.fs
     const absolutePath = workspaceFolder ? `${workspaceFolder}/${label}` : null
 
     nodesRef.current=[...nodesRef.current,{
@@ -2586,7 +1361,6 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
 
     // ── Handle native OS folder drop (Electron) ──────────────
     // When a single folder is dropped from the OS file manager:
-    const api = (window as any).electronAPI
     if (files.length === 1 && (files[0] as any).path) {
       const nativePath: string = (files[0] as any).path
       // Detect if it's a directory via the webkitRelativePath being empty and size 0
@@ -2685,7 +1459,6 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
 
   // ── EXPLORER: open file from tree ─────────────────────────────
   const handleExplorerOpenFile = useCallback(async (node: any) => {
-    const api = (window as any).electronAPI
     if (!api?.fs) return
     const ext = node.ext || node.name.split('.').pop() || ''
     const isText = /^(js|ts|jsx|tsx|mjs|cjs|py|md|txt|json|csv|html|htm|css|yaml|yml|sh|bash|c|cpp|h|hpp|go|rs|rb|java|kt|swift|cs|vue|svelte|toml|xml|env|gitignore)$/i.test(ext)
@@ -2713,7 +1486,6 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
 
   // ── SCAN IMPORTS → GRAPH ──────────────────────────────────────
   const handleScanImports = useCallback(async (folderPath: string) => {
-    const api = (window as any).electronAPI
     if (!api?.fs?.scanImports) { addEvent('system', 'Import scanner only available in Electron app'); return }
     addEvent('system', `Scanning imports in ${folderPath.split('/').pop()}…`)
     const res = await api.fs.scanImports(folderPath)
@@ -2814,7 +1586,6 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
     }
 
     // Native shell (Electron)
-    const api = (window as any).electronAPI
     if (api?.terminal?.exec) {
       setTermLines(l => [...l, { c:'#9494b0', t:`${termCwd} $ ${cmd}` }])
 
@@ -2939,7 +1710,6 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
   const saveFormatOnSave = (v: boolean) => setFormatOnSave(v)
 
   const fetchOllamaModels = async () => {
-    const api = (window as any).electronAPI
     const host = aiKeys['ollama'] || 'http://localhost:11434'
     const res = await api?.ai?.ollamaModels?.(host)
     if (res?.models?.length) setOllamaModels(res.models)
@@ -2948,7 +1718,6 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
   // Project-wide Replace All
   const handleReplaceAll = async () => {
     if (!projectSearchQuery.trim() || !replaceQuery || !explorerRoot) return
-    const api = (window as any).electronAPI
     if (!api?.fs) return
     setReplaceLoading(true)
     try {
@@ -2987,7 +1756,6 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
     setProjectSearchLoading(true)
     projectSearchDebounce.current = setTimeout(async () => {
       try {
-        const api = (window as any).electronAPI
         const results = await api?.fs?.searchInFiles?.(explorerRoot, projectSearchQuery.trim(), 300) || []
         setProjectSearchResults(results)
       } catch { setProjectSearchResults([]) }
@@ -2998,7 +1766,6 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
 
   // Open a workspace file in the editor
   const handleOpenWorkspaceFile = useCallback(async (fileInfo: any) => {
-    const api = (window as any).electronAPI
     if (!api?.fs?.readFile) return
     try {
       const res = await api.fs.readFile(fileInfo.path || fileInfo.fullPath)
@@ -4250,7 +3017,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
                 onMouseEnter={e=>(e.currentTarget.style.color='#ff435a')}
                 onMouseLeave={e=>(e.currentTarget.style.color='rgba(200,200,220,.3)')}>✕</button>
             </div>
-            <NotebookPanel brutal={false}/>
+            <NotebookPanel/>
           </div>
         </>
       )}
@@ -4301,7 +3068,6 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
                   setTimeout(() => {
                     const ptyId = activePtyIdRef.current
                     if (ptyId) {
-                      const api = (window as any).electronAPI
                       api?.runInTerminal?.(ptyId, 'sh', cmd, explorerRoot)
                     }
                   }, 800)
@@ -4312,7 +3078,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
                 <TimelinePanel eventLog={eventLog} brutal={brutal}/>
               </div>
             )}
-            {bottomTab==='notebook' && <NotebookPanel brutal={brutal}/>}
+            {bottomTab==='notebook' && <NotebookPanel/>}
             {bottomTab==='console' && (<>
         {/* ── Console toolbar ── */}
         <div style={{display:'flex',alignItems:'center',gap:4,padding:'2px 8px',flexShrink:0,borderBottom:'1px solid rgba(255,255,255,.05)',background:'rgba(0,0,0,.25)'}}>

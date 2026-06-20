@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { api } from '../lib/api'
 
 interface Options {
   activeTabId: string | null
@@ -18,7 +19,6 @@ export function useMenuEvents({
   setBottomOpen,
 }: Options) {
   useEffect(() => {
-    const api = (window as any).electronAPI
     if (!api?.on) return
 
     const handleMenuOpenFolder   = () => handleOpenFolderForExplorer()

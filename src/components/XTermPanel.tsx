@@ -11,6 +11,7 @@ import { FitAddon } from 'xterm-addon-fit'
 import { WebLinksAddon } from 'xterm-addon-web-links'
 import { WebglAddon } from 'xterm-addon-webgl'
 import 'xterm/css/xterm.css'
+import { api } from '../lib/api'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -142,7 +143,7 @@ const XTermPanel: React.FC<XTermPanelProps> = ({ cwd, palette, onCwdChange, onAc
   const [activeId, setActiveId] = useState<string | null>(null)
   const wrapperRef = useRef<HTMLDivElement>(null)
 
-  const hasEngine = !!(window as any).electronAPI?.engine?.wsUrl
+  const hasEngine = !!api?.engine?.wsUrl
 
   // ── Notify parent of active PTY ID ──────────────────────────
   useEffect(() => {
@@ -151,7 +152,6 @@ const XTermPanel: React.FC<XTermPanelProps> = ({ cwd, palette, onCwdChange, onAc
 
   // ── Build WebSocket URL ──────────────────────────────────────
   const makePtyWsUrl = useCallback((id: string, cols: number, rows: number, dir: string) => {
-    const api = (window as any).electronAPI
     if (api?.engine?.wsUrl) {
       // new Go engine
       return api.pty.wsUrl(id, cols, rows, dir)
@@ -189,7 +189,7 @@ const XTermPanel: React.FC<XTermPanelProps> = ({ cwd, palette, onCwdChange, onAc
 
     fitAddon.fit()
     const { cols, rows } = term
-    const startCwd = cwd || (window as any).electronAPI?.homeDir || '/'
+    const startCwd = cwd || api?.homeDir || '/'
 
     const wsUrl = makePtyWsUrl(id, cols, rows, startCwd)
     let ws: WebSocket | null = null

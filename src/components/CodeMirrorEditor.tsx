@@ -15,6 +15,7 @@ import { markdown } from '@codemirror/lang-markdown'
 import { json } from '@codemirror/lang-json'
 import { css } from '@codemirror/lang-css'
 import { html } from '@codemirror/lang-html'
+import { api } from '../lib/api'
 
 // ══════════════════════════════════════════════════════════════
 //  TYPES
@@ -347,7 +348,7 @@ export default function CodeMirrorEditor({ node, onChange, onSave, externalPalet
 
   // Update AI config ref whenever AI props change
   useEffect(() => {
-    const streamUrl = (window as any).electronAPI?.ai?.streamUrl?.()
+    const streamUrl = api?.ai?.streamUrl?.()
     const enabled = !!(streamUrl && aiProvider && aiKey && !compact)
     aiConfigRef.current = { enabled, provider: aiProvider, apiKey: aiKey, model: aiModel, streamUrl }
   }, [aiProvider, aiKey, aiModel, compact])
@@ -430,7 +431,7 @@ export default function CodeMirrorEditor({ node, onChange, onSave, externalPalet
             const suffix = doc.slice(headPos, headPos + 200)
             if (prefix.trim().length < 10) return
             try {
-              const result = await (window as any).electronAPI?.ai?.chat?.(
+              const result = await api?.ai?.chat?.(
                 [{ role: 'user', content: `Complete the code at the cursor (<|>):\n\n${prefix.slice(-500)}<|>${suffix}` }],
                 cfg.apiKey,
                 cfg.model,
@@ -624,7 +625,6 @@ export default function CodeMirrorEditor({ node, onChange, onSave, externalPalet
     const ext = (nodeRef.current?.label || '').split('.').pop()?.toLowerCase() || ''
     const langMap: Record<string,string> = { js:'js', mjs:'js', jsx:'jsx', ts:'ts', tsx:'tsx', py:'py', go:'go', json:'json', css:'css', html:'html' }
     const lang = langMap[ext] || ext
-    const api = (window as any).electronAPI
     const t0 = Date.now()
     let formatted = code
     if (api?.tools?.formatCode) {

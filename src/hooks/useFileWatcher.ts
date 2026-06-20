@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { api } from '../lib/api'
 
 interface Options {
   explorerRoot: string | null
@@ -11,7 +12,7 @@ export function useFileWatcher({ explorerRoot, onChanged }: Options) {
   useEffect(() => {
     if (!explorerRoot) return
 
-    const watchUrl = (window as any).electronAPI?.watch?.wsUrl?.(explorerRoot)
+    const watchUrl = api?.watch?.wsUrl?.(explorerRoot)
     if (!watchUrl) return
 
     const ws = new WebSocket(watchUrl)

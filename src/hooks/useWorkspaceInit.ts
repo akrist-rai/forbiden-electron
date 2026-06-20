@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { api } from '../lib/api'
 
 interface Options {
   setExplorerRoot: (folder: string) => void
@@ -8,7 +9,6 @@ interface Options {
 
 export function useWorkspaceInit({ setExplorerRoot, setTermCwd, setSidebarMode }: Options) {
   useEffect(() => {
-    const api = (window as any).electronAPI
     if (!api?.fs) return
     ;(async () => {
       const [defaultRes, savedRes] = await Promise.all([

@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
+import { api } from '../lib/api'
 
 // ── Virtual list helpers ───────────────────────────────────
 const ROW_H = 24
@@ -323,7 +324,6 @@ export default function FileExplorer({ rootPath, brutal, onOpenFile, onOpenFolde
     return () => ro.disconnect()
   }, [])
 
-  const api = (window as any).electronAPI?.fs
 
   const showToast = useCallback((msg: string) => {
     setToast(msg)
@@ -346,7 +346,7 @@ export default function FileExplorer({ rootPath, brutal, onOpenFile, onOpenFolde
   // Auto-reload when files change (Go watcher pushes events every ~1.5s)
   useEffect(() => {
     if (!rootPath) return
-    const watchUrl = (window as any).electronAPI?.watch?.wsUrl?.(rootPath)
+    const watchUrl = api?.watch?.wsUrl?.(rootPath)
     if (!watchUrl) return
     let ws: WebSocket | null = new WebSocket(watchUrl)
     ws.onmessage = () => reload(rootPath)

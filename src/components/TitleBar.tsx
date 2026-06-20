@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { api } from '../lib/api'
 
 // ── SVG Window Control Icons ──────────────────────────────────
 function IconMinimize() {
@@ -49,8 +50,8 @@ type MenuItem = { label: string; action?: () => void; separator?: boolean; disab
 
 function buildFileMenu(recentWorkspaces: string[]): MenuItem[] {
   return [
-    { label: 'Open Folder…', action: () => (window as any).electronAPI?.dialog?.openFolder().then((p: string) => p && window.dispatchEvent(new CustomEvent('forbiden:open-folder', { detail: p }))) },
-    { label: 'Open Files…',  action: () => (window as any).electronAPI?.dialog?.openFiles() },
+    { label: 'Open Folder…', action: () => api?.dialog?.openFolder().then((p: string) => p && window.dispatchEvent(new CustomEvent('forbiden:open-folder', { detail: p }))) },
+    { label: 'Open Files…',  action: () => api?.dialog?.openFiles() },
     { label: 'Save File',    action: () => window.dispatchEvent(new CustomEvent('forbiden:save-file')) },
     { separator: true, label: '' },
     ...(recentWorkspaces.length > 0 ? [
@@ -61,7 +62,7 @@ function buildFileMenu(recentWorkspaces: string[]): MenuItem[] {
       })),
       { separator: true, label: '' },
     ] : []),
-    { label: 'Quit', action: () => (window as any).electronAPI?.window?.close() },
+    { label: 'Quit', action: () => api?.window?.close() },
   ]
 }
 
@@ -78,7 +79,7 @@ const STATIC_MENUS: Record<string, MenuItem[]> = {
   ],
   View: [
     { label: 'Reload',          action: () => window.location.reload() },
-    { label: 'Toggle DevTools', action: () => (window as any).electronAPI?.window?.toggleDevTools?.() },
+    { label: 'Toggle DevTools', action: () => api?.window?.toggleDevTools?.() },
     { separator: true, label: '' },
     { label: 'Zoom In',         action: () => window.dispatchEvent(new CustomEvent('forbiden:zoom-in')) },
     { label: 'Zoom Out',        action: () => window.dispatchEvent(new CustomEvent('forbiden:zoom-out')) },
@@ -108,12 +109,10 @@ export default function TitleBar({
   const [openMenu, setOpenMenu] = useState<string | null>(null)
   const [recentWorkspaces, setRecentWorkspaces] = useState<string[]>([])
   const menuRef = useRef<HTMLDivElement>(null)
-  const winAPI = (window as any).electronAPI?.window
   const hasWinAPI = Boolean(winAPI)
 
   // Load recent workspaces once on mount and whenever File menu opens
   useEffect(() => {
-    const api = (window as any).electronAPI?.fs
     if (!api?.getRecentWorkspaces) return
     api.getRecentWorkspaces().then((list: string[]) => setRecentWorkspaces(list || [])).catch(() => {})
   }, [openMenu])

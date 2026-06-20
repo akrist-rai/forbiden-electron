@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { api } from '../lib/api'
 
 // ── VS Code Source Control color palette ──────────────────────
 const STATUS_COLOR: Record<string, string> = {
@@ -123,7 +124,7 @@ function FileRow({ file, cwd, isStaged, onOpenFile, brutal }: any) {
   const [diffLoading, setDiffLoading] = useState(false)
   const [opLoading, setOpLoading]     = useState(false)
 
-  const git        = (window as any).electronAPI?.git
+  const git        = api?.git
   const statusChar = file.state?.[0]?.toUpperCase() ?? '?'
   const color      = STATUS_COLOR[statusChar] ?? '#6a6a8a'
   const name       = file.path?.split('/').pop() ?? file.path
@@ -291,7 +292,6 @@ function BranchDropdown({ cwd, currentBranch, onClose, brutal }: any) {
   const [opLoading, setOpLoading] = useState<string | null>(null)
   const [error, setError]         = useState('')
   const ref = useRef<HTMLDivElement>(null)
-  const git = (window as any).electronAPI?.git
 
   useEffect(() => {
     git?.branches(cwd)
@@ -438,7 +438,6 @@ function CommitGraph({ cwd }: { cwd: string }) {
   const [commits, setCommits]   = useState<any[]>([])
   const [loading, setLoading]   = useState(true)
   const [selected, setSelected] = useState<string | null>(null)
-  const git = (window as any).electronAPI?.git
 
   useEffect(() => {
     if (!git?.logGraph || !cwd) return
@@ -573,7 +572,7 @@ export default function GitPanelV2({
   const [initLoading,  setInitLoading]  = useState(false)
   const [openSections, setOpenSections] = useState({ staged: true, changes: true, commits: false, graph: false })
 
-  const git      = (window as any).electronAPI?.git
+  const git      = api?.git
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // ── Data loading ──────────────────────────────────────────
@@ -625,7 +624,6 @@ export default function GitPanelV2({
   const handleUnstageAll = async () => { if (!git?.unstage) return; await git.unstage(cwd, stagedFiles.map(f => f.path));  loadStatus() }
 
   const handleAiCommit = async () => {
-    const api = (window as any).electronAPI
     const key = aiProvider === 'ollama' ? (aiKeys['ollama'] || 'http://localhost:11434') : (aiKeys[aiProvider] || '')
     if (aiProvider !== 'ollama' && !key) { onOpenAiSettings?.(); return }
     setAiLoading(true)

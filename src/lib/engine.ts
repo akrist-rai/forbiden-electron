@@ -139,7 +139,7 @@ export function getDefaultCode(lang: Lang, label: string, nodeType = 'function')
 
 // ── Go engine base URL ─────────────────────────────────────────
 function engineUrl(): string {
-  return (window as any).electronAPI?.engine?.url || 'http://127.0.0.1:49373'
+  return api?.engine?.url || 'http://127.0.0.1:49373'
 }
 
 async function goPost(path: string, body: any): Promise<any> {

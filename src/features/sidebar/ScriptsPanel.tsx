@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useUIStore } from '../../stores/uiStore'
 import { useWorkspaceStore } from '../../stores/workspaceStore'
+import { api } from '../../lib/api'
 
 interface Script {
   name: string
@@ -23,7 +24,6 @@ export default function ScriptsPanel({ onRun }: Props) {
   const load = () => {
     if (!explorerRoot) return
     setLoading(true)
-    const api = (window as any).electronAPI
     api?.tools?.getScripts?.(explorerRoot)
       .then((res: any) => { setScripts(res?.scripts || []); setLoading(false) })
       .catch(() => setLoading(false))
