@@ -48,6 +48,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     write: (id, text) => api('/api/pty/write', { id, text }),
   },
 
+  // ── File-system watcher ────────────────────────────────────
+  watch: {
+    wsUrl: (root) => `${WS}/ws/watch?root=${encodeURIComponent(root)}`,
+  },
+
   // ── Window controls ────────────────────────────────────────
   window: {
     minimize:         ()   => ipcRenderer.invoke('window:minimize'),

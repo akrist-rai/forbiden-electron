@@ -317,6 +317,99 @@ func buildTree(p string, depth, maxDepth int) *FSNode {
 	return node
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+//  File-system watcher WebSocket
+//  Polls the workspace directory every 1.5s and pushes a "change" event when
+//  any file mtime changes, a file is created, or a file is deleted.
+//  No external dependencies — uses stdlib filepath.WalkDir + os.Stat.
+// ─────────────────────────────────────────────────────────────────────────────
+
+var watchSkipDirs = map[string]bool{
+	"node_modules": true, ".git": true, ".next": true, ".nuxt": true,
+	"dist": true, "build": true, "out": true, ".cache": true,
+	"__pycache__": true, ".mypy_cache": true, "target": true,
+	".venv": true, "venv": true, ".tox": true,
+}
+
+func handleWsWatch(w http.ResponseWriter, r *http.Request) {
+	root := r.URL.Query().Get("root")
+	if root == "" {
+		http.Error(w, "root param required", http.StatusBadRequest)
+		return
+	}
+
+	conn, err := wsUpgrader.Upgrade(w, r, nil)
+	if err != nil {
+		return
+	}
+	defer conn.Close()
+
+	// snapshot: path → mtime
+	snapshot := watchScan(root)
+
+	ticker := time.NewTicker(1500 * time.Millisecond)
+	defer ticker.Stop()
+
+	// read pump — detect client disconnect
+	closed := make(chan struct{})
+	go func() {
+		defer close(closed)
+		for {
+			if _, _, err := conn.ReadMessage(); err != nil {
+				return
+			}
+		}
+	}()
+
+	for {
+		select {
+		case <-closed:
+			return
+		case <-ticker.C:
+			next := watchScan(root)
+			if watchDiff(snapshot, next) {
+				snapshot = next
+				data, _ := json.Marshal(map[string]string{"type": "change"})
+				if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
+					return
+				}
+			}
+		}
+	}
+}
+
+func watchScan(root string) map[string]int64 {
+	m := make(map[string]int64, 256)
+	filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+		if d.IsDir() {
+			if watchSkipDirs[d.Name()] {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if info, err2 := d.Info(); err2 == nil {
+			m[path] = info.ModTime().UnixNano()
+		}
+		return nil
+	})
+	return m
+}
+
+func watchDiff(a, b map[string]int64) bool {
+	if len(a) != len(b) {
+		return true
+	}
+	for k, v := range b {
+		if a[k] != v {
+			return true
+		}
+	}
+	return false
+}
+
 func handleFsTree(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		RootPath string `json:"rootPath"`
@@ -1890,6 +1983,9 @@ func main() {
 
 	// PTY WebSocket
 	mux.HandleFunc("/ws/pty", handleWsPTY)
+
+	// File-system watcher WebSocket
+	mux.HandleFunc("/ws/watch", handleWsWatch)
 
 	// Filesystem
 	mux.HandleFunc("/api/fs/tree", handleFsTree)

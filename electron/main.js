@@ -11,7 +11,11 @@ let engineUrl  = null  // set when Go prints READY:PORT
 function startEngine() {
   return new Promise((resolve, reject) => {
     const binName = process.platform === 'win32' ? 'forbiden-engine.exe' : 'forbiden-engine'
-    const binPath = path.join(__dirname, binName)
+    // In packaged builds, extraResources land in process.resourcesPath (next to app.asar).
+    // In dev, the binary sits next to main.js in the electron/ directory.
+    const binPath = app.isPackaged
+      ? path.join(process.resourcesPath, binName)
+      : path.join(__dirname, binName)
 
     if (!fs.existsSync(binPath)) {
       reject(new Error('Engine binary not found: ' + binPath))

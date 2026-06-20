@@ -2935,9 +2935,6 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
     setGitBranch('main')
   }, [eventLog])
 
-  useEffect(() => {
-    if (sidebarOpen && sidebarMode === 'git') refreshGit()
-  }, [sidebarOpen, sidebarMode])
 
   const [aiCommitLoading, setAiCommitLoading] = useState(false)
 
@@ -2991,6 +2988,11 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
 
   // ── Legacy compat shims ─────────────────────────────────────
   const [sidebarMode, setSidebarMode] = useState('files')
+
+  // Refresh git badge when source-control sidebar opens
+  useEffect(() => {
+    if (sidebarOpen && sidebarMode === 'git') refreshGit()
+  }, [sidebarOpen, sidebarMode])
 
   // Tabs & editor
   const [openTabs, setOpenTabs] = useState([])
@@ -5352,7 +5354,23 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
       <div className="ide-status-bar">
         <div className="ide-status-badge" style={{background:brutal?'#c8001a':'#ff2a38',color:'#fff'}}>FORBIDEN</div>
         <span style={{color:'#10b981'}}>● LOCAL</span>
-        <span style={{opacity:.3,fontSize:'9px',fontFamily:"'Share Tech Mono',monospace"}}>WASM</span>
+        {gitBranch && (
+          <span
+            title="Source Control (Ctrl+Shift+G)"
+            onClick={()=>{ setSidebarMode('git'); setSidebarOpen(o=>sidebarMode==='git'?!o:true) }}
+            style={{display:'flex',alignItems:'center',gap:4,cursor:'pointer',padding:'0 4px',borderRadius:2,transition:'background .12s'}}
+            onMouseEnter={e=>(e.currentTarget.style.background='rgba(255,255,255,.08)')}
+            onMouseLeave={e=>(e.currentTarget.style.background='transparent')}
+          >
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <line x1="6" y1="3" x2="6" y2="15"/>
+              <circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><circle cx="6" cy="6" r="3"/>
+              <path d="M18 9a9 9 0 01-9 9"/>
+            </svg>
+            <span style={{opacity:.8}}>{gitBranch}</span>
+            {gitChangeCount>0 && <span style={{color:'#e2c08d',fontSize:'9px'}}>+{gitChangeCount}</span>}
+          </span>
+        )}
         <span style={{opacity:.2}}>|</span>
         <span>{nodeCount} nodes · {edgeCount} edges</span>
         {groupsRef.current.length>0 && <><span style={{opacity:.2}}>|</span><span>{groupsRef.current.length} classes</span></>}
