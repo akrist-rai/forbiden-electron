@@ -5106,6 +5106,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
                           onChange={code=>updateNodeCode(splitTabId,code)}
                           onSave={()=>saveNodeToDisk(splitTabId)}
                           externalPalette={globalEditorPalette}
+                          onPaletteChange={p=>setGlobalEditorPalette(p)}
                           onCursorChange={(line,col)=>setEditorCursorPos({line,col})}
                           aiProvider={aiProvider}
                           aiKey={aiProvider==='ollama'?(aiKeys['ollama']||'http://localhost:11434'):aiKeys[aiProvider]||''}
