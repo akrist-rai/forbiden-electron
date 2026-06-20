@@ -4251,7 +4251,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
           </div>
           <div style={{flex:1,minHeight:0,overflow:'hidden',display:'flex',justifyContent:'center'}}>
             <div style={{width:'min(800px,100%)',display:'flex',flexDirection:'column',minHeight:0}}>
-              <CodeMirrorEditor key={activeTabId+'_zen'} node={activeTabNode} onChange={code=>updateNodeCode(activeTabId,code)} onSave={()=>saveNodeToDisk(activeTabId)} externalPalette={globalEditorPalette} jumpToLine={jumpLineTarget??undefined} onCursorChange={(line,col)=>setEditorCursorPos({line,col})} aiProvider={aiProvider} aiKey={aiProvider==='ollama'?(aiKeys['ollama']||'http://localhost:11434'):aiKeys[aiProvider]||''} aiModel={aiModels[aiProvider]||DEFAULT_MODELS[aiProvider]||''}/>
+              <CodeMirrorEditor key={activeTabId+'_zen'} node={activeTabNode} onChange={code=>updateNodeCode(activeTabId,code)} onSave={()=>saveNodeToDisk(activeTabId)} externalPalette={globalEditorPalette} onPaletteChange={p=>setGlobalEditorPalette(p)} jumpToLine={jumpLineTarget??undefined} onCursorChange={(line,col)=>setEditorCursorPos({line,col})} aiProvider={aiProvider} aiKey={aiProvider==='ollama'?(aiKeys['ollama']||'http://localhost:11434'):aiKeys[aiProvider]||''} aiModel={aiModels[aiProvider]||DEFAULT_MODELS[aiProvider]||''}/>
             </div>
           </div>
         </div>
@@ -5061,7 +5061,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
                   {activeTabNode?.type==='doc' && mdPreviewMode==='split' ? (
                     <div style={{display:'flex',height:'100%',overflow:'hidden'}}>
                       <div style={{flex:1,overflow:'hidden',borderRight:'1px solid rgba(255,255,255,.08)'}}>
-                        <CodeMirrorEditor key={activeTabId+'_s'} node={activeTabNode} onChange={code=>updateNodeCode(activeTabId,code)} onSave={()=>saveNodeToDisk(activeTabId)} externalPalette={globalEditorPalette}/>
+                        <CodeMirrorEditor key={activeTabId+'_s'} node={activeTabNode} onChange={code=>updateNodeCode(activeTabId,code)} onSave={()=>saveNodeToDisk(activeTabId)} externalPalette={globalEditorPalette} onPaletteChange={p=>setGlobalEditorPalette(p)}/>
                       </div>
                       <div style={{flex:1,overflow:'auto',padding:'12px 16px',fontSize:mdFontSize+'px'}} className="md-preview"
                         dangerouslySetInnerHTML={{__html: renderMd(activeTabNode.code||'')}}/>
@@ -5075,6 +5075,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
                       onChange={code=>updateNodeCode(activeTabId,code)}
                       onSave={()=>saveNodeToDisk(activeTabId)}
                       externalPalette={globalEditorPalette}
+                      onPaletteChange={p=>setGlobalEditorPalette(p)}
                       jumpToLine={jumpLineTarget??undefined}
                       onCursorChange={(line,col)=>setEditorCursorPos({line,col})}
                       aiProvider={aiProvider}
