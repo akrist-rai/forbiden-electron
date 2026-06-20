@@ -1,21 +1,20 @@
 {
-  "name": "forbiden-electron",
+  "name": "forbiden",
   "version": "2.2.0",
   "description": "FORBIDEN — Graph-based code IDE with visual dependency mapping",
   "author": "akrist-rai <platipuskumar@gmail.com>",
   "private": true,
-  "main": "electron/main.js",
+  "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "engine:build": "cd engine && go build -o ../electron/forbiden-engine .",
-    "engine:build:win": "cd engine && GOOS=windows go build -o ../electron/forbiden-engine.exe .",
-    "electron:dev": "npm run engine:build && cross-env NODE_ENV=development concurrently \"vite\" \"wait-on http://localhost:5175 && electron .\"",
-    "electron:build": "npm run engine:build && vite build && electron-builder",
-    "electron:build:win": "npm run engine:build:win && vite build && electron-builder --win",
-    "electron:preview": "npm run engine:build && vite build && electron .",
-    "electron:install-linux": "npm run electron:build && sudo dpkg -i release/*.deb || echo 'deb install failed, try AppImage'"
+    "engine:build": "cd engine && go build -o ../engine/forbiden-engine .",
+    "engine:build:win": "cd engine && GOOS=windows go build -o ../engine/forbiden-engine.exe .",
+    "tauri": "tauri",
+    "tauri:dev": "npm run engine:build && tauri dev",
+    "tauri:build": "npm run engine:build && tauri build",
+    "tauri:build:win": "npm run engine:build:win && tauri build"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",
@@ -34,7 +33,12 @@
     "@codemirror/state": "^6.6.0",
     "@codemirror/view": "^6.43.1",
     "@lezer/highlight": "^1.2.3",
-    "node-pty": "^1.1.0",
+    "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-dialog": "^2",
+    "@tauri-apps/plugin-opener": "^2",
+    "@tauri-apps/plugin-os": "^2",
+    "@tauri-apps/plugin-shell": "^2",
+    "@tauri-apps/plugin-window-state": "^2",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-router-dom": "^7.6.2",
@@ -45,117 +49,11 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "^2",
     "@types/react": "^19.1.6",
     "@types/react-dom": "^19.1.6",
     "@vitejs/plugin-react": "^4.5.0",
-    "concurrently": "^9.0.0",
-    "cross-env": "^7.0.3",
-    "electron": "^36.0.0",
-    "electron-builder": "^26.0.0",
-    "playwright-core": "^1.61.0",
     "typescript": "^5.8.3",
-    "vite": "^6.3.5",
-    "wait-on": "^9.0.10"
-  },
-  "build": {
-    "appId": "com.forbiden.ide",
-    "productName": "FORBIDEN",
-    "copyright": "Copyright © 2025 FORBIDEN",
-    "icon": "assets/icon.png",
-    "directories": {
-      "output": "release",
-      "buildResources": "assets"
-    },
-    "files": [
-      "dist/**/*",
-      "electron/**/*",
-      "!electron/node_modules/**",
-      "!**/node_modules/**",
-      "!release/**"
-    ],
-    "linux": {
-      "target": [
-        {
-          "target": "AppImage",
-          "arch": [
-            "x64"
-          ]
-        },
-        {
-          "target": "deb",
-          "arch": [
-            "x64"
-          ]
-        }
-      ],
-      "category": "Development",
-      "mimeTypes": [
-        "text/javascript",
-        "text/typescript",
-        "text/x-python",
-        "application/json"
-      ],
-      "executableName": "forbiden",
-      "extraResources": [
-        {
-          "from": "electron/forbiden-engine",
-          "to": "forbiden-engine"
-        },
-        {
-          "from": "assets/icon.png",
-          "to": "icon.png"
-        }
-      ]
-    },
-    "mac": {
-      "target": [
-        {
-          "target": "dmg",
-          "arch": [
-            "x64",
-            "arm64"
-          ]
-        }
-      ],
-      "category": "public.app-category.developer-tools",
-      "darkModeSupport": true,
-      "extraResources": [
-        {
-          "from": "electron/forbiden-engine",
-          "to": "forbiden-engine"
-        },
-        {
-          "from": "assets/icon.png",
-          "to": "icon.png"
-        }
-      ]
-    },
-    "win": {
-      "target": [
-        {
-          "target": "nsis",
-          "arch": [
-            "x64"
-          ]
-        }
-      ],
-      "artifactName": "FORBIDEN-Setup-${version}.exe",
-      "extraResources": [
-        {
-          "from": "electron/forbiden-engine.exe",
-          "to": "forbiden-engine.exe"
-        },
-        {
-          "from": "assets/icon.png",
-          "to": "icon.png"
-        }
-      ]
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true
-    }
+    "vite": "^6.3.5"
   }
 }

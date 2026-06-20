@@ -6,6 +6,12 @@ import { useUIStore } from '../../stores/uiStore'
 import { useEditorStore } from '../../stores/editorStore'
 import { useWorkspaceStore } from '../../stores/workspaceStore'
 import { useAiStore } from '../../stores/aiStore'
+import { useTerminalStore } from '../../stores/terminalStore'
+import { useGitStore } from '../../stores/gitStore'
+import { useBoardStore } from '../../stores/boardStore'
+import { useTimelineStore } from '../../stores/timelineStore'
+import ScriptsPanel from '../../features/sidebar/ScriptsPanel'
+import AiChatPanel from '../../features/sidebar/AiChatPanel'
 import {
   detectLang, extractSymbols, generateImport, injectImport,
   getDefaultCode, langLabel, isCompiled,
@@ -2603,296 +2609,8 @@ function JumpToLineModal({ isOpen, onClose, onJump, maxLine = 9999 }: any) {
   )
 }
 
-// ══════════════════════════════════════════════════════════════
-//  SCRIPTS PANEL (Command Runner)
-// ══════════════════════════════════════════════════════════════
-
-function ScriptsPanel({ rootPath, brutal, onRun }: any) {
-  const [scripts, setScripts] = useState<{name:string,cmd:string,source:string}[]>([])
-  const [loading, setLoading] = useState(false)
-  const [running, setRunning] = useState<string|null>(null)
-
-  useEffect(() => {
-    if (!rootPath) return
-    setLoading(true)
-    const api = (window as any).electronAPI
-    api?.tools?.getScripts?.(rootPath).then((res: any) => {
-      setScripts(res?.scripts || [])
-      setLoading(false)
-    }).catch(() => setLoading(false))
-  }, [rootPath])
-
-  const text   = brutal ? '#0f0f0f' : '#c0c8d8'
-  const dimText = brutal ? 'rgba(15,15,15,.4)' : 'rgba(200,200,220,.4)'
-
-  const handleRun = (s: any) => {
-    setRunning(s.name)
-    setTimeout(() => setRunning(null), 1500)
-    onRun?.(s.cmd)
-  }
-
-  return (
-    <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}}>
-      <div style={{padding:'6px 10px 4px',flexShrink:0,borderBottom:'1px solid rgba(255,255,255,.06)',display:'flex',alignItems:'center',gap:8}}>
-        <span style={{fontFamily:"'Oswald',sans-serif",fontWeight:700,fontSize:'10px',letterSpacing:'.12em',color:'#ffc410'}}>⚙ SCRIPTS</span>
-        {rootPath && <button onClick={()=>{ setLoading(true); const api=(window as any).electronAPI; api?.tools?.getScripts?.(rootPath).then((r:any)=>{setScripts(r?.scripts||[]);setLoading(false)}).catch(()=>setLoading(false)) }}
-          style={{marginLeft:'auto',background:'transparent',border:'1px solid rgba(255,255,255,.1)',color:dimText,fontFamily:"'Share Tech Mono',monospace",fontSize:'9px',padding:'1px 6px',cursor:'pointer'}}>↻ RELOAD</button>}
-      </div>
-      <div style={{flex:1,overflowY:'auto',scrollbarWidth:'thin',scrollbarColor:'rgba(255,255,255,.07) transparent',padding:'6px 8px',display:'flex',flexDirection:'column',gap:4}}>
-        {!rootPath && (
-          <div style={{padding:'20px',textAlign:'center',fontFamily:"'Share Tech Mono',monospace",fontSize:'10px',color:dimText}}>OPEN A FOLDER TO SEE ITS SCRIPTS</div>
-        )}
-        {rootPath && loading && (
-          <div style={{padding:'20px',textAlign:'center',fontFamily:"'Share Tech Mono',monospace",fontSize:'10px',color:'#ffc410',opacity:.7}}>LOADING…</div>
-        )}
-        {rootPath && !loading && scripts.length === 0 && (
-          <div style={{padding:'20px',textAlign:'center',fontFamily:"'Share Tech Mono',monospace",fontSize:'10px',color:dimText}}>NO SCRIPTS FOUND<br/><span style={{fontSize:'9px',opacity:.6}}>add scripts to package.json or a Makefile</span></div>
-        )}
-        {scripts.map((s, i) => (
-          <div key={i} style={{display:'flex',alignItems:'center',gap:8,padding:'5px 8px',background:'rgba(255,255,255,.03)',border:'1px solid rgba(255,255,255,.06)',cursor:'default'}}>
-            <span style={{fontFamily:"'Share Tech Mono',monospace",fontSize:'8px',color:s.source==='makefile'?'#4285f4':'#10b981',flexShrink:0,letterSpacing:'.06em',border:`1px solid`,borderColor:s.source==='makefile'?'rgba(66,133,244,.3)':'rgba(16,185,129,.3)',padding:'0 4px'}}>{s.source.toUpperCase()}</span>
-            <div style={{flex:1,minWidth:0}}>
-              <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:'11px',color:text,fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{s.name}</div>
-              <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:'10px',color:dimText,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{s.cmd}</div>
-            </div>
-            <button onClick={()=>handleRun(s)}
-              style={{flexShrink:0,background:running===s.name?'rgba(16,185,129,.2)':'rgba(255,196,16,.12)',border:`1px solid ${running===s.name?'rgba(16,185,129,.4)':'rgba(255,196,16,.3)'}`,
-                color:running===s.name?'#10b981':'#ffc410',fontFamily:"'Oswald',sans-serif",fontWeight:700,fontSize:'9px',letterSpacing:'.08em',
-                padding:'3px 10px',cursor:'pointer',transition:'all .1s'}}>
-              {running===s.name?'▶…':'▶ RUN'}
-            </button>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-// ══════════════════════════════════════════════════════════════
-//  AI CHAT PANEL
-// ══════════════════════════════════════════════════════════════
-
-function renderAiMessage(text: string) {
-  // Convert markdown-ish code blocks to styled spans
-  return text
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    .replace(/```[\w]*\n?([\s\S]*?)```/g, (_,code)=>`<pre style="background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.08);padding:8px 10px;margin:6px 0;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.5;color:#c0c8d8">${code.trim()}</pre>`)
-    .replace(/`([^`]+)`/g, '<code style="background:rgba(255,255,255,.08);padding:1px 4px;font-family:\'JetBrains Mono\',monospace;font-size:11px">$1</code>')
-    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-    .replace(/\n/g, '<br/>')
-}
-
-const PROVIDER_COLORS: Record<string,string> = {
-  anthropic:'#bb9af7', openai:'#10b981', gemini:'#4285f4', openrouter:'#ffc410', ollama:'#89ddff',
-}
-const PROVIDER_LABELS: Record<string,string> = {
-  anthropic:'Anthropic', openai:'OpenAI', gemini:'Gemini', openrouter:'OpenRouter', ollama:'Ollama',
-}
-const DEFAULT_MODELS: Record<string,string> = {
-  anthropic:'claude-haiku-4-5-20251001', openai:'gpt-4o-mini', gemini:'gemini-2.0-flash', openrouter:'openai/gpt-4o-mini', ollama:'llama3',
-}
-
-function AiChatPanel({ activeNode, explorerRoot, brutal, aiProvider, aiKeys, aiModels, onOpenSettings }: any) {
-  const [messages, setMessages] = useState<{role:string,content:string}[]>([])
-  const [input, setInput] = useState('')
-  const [streaming, setStreaming] = useState(false)
-  const [streamingText, setStreamingText] = useState('')
-  const [includeFile, setIncludeFile] = useState(true)
-  const endRef = useRef<HTMLDivElement>(null)
-  const abortRef = useRef<AbortController | null>(null)
-
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages, streaming, streamingText])
-
-  const activeKey = aiProvider === 'ollama' ? (aiKeys['ollama'] || 'http://localhost:11434') : (aiKeys[aiProvider] || '')
-  const activeModel = aiModels[aiProvider] || DEFAULT_MODELS[aiProvider] || ''
-  const hasKey = aiProvider === 'ollama' || !!activeKey
-  const provColor = PROVIDER_COLORS[aiProvider] || '#bb9af7'
-
-  const send = async () => {
-    const q = input.trim()
-    if (!q || streaming) return
-    setInput('')
-
-    const userMsg = { role: 'user', content: q }
-    const newMsgs = [...messages, userMsg]
-    setMessages(newMsgs)
-    setStreaming(true)
-    setStreamingText('')
-
-    const system = includeFile && activeNode?.code
-      ? `You are an expert programmer assistant. The user has this file open:\n\nFilename: ${activeNode.label}\n\`\`\`\n${activeNode.code.slice(0, 8000)}\n\`\`\`\n\nBe concise, code-focused, and practical.`
-      : `You are an expert programmer assistant. Be concise, code-focused, and practical.`
-
-    const electronAPI = (window as any).electronAPI
-    const streamUrl = electronAPI?.ai?.streamUrl?.()
-    if (!streamUrl) {
-      setStreaming(false)
-      setMessages(prev => [...prev, { role: 'assistant', content: '⚠ Error: stream endpoint unavailable' }])
-      return
-    }
-
-    const ctrl = new AbortController()
-    abortRef.current = ctrl
-
-    try {
-      const resp = await fetch(streamUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: newMsgs.map(m => ({ role: m.role, content: m.content })),
-          apiKey: activeKey,
-          model: activeModel,
-          system,
-          provider: aiProvider,
-        }),
-        signal: ctrl.signal,
-      })
-
-      if (!resp.ok || !resp.body) {
-        throw new Error(`HTTP ${resp.status}`)
-      }
-
-      const reader = resp.body.getReader()
-      const decoder = new TextDecoder()
-      let buf = ''
-      let accumulated = ''
-
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        buf += decoder.decode(value, { stream: true })
-        const lines = buf.split('\n')
-        buf = lines.pop() ?? ''
-
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue
-          const payload = line.slice(6)
-          if (payload === '[DONE]') break
-          try {
-            const ev = JSON.parse(payload)
-            if (ev.error) {
-              setStreamingText(t => t + `\n⚠ ${ev.error}`)
-            } else if (ev.token) {
-              accumulated += ev.token
-              setStreamingText(accumulated)
-            }
-          } catch {}
-        }
-      }
-
-      setStreaming(false)
-      setStreamingText('')
-      setMessages(prev => [...prev, { role: 'assistant', content: accumulated || '(empty response)' }])
-    } catch (err: any) {
-      setStreaming(false)
-      setStreamingText('')
-      if (err?.name !== 'AbortError') {
-        setMessages(prev => [...prev, { role: 'assistant', content: `⚠ Error: ${err?.message || 'Unknown error'}` }])
-      }
-    }
-  }
-
-  const cancel = () => { abortRef.current?.abort(); abortRef.current = null }
-
-  const text   = brutal ? '#0f0f0f' : '#c0c8d8'
-  const dimText = brutal ? 'rgba(15,15,15,.4)' : 'rgba(200,200,220,.4)'
-
-  return (
-    <div style={{display:'flex',flexDirection:'column',height:'100%',overflow:'hidden'}}>
-      {/* Header */}
-      <div style={{padding:'5px 10px',flexShrink:0,borderBottom:'1px solid rgba(255,255,255,.06)',display:'flex',alignItems:'center',gap:6}}>
-        <span style={{fontFamily:"'Oswald',sans-serif",fontWeight:700,fontSize:'10px',letterSpacing:'.12em',color:provColor}}>✦ AI ASSISTANT</span>
-        <span style={{marginLeft:'auto',fontFamily:"'Share Tech Mono',monospace",fontSize:'9px',color:dimText,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:100}}>{activeModel}</span>
-        <div style={{flexShrink:0,padding:'1px 5px',fontFamily:"'Oswald',sans-serif",fontWeight:700,fontSize:'8px',letterSpacing:'.08em',
-          color:provColor,border:`1px solid ${provColor}44`,background:`${provColor}12`}}>{PROVIDER_LABELS[aiProvider]||aiProvider}</div>
-        <button onClick={onOpenSettings} title="Change provider/key in Settings"
-          style={{background:'transparent',border:'none',color:hasKey?provColor:dimText,cursor:'pointer',fontSize:'12px',padding:'0 2px',flexShrink:0}}>⚙</button>
-      </div>
-
-      {/* No-key banner */}
-      {!hasKey && (
-        <div style={{padding:'8px 12px',flexShrink:0,background:'rgba(255,67,90,.08)',borderBottom:'1px solid rgba(255,67,90,.2)',
-          fontFamily:"'Share Tech Mono',monospace",fontSize:'9px',color:'#ff435a',lineHeight:1.8}}>
-          NO API KEY SET FOR {(PROVIDER_LABELS[aiProvider]||aiProvider).toUpperCase()}<br/>
-          <span style={{color:'rgba(255,255,255,.4)'}}>Click ⚙ to open Settings › AI Providers</span>
-        </div>
-      )}
-
-      {/* Messages */}
-      <div style={{flex:1,overflowY:'auto',scrollbarWidth:'thin',scrollbarColor:'rgba(255,255,255,.07) transparent',padding:'8px 0'}}>
-        {messages.length === 0 && (
-          <div style={{padding:'24px 14px',textAlign:'center',color:dimText,fontFamily:"'Share Tech Mono',monospace",fontSize:'10px',lineHeight:2}}>
-            ASK ANYTHING ABOUT YOUR CODE<br/>
-            <span style={{fontSize:'9px',opacity:.6}}>Current file included automatically · toggle below</span>
-          </div>
-        )}
-        {messages.map((m, i) => (
-          <div key={i} style={{padding:'6px 12px',borderBottom:'1px solid rgba(255,255,255,.03)'}}>
-            <div style={{fontFamily:"'Oswald',sans-serif",fontWeight:700,fontSize:'8px',letterSpacing:'.12em',marginBottom:4,
-              color:m.role==='user'?'#ff435a':provColor}}>
-              {m.role==='user'?'YOU':'✦ AI'}
-            </div>
-            <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:'11px',lineHeight:1.6,color:text}}
-              dangerouslySetInnerHTML={{__html: renderAiMessage(m.content)}}/>
-          </div>
-        ))}
-        {streaming && (
-          <div style={{padding:'6px 12px',borderBottom:'1px solid rgba(255,255,255,.03)'}}>
-            <div style={{fontFamily:"'Oswald',sans-serif",fontWeight:700,fontSize:'8px',letterSpacing:'.12em',marginBottom:4,color:provColor}}>
-              ✦ AI
-            </div>
-            {streamingText ? (
-              <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:'11px',lineHeight:1.6,color:text}}
-                dangerouslySetInnerHTML={{__html: renderAiMessage(streamingText)}}/>
-            ) : (
-              <span style={{color:provColor,opacity:.5,fontFamily:"'Share Tech Mono',monospace",fontSize:'10px'}}>thinking…</span>
-            )}
-            <span style={{display:'inline-block',width:7,height:13,background:provColor,opacity:.8,animation:'blink 1s step-end infinite',verticalAlign:'text-bottom',marginLeft:1}}/>
-          </div>
-        )}
-        <div ref={endRef}/>
-      </div>
-
-      {/* Input */}
-      <div style={{padding:'8px',flexShrink:0,borderTop:'1px solid rgba(255,255,255,.06)',display:'flex',flexDirection:'column',gap:5}}>
-        <div style={{display:'flex',alignItems:'center',gap:5}}>
-          <label style={{display:'flex',alignItems:'center',gap:4,cursor:'pointer',fontFamily:"'Share Tech Mono',monospace",fontSize:'9px',color:dimText}}>
-            <input type="checkbox" checked={includeFile} onChange={e=>setIncludeFile(e.target.checked)} style={{width:10,height:10}}/>
-            include file
-          </label>
-          {(messages.length > 0 || streaming) && (
-            <button onClick={()=>{ cancel(); setMessages([]); setStreamingText('') }} style={{marginLeft:'auto',background:'transparent',border:'none',color:dimText,cursor:'pointer',fontFamily:"'Share Tech Mono',monospace",fontSize:'9px'}}>clear</button>
-          )}
-        </div>
-        <div style={{display:'flex',gap:5}}>
-          <textarea value={input} onChange={e=>setInput(e.target.value)}
-            onKeyDown={e=>{ if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()} }}
-            placeholder="Ask about your code… (Enter to send, Shift+Enter newline)"
-            rows={2}
-            disabled={streaming}
-            style={{flex:1,background:'rgba(255,255,255,.05)',border:'1px solid rgba(255,255,255,.08)',outline:'none',color:text,fontFamily:"'JetBrains Mono',monospace",fontSize:'11px',padding:'5px 7px',resize:'none',lineHeight:1.4,opacity:streaming?.6:1}}
-            onFocus={e=>(e.target.style.borderColor=provColor+'66')}
-            onBlur={e=>(e.target.style.borderColor='rgba(255,255,255,.08)')}/>
-          {streaming ? (
-            <button onClick={cancel}
-              style={{background:'rgba(255,67,90,.12)',border:'1px solid rgba(255,67,90,.4)',
-                color:'#ff435a',fontFamily:"'Oswald',sans-serif",fontWeight:700,fontSize:'10px',
-                letterSpacing:'.08em',padding:'0 10px',cursor:'pointer',transition:'all .12s'}}>
-              ■
-            </button>
-          ) : (
-            <button onClick={send} disabled={!input.trim()||!hasKey}
-              style={{background:!hasKey?'transparent':`${provColor}22`,border:`1px solid ${!hasKey?'rgba(255,255,255,.08)':provColor+'55'}`,
-                color:!hasKey?dimText:provColor,fontFamily:"'Oswald',sans-serif",fontWeight:700,fontSize:'10px',
-                letterSpacing:'.08em',padding:'0 10px',cursor:!hasKey?'default':'pointer',transition:'all .12s'}}>
-              ▶
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
+// ScriptsPanel → src/features/sidebar/ScriptsPanel.tsx
+// AiChatPanel  → src/features/sidebar/AiChatPanel.tsx
 
 // ══════════════════════════════════════════════════════════════
 //  MAIN IDE COMPONENT
@@ -2984,6 +2702,71 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
     ollamaModels, setOllamaModels,
   } = useAiStore()
 
+  // ── Terminal store ──────────────────────────────────────────
+  const {
+    termCwd, setTermCwd,
+    termPalette, setTermPalette,
+    showTermPalette, setShowTermPalette,
+    activePtyId, setActivePtyId,
+    termLines: _termLinesDirect,
+    setTermLines: _setTermLinesDirect,
+    termInput, setTermInput,
+    jsLogs,
+    setJsLogs: _setJsLogsDirect,
+    replInput, setReplInput,
+    replHistory, setReplHistIdx,
+    replHistIdx,
+    compileStdin, setCompileStdin,
+    mdPreviewMode, setMdPreviewMode,
+    mdFontSize, setMdFontSize,
+  } = useTerminalStore()
+  const termLines = _termLinesDirect
+  const setTermLines = (v) => {
+    const curr = useTerminalStore.getState().termLines
+    _setTermLinesDirect(typeof v === 'function' ? v(curr) : v)
+  }
+  const setJsLogs = (v) => {
+    const curr = useTerminalStore.getState().jsLogs
+    _setJsLogsDirect(typeof v === 'function' ? v(curr) : v)
+  }
+  const setReplHistory = (v) => {
+    const curr = useTerminalStore.getState().replHistory
+    useTerminalStore.setState({ replHistory: typeof v === 'function' ? v(curr) : v })
+  }
+
+  // ── Git store ───────────────────────────────────────────────
+  const {
+    gitStatus, setGitStatus,
+    gitLog, setGitLog,
+    gitBranch, setGitBranch,
+    gitCommitMsg, setGitCommitMsg,
+    gitLoading, setGitLoading,
+    aiCommitLoading, setAiCommitLoading,
+  } = useGitStore()
+
+  // ── Board store ─────────────────────────────────────────────
+  const {
+    cols, cards,
+    focusCard, setFocusCard,
+    newCardCol, setNewCardCol,
+    newCardTitle, setNewCardTitle,
+  } = useBoardStore()
+  const board = { cols, cards }
+  const setBoard = (v) => {
+    const curr = useBoardStore.getState()
+    const next = typeof v === 'function' ? v({ cols: curr.cols, cards: curr.cards }) : v
+    useBoardStore.setState({ cols: next.cols, cards: next.cards })
+  }
+
+  // ── Timeline store ──────────────────────────────────────────
+  const {
+    eventLog,
+    addEvent,
+    playheadPos, setPlayheadPos,
+    activeVersionName, setActiveVersionName,
+    activeVersionIdx, setActiveVersionIdx,
+  } = useTimelineStore()
+
   const brutal = themeMode === 'brutal'
 
   // Graph state
@@ -3050,21 +2833,9 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
     return () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp) }
   }, [])
 
-  // ── Event log (timeline) ────────────────────────────────────
-  const [eventLog, setEventLog] = useState([
-    {id:1, type:'system', label:'FORBIDEN IDE started', ts:Date.now(), icon:'⚡'}
-  ])
-  const addEvent = useCallback((type, label, meta={}) => {
-    const icons = {'node-create':'⊕','node-delete':'⊖','code-edit':'✏','edge-add':'⇢','edge-del':'⇠','run-ok':'✓','run-err':'✗','import':'⬆','group':'◈','commit':'◆','system':'⚡'}
-    setEventLog(log => [{id:Date.now()+Math.random(), type, label, ts:Date.now(), icon:icons[type]||'·', meta}, ...log].slice(0,300))
-  }, [])
-
   // ── Git panel state ─────────────────────────────────────────
-  const [gitStatus, setGitStatus]       = useState(null)
-  const [gitLog,    setGitLog]          = useState([])
-  const [gitBranch, setGitBranch]       = useState('')
-  const [gitCommitMsg, setGitCommitMsg] = useState('')
-  const [gitLoading, setGitLoading]     = useState(false)
+  // gitStatus, gitLog, gitBranch, gitCommitMsg, gitLoading, aiCommitLoading → gitStore (above)
+  // eventLog, addEvent → timelineStore (above)
 
   const refreshGit = useCallback(async () => {
     const api = (window as any).electronAPI
@@ -3095,9 +2866,6 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
     })))
     setGitBranch('main')
   }, [eventLog])
-
-
-  const [aiCommitLoading, setAiCommitLoading] = useState(false)
 
   const handleAiCommitMsg = async () => {
     const api = (window as any).electronAPI
@@ -3164,57 +2932,20 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
     wsHook.deleteNode(nid).catch(()=>{})
   }, [activeTabId, addEvent])
 
-  // Board
-  const [board, setBoard] = useState(INITIAL_BOARD)
-  const [focusCard, setFocusCard] = useState(null)
-  const [newCardCol, setNewCardCol] = useState(null)
-  const [newCardTitle, setNewCardTitle] = useState('')
+  // Board, Timeline, Terminal, JS Runtime, Markdown → stores (above)
+  // board/setBoard, focusCard, newCardCol, newCardTitle → boardStore
+  // eventLog, addEvent, playheadPos, activeVersionName, activeVersionIdx → timelineStore
+  // termCwd, termLines, termInput, termPalette, showTermPalette, activePtyId → terminalStore
+  // jsLogs, replInput, replHistory, replHistIdx, compileStdin → terminalStore
+  // mdPreviewMode, mdFontSize → terminalStore
   const PC = { HIGH:'#ff435a', MED:'#ffc410', LOW:'#4285f4', DONE:'#10b981' }
-
-  // Timeline
-  const [playheadPos, setPlayheadPos] = useState(400)
-  const [activeVersionName, setActiveVersionName] = useState('v1.4 (HEAD)')
-  const [activeVersionIdx, setActiveVersionIdx] = useState(4)
   const playheadDragRef = useRef({ isDragging:false })
-
-  // Terminal
   const eAPI = (window as any).electronAPI
-  const [termCwd, setTermCwd] = useState<string>(eAPI?.homeDir ?? '~')
-  const [termLines, setTermLines] = useState(() => {
-    const base = [{ c:'#28f1c3', t:'[FORBIDEN] System boot v2.1.0 — Electron' }]
-    if (eAPI) {
-      base.push({ c:'#9494b0', t:`[SYS] Platform: ${eAPI.platform}  Home: ${eAPI.homeDir}` })
-      base.push({ c:'#9494b0', t:`[CWD] ${eAPI.homeDir}` })
-      base.push({ c:'#28f1c3', t:'[OK]  Native shell ready. All commands execute locally.' })
-    } else {
-      base.push({ c:'#ffc410', t:'[WARN] Running in browser — terminal commands are simulated.' })
-      base.push({ c:'#9494b0', t:'Ready. Type `help` for commands.' })
-    }
-    return base
-  })
-  const [termInput, setTermInput] = useState('')
-  const [termPalette, setTermPalette] = useState(TERM_PALETTES[1])
-  const [showTermPalette, setShowTermPalette] = useState(false)
-  const [activePtyId, setActivePtyId] = useState<string | null>(null)
   const activePtyIdRef = useRef<string | null>(null)
   const termEndRef = useRef(null)
-
-  // JS Runtime
   const [nodeRunState, setNodeRunState] = useState({})
   const [edgeDataLabels, setEdgeDataLabels] = useState({})
-  const [jsLogs, setJsLogs] = useState([
-    {type:'header', val:'// FORBIDEN JS Runtime ready', ts:Date.now()},
-    {type:'info',   val:'// Use ▶ on any node or type JS in the REPL below', ts:Date.now()},
-  ])
-  const [replInput, setReplInput] = useState('')
-  const [replHistory, setReplHistory] = useState([])
-  const [replHistIdx, setReplHistIdx] = useState(-1)
-  const [compileStdin, setCompileStdin] = useState('')
   const jsConsoleEndRef = useRef(null)
-
-  // Markdown
-  const [mdPreviewMode, setMdPreviewMode] = useState('preview')
-  const [mdFontSize,    setMdFontSize]    = useState(16)
 
   // File drop (dragOver from uiStore; only dragDepthRef stays local)
   const dragDepthRef = useRef(0)
@@ -4561,8 +4292,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
               {/* ── AI CHAT ── */}
               {sidebarMode==='ai' && (
                 <AiChatPanel
-                  activeNode={activeTabNode} explorerRoot={explorerRoot} brutal={brutal}
-                  aiProvider={aiProvider} aiKeys={aiKeys} aiModels={aiModels}
+                  activeNode={activeTabNode} explorerRoot={explorerRoot}
                   onOpenSettings={()=>{ setSidebarMode('settings'); setSidebarOpen(true) }}
                 />
               )}
@@ -5435,7 +5165,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
               />
             )}
             {bottomTab==='scripts' && (
-              <ScriptsPanel rootPath={explorerRoot} brutal={brutal}
+              <ScriptsPanel
                 onRun={(cmd)=>{
                   setBottomTab('terminal')
                   setBottomOpen(true)

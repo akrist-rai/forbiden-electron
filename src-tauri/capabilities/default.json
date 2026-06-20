@@ -1,0 +1,24 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/schema/acl/capability.json",
+  "identifier": "default",
+  "description": "Default FORBIDEN capabilities",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "core:window:allow-minimize",
+    "core:window:allow-maximize",
+    "core:window:allow-unmaximize",
+    "core:window:allow-close",
+    "core:window:allow-is-maximized",
+    "core:window:allow-start-dragging",
+    "core:window:allow-set-focus",
+    "shell:allow-open",
+    "dialog:allow-open",
+    "dialog:allow-save",
+    "os:allow-platform",
+    "os:allow-os-type",
+    "window-state:allow-restore-state",
+    "window-state:allow-save-window-state",
+    "opener:allow-reveal-item-in-dir"
+  ]
+}
