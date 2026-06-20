@@ -105,7 +105,7 @@ const ghostTextField = StateField.define<{ pos: number; text: string } | null>({
 // ══════════════════════════════════════════════════════════════
 
 const PALETTES: Palette[] = [
-  { id:'forbinden',  name:'FORBINDEN',    bg:'#0b0b0f', base:'#c0c8d8', lineNum:'#2e2e42', activeLine:'rgba(255,255,255,0.035)', kw:'#ff435a', str:'#ffc410', cmt:'#3e3e5a', num:'#4285f4', fn:'#10b981', bi:'#28f1c3', op:'#6a6a8a', swatches:['#ff435a','#ffc410','#10b981','#28f1c3'] },
+  { id:'forbinden',  name:'FORBINDEN',    bg:'#0b0b0f', base:'#e2d8d0', lineNum:'#2e2838', activeLine:'rgba(255,42,56,0.06)',   kw:'#ff2a38', str:'#ff7060', cmt:'#6a5878', num:'#ff3d6e', fn:'#ffb0a0', bi:'#ff9080', op:'#7a7090', swatches:['#ff2a38','#ff7060','#ffb0a0','#e2d8d0'] },
   { id:'dracula',    name:'DRACULA',       bg:'#282a36', base:'#f8f8f2', lineNum:'#44475a', activeLine:'rgba(68,71,90,0.4)',     kw:'#ff79c6', str:'#f1fa8c', cmt:'#6272a4', num:'#bd93f9', fn:'#50fa7b', bi:'#8be9fd', op:'#ff79c6', swatches:['#ff79c6','#f1fa8c','#50fa7b','#8be9fd'] },
   { id:'monokai',    name:'MONOKAI',       bg:'#272822', base:'#f8f8f2', lineNum:'#3e3d32', activeLine:'rgba(73,72,62,0.4)',     kw:'#f92672', str:'#e6db74', cmt:'#75715e', num:'#ae81ff', fn:'#a6e22e', bi:'#66d9e8', op:'#f92672', swatches:['#f92672','#e6db74','#a6e22e','#ae81ff'] },
   { id:'nord',       name:'NORD',          bg:'#2e3440', base:'#d8dee9', lineNum:'#3b4252', activeLine:'rgba(67,76,94,0.4)',     kw:'#81a1c1', str:'#a3be8c', cmt:'#4c566a', num:'#b48ead', fn:'#88c0d0', bi:'#8fbcbb', op:'#81a1c1', swatches:['#81a1c1','#a3be8c','#88c0d0','#b48ead'] },
@@ -212,7 +212,7 @@ function buildTheme(palette: Palette) {
     },
     '.cm-content': {
       padding: '20px 14px',
-      caretColor: palette.fn,
+      caretColor: palette.kw,
     },
     '.cm-gutters': {
       backgroundColor: palette.bg,
@@ -232,7 +232,7 @@ function buildTheme(palette: Palette) {
       backgroundColor: palette.kw + '44',
     },
     '.cm-cursor': {
-      borderLeftColor: palette.fn,
+      borderLeftColor: palette.kw,
     },
     '.tok-keyword': { color: palette.kw },
     '.tok-string': { color: palette.str },
@@ -705,15 +705,6 @@ export default function CodeMirrorEditor({ node, onChange, onSave, externalPalet
     >
       {/* ── TOOLBAR ── */}
       {!compact && <div className="ide-editor-toolbar">
-        {/* Window chrome dots */}
-        <div className="ide-tb-chrome">
-          <div className="ide-tb-dot ide-tb-dot--red" />
-          <div className="ide-tb-dot ide-tb-dot--yellow" />
-          <div className="ide-tb-dot ide-tb-dot--green" />
-        </div>
-
-        <div className="ide-tb-sep" />
-
         {/* File info: name + modified + lang badge */}
         <div className="ide-tb-fileinfo">
           <span className="ide-tb-filename" style={{ color: palette.base }}>

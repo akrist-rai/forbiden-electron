@@ -2462,7 +2462,7 @@ function fuzzyMatch(str: string, query: string) {
   return qi === q.length
 }
 
-function FileFinderModal({ isOpen, onClose, onOpenFile, rootPath }: any) {
+function FileFinderModal({ isOpen, onClose, onOpenFile, rootPath, recentFiles = [] }: any) {
   const [query, setQuery] = useState('')
   const [files, setFiles] = useState<any[]>([])
   const [focused, setFocused] = useState(0)
@@ -2476,7 +2476,11 @@ function FileFinderModal({ isOpen, onClose, onOpenFile, rootPath }: any) {
   }, [isOpen, rootPath])
 
   const filtered = useMemo(() => {
-    if (!query) return files.slice(0, 60)
+    if (!query) {
+      // Show recent files first when no query
+      if (recentFiles.length > 0) return recentFiles.slice(0, 20)
+      return files.slice(0, 60)
+    }
     const q = query.toLowerCase()
     return files
       .filter(f => fuzzyMatch(f.rel, q) || f.name.toLowerCase().includes(q))
@@ -2486,7 +2490,7 @@ function FileFinderModal({ isOpen, onClose, onOpenFile, rootPath }: any) {
         return an - bn || a.rel.length - b.rel.length
       })
       .slice(0, 60)
-  }, [query, files])
+  }, [query, files, recentFiles])
 
   useEffect(() => { setFocused(0) }, [filtered])
 
@@ -2524,13 +2528,16 @@ function FileFinderModal({ isOpen, onClose, onOpenFile, rootPath }: any) {
           {query && <button onClick={()=>setQuery('')} style={{background:'transparent',border:'none',color:'rgba(200,200,220,.3)',cursor:'pointer',fontSize:'16px',lineHeight:1,flexShrink:0}}>×</button>}
         </div>
         <div ref={listRef} style={{maxHeight:'52vh',overflowY:'auto',scrollbarWidth:'thin',scrollbarColor:'rgba(255,255,255,.07) transparent'}}>
+          {!query && recentFiles.length > 0 && (
+            <div style={{padding:'4px 14px 2px',fontFamily:"'Share Tech Mono',monospace",fontSize:'9px',color:'rgba(200,200,220,.2)',letterSpacing:'.08em',textTransform:'uppercase'}}>Recent</div>
+          )}
           {filtered.length === 0 && (
             <div style={{padding:'24px',textAlign:'center',color:'rgba(200,200,220,.25)',fontFamily:"'Share Tech Mono',monospace",fontSize:'11px'}}>
               {files.length === 0 ? 'Open a folder first (File → Open Folder)' : 'No matching files'}
             </div>
           )}
           {filtered.map((f, i) => {
-            const dir = f.rel.split('/').slice(0,-1).join('/')
+            const dir = (f.rel || f.path || '').split('/').slice(0,-1).join('/')
             return (
               <div key={f.path} onClick={()=>open(f)}
                 style={{display:'flex',alignItems:'center',gap:10,padding:'7px 14px',cursor:'pointer',
@@ -3073,6 +3080,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
   // Tabs & editor
   const [openTabs, setOpenTabs] = useState([])
   const [activeTabId, setActiveTabId] = useState(null)
+  const [pinnedTabs, setPinnedTabs] = useState<Set<string>>(new Set())
 
   const handleDeleteNode = useCallback((nid) => {
     const deletedLabel = nodesRef.current.find(n=>n.id===nid)?.label||nid
@@ -3270,8 +3278,13 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
   useEffect(() => {
     let rafId: number
     let idleFrames = 0
+    let lastRenderMs = 0
+    const FRAME_MS = 1000 / 30 // 30fps cap — halves React re-renders vs 60fps
 
-    const tick = () => {
+    const tick = (now: number) => {
+      // Physics runs every frame for accuracy; only re-render at 30fps
+      const shouldRender = now - lastRenderMs >= FRAME_MS
+
       let updated = false
       const nds = nodesRef.current, eds = edgesRef.current
       for (let i=0;i<nds.length;i++) for (let j=i+1;j<nds.length;j++) {
@@ -3297,8 +3310,10 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
         const d=nds.find(n=>n.id===draggingNodeRef.current.id)
         if (d) { d.x=draggingNodeRef.current.x; d.y=draggingNodeRef.current.y; d.vx=0; d.vy=0; updated=true }
       }
-      if (updated) { forceRender(); idleFrames=0 }
-      else idleFrames++
+      if (updated) {
+        if (shouldRender) { forceRender(); lastRenderMs = now }
+        idleFrames = 0
+      } else idleFrames++
 
       // Keep running while moving or drag active; stop after 8 settled frames
       if (updated || draggingNodeRef.current || idleFrames < 8) {
@@ -3479,10 +3494,18 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
     setEditorCursorPos(null)
   }
   const closeTab = id => {
+    if (pinnedTabs.has(id)) return // pinned tabs cannot be closed
     setOpenTabs(t => {
       const newT = t.filter(tid=>tid!==id)
       if (activeTabId===id) setActiveTabId(newT[newT.length-1]||null)
       return newT
+    })
+  }
+  const togglePinTab = (id: string) => {
+    setPinnedTabs(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
     })
   }
   // ── Format-on-save (must be declared before saveNodeToDisk uses it) ──
@@ -3770,6 +3793,17 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
     }
   }
 
+  const trackRecentFile = useCallback((fileInfo: { path?: string; fullPath?: string; name?: string; rel?: string }) => {
+    const fp = fileInfo.path || fileInfo.fullPath || ''
+    if (!fp) return
+    const entry = { path: fp, name: fileInfo.name || fp.split('/').pop() || fp, rel: fileInfo.rel || fp }
+    setRecentFiles(prev => {
+      const next = [entry, ...prev.filter(r => r.path !== fp)].slice(0, 20)
+      localStorage.setItem('forbiden_recent_files', JSON.stringify(next))
+      return next
+    })
+  }, [])
+
   // ── EXPLORER: open file from tree ─────────────────────────────
   const handleExplorerOpenFile = useCallback(async (node: any) => {
     const api = (window as any).electronAPI
@@ -3794,8 +3828,9 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
     }]
     forceRender({})
     openNodeInEditor(newId)
+    trackRecentFile({ path: node.path, name: node.name, rel: node.path })
     addEvent('import', `Opened ${node.name}`)
-  }, [openNodeInEditor, addEvent])
+  }, [openNodeInEditor, addEvent, trackRecentFile])
 
   // ── SCAN IMPORTS → GRAPH ──────────────────────────────────────
   const handleScanImports = useCallback(async (folderPath: string) => {
@@ -4034,6 +4069,9 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
   const [editorCursorPos, setEditorCursorPos] = useState<{line:number,col:number}|null>(null)
   const [replaceQuery, setReplaceQuery] = useState('')
   const [replaceLoading, setReplaceLoading] = useState(false)
+  const [recentFiles, setRecentFiles] = useState<any[]>(() => {
+    try { return JSON.parse(localStorage.getItem('forbiden_recent_files') || '[]') } catch { return [] }
+  })
 
   // ── PHASE 4: AI PROVIDER STATE ──
   const [aiProvider, setAiProvider] = useState<string>(() => localStorage.getItem('forbiden_ai_provider') || 'anthropic')
@@ -4122,6 +4160,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
       const res = await api.fs.readFile(fileInfo.path || fileInfo.fullPath)
       if (res?.content === undefined) return
       const existing = nodesRef.current.find(n => n.filepath === (fileInfo.path || fileInfo.fullPath))
+      trackRecentFile(fileInfo)
       if (existing) { openNodeInEditor(existing.id); return }
       const tempId = 'ws_' + Date.now()
       nodesRef.current = [...nodesRef.current, {
@@ -4133,7 +4172,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
       forceRender({})
       openNodeInEditor(tempId)
     } catch {}
-  }, [explorerRoot])
+  }, [explorerRoot, trackRecentFile])
 
   const handleCmdAction = action => {
     if (!action) return
@@ -4937,11 +4976,16 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
                 {openTabs.map(id=>{
                   const n=nodesRef.current.find(nd=>nd.id===id)
                   if (!n) return null
+                  const isPinned = pinnedTabs.has(id)
                   return (
-                    <div key={id} className={`ide-file-tab ${activeTabId===id?'active':''}`} onClick={()=>setActiveTabId(id)}>
+                    <div key={id} className={`ide-file-tab ${activeTabId===id?'active':''} ${isPinned?'pinned':''}`}
+                      onClick={()=>setActiveTabId(id)}
+                      onDoubleClick={()=>togglePinTab(id)}
+                      title={isPinned?'Pinned (double-click to unpin)':'Double-click to pin'}>
+                      {isPinned && <span style={{fontSize:'8px',marginRight:3,opacity:.6}}>📌</span>}
                       {n.label}
                       {n.modified&&<span className="modified-dot"/>}
-                      <span className="ide-tab-close" onClick={e=>{e.stopPropagation();closeTab(id)}}><I.X/></span>
+                      {!isPinned && <span className="ide-tab-close" onClick={e=>{e.stopPropagation();closeTab(id)}}><I.X/></span>}
                     </div>
                   )
                 })}
@@ -5638,7 +5682,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
       <CommandPalette isOpen={showCmd} onClose={()=>{setShowCmd(false);setCmdPreviewPalette(null)}} onAction={handleCmdAction} previewPalette={cmdPreviewPalette} onPreviewPalette={p=>{setCmdPreviewPalette(p);if(p)setGlobalEditorPalette(p)}}/>
 
       {/* File finder (Ctrl+P) */}
-      <FileFinderModal isOpen={showFileFinder} onClose={()=>setShowFileFinder(false)} onOpenFile={handleOpenWorkspaceFile} rootPath={explorerRoot}/>
+      <FileFinderModal isOpen={showFileFinder} onClose={()=>setShowFileFinder(false)} onOpenFile={handleOpenWorkspaceFile} rootPath={explorerRoot} recentFiles={recentFiles}/>
 
       {/* Jump to line (Ctrl+G) */}
       <JumpToLineModal isOpen={showJumpLine} onClose={()=>setShowJumpLine(false)} onJump={line=>setJumpLineTarget(line)} maxLine={activeTabNode?.code?.split('\n').length||9999}/>
