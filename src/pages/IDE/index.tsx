@@ -635,18 +635,18 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
     mdFontSize, setMdFontSize,
   } = useTerminalStore()
   const termLines = _termLinesDirect
-  const setTermLines = (v) => {
+  const setTermLines = useCallback((v) => {
     const curr = useTerminalStore.getState().termLines
     _setTermLinesDirect(typeof v === 'function' ? v(curr) : v)
-  }
-  const setJsLogs = (v) => {
+  }, [_setTermLinesDirect])
+  const setJsLogs = useCallback((v) => {
     const curr = useTerminalStore.getState().jsLogs
     _setJsLogsDirect(typeof v === 'function' ? v(curr) : v)
-  }
-  const setReplHistory = (v) => {
+  }, [_setJsLogsDirect])
+  const setReplHistory = useCallback((v) => {
     const curr = useTerminalStore.getState().replHistory
     useTerminalStore.setState({ replHistory: typeof v === 'function' ? v(curr) : v })
-  }
+  }, [])
 
   // ── Git store ───────────────────────────────────────────────
   const {
@@ -852,6 +852,10 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
   const PC = { HIGH:'#ff435a', MED:'#ffc410', LOW:'#4285f4', DONE:'#10b981' }
   const playheadDragRef = useRef({ isDragging:false })
   const activePtyIdRef = useRef<string | null>(null)
+  const handleActivePtyChange = useCallback((id) => {
+    activePtyIdRef.current = id
+    setActivePtyId(id)
+  }, [setActivePtyId])
   const termEndRef = useRef(null)
   const [nodeRunState, setNodeRunState] = useState({})
   const [edgeDataLabels, setEdgeDataLabels] = useState({})
@@ -3055,7 +3059,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
                 cwd={termCwd}
                 palette={termPalette}
                 onCwdChange={setTermCwd}
-                onActivePtyChange={(id) => { activePtyIdRef.current = id; setActivePtyId(id) }}
+                onActivePtyChange={handleActivePtyChange}
               />
             )}
             {bottomTab==='scripts' && (

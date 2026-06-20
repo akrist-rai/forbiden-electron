@@ -25,6 +25,13 @@ tauri-plugin-opener = "2"
 serde              = { version = "1", features = ["derive"] }
 serde_json         = "1"
 tokio              = { version = "1", features = ["full"] }
+reqwest            = { version = "0.12", features = ["json", "stream"], default-features = false, features = ["rustls-tls", "json", "stream", "gzip"] }
+walkdir            = "2"
+regex              = "1"
+notify             = { version = "6", default-features = false, features = ["macos_fsevent"] }
+
+[profile.dev]
+opt-level    = 1
 
 [profile.release]
 panic        = "abort"
