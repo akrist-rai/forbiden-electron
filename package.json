@@ -96,7 +96,8 @@
       ],
       "executableName": "forbiden",
       "extraResources": [
-        { "from": "electron/forbiden-engine", "to": "forbiden-engine" }
+        { "from": "electron/forbiden-engine", "to": "forbiden-engine" },
+        { "from": "assets/icon.png", "to": "icon.png" }
       ]
     },
     "mac": {
@@ -112,7 +113,8 @@
       "category": "public.app-category.developer-tools",
       "darkModeSupport": true,
       "extraResources": [
-        { "from": "electron/forbiden-engine", "to": "forbiden-engine" }
+        { "from": "electron/forbiden-engine", "to": "forbiden-engine" },
+        { "from": "assets/icon.png", "to": "icon.png" }
       ]
     },
     "win": {
@@ -126,7 +128,8 @@
       ],
       "artifactName": "FORBIDEN-Setup-${version}.exe",
       "extraResources": [
-        { "from": "electron/forbiden-engine.exe", "to": "forbiden-engine.exe" }
+        { "from": "electron/forbiden-engine.exe", "to": "forbiden-engine.exe" },
+        { "from": "assets/icon.png", "to": "icon.png" }
       ]
     },
     "nsis": {

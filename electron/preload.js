@@ -121,6 +121,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // ── AI ─────────────────────────────────────────────────────
   ai: {
     chat:         (messages, apiKey, model, system, provider) => api('/api/ai/chat',          { messages, apiKey, model, system, provider }),
+    streamUrl:    ()                                           => `${API}/api/ai/stream`,
     ollamaModels: (host)                                       => api('/api/ai/ollama-models', { host }),
   },
 

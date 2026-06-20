@@ -2684,11 +2684,13 @@ const DEFAULT_MODELS: Record<string,string> = {
 function AiChatPanel({ activeNode, explorerRoot, brutal, aiProvider, aiKeys, aiModels, onOpenSettings }: any) {
   const [messages, setMessages] = useState<{role:string,content:string}[]>([])
   const [input, setInput] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [streaming, setStreaming] = useState(false)
+  const [streamingText, setStreamingText] = useState('')
   const [includeFile, setIncludeFile] = useState(true)
   const endRef = useRef<HTMLDivElement>(null)
+  const abortRef = useRef<AbortController | null>(null)
 
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages, loading])
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages, streaming, streamingText])
 
   const activeKey = aiProvider === 'ollama' ? (aiKeys['ollama'] || 'http://localhost:11434') : (aiKeys[aiProvider] || '')
   const activeModel = aiModels[aiProvider] || DEFAULT_MODELS[aiProvider] || ''
@@ -2697,34 +2699,89 @@ function AiChatPanel({ activeNode, explorerRoot, brutal, aiProvider, aiKeys, aiM
 
   const send = async () => {
     const q = input.trim()
-    if (!q || loading) return
+    if (!q || streaming) return
     setInput('')
 
     const userMsg = { role: 'user', content: q }
     const newMsgs = [...messages, userMsg]
     setMessages(newMsgs)
-    setLoading(true)
+    setStreaming(true)
+    setStreamingText('')
 
     const system = includeFile && activeNode?.code
       ? `You are an expert programmer assistant. The user has this file open:\n\nFilename: ${activeNode.label}\n\`\`\`\n${activeNode.code.slice(0, 8000)}\n\`\`\`\n\nBe concise, code-focused, and practical.`
       : `You are an expert programmer assistant. Be concise, code-focused, and practical.`
 
-    const api = (window as any).electronAPI
-    const result = await api?.ai?.chat?.(
-      newMsgs.map(m=>({role:m.role,content:m.content})),
-      aiProvider === 'ollama' ? activeKey : activeKey,
-      activeModel,
-      system,
-      aiProvider,
-    )
+    const electronAPI = (window as any).electronAPI
+    const streamUrl = electronAPI?.ai?.streamUrl?.()
+    if (!streamUrl) {
+      setStreaming(false)
+      setMessages(prev => [...prev, { role: 'assistant', content: '⚠ Error: stream endpoint unavailable' }])
+      return
+    }
 
-    setLoading(false)
-    if (result?.success) {
-      setMessages(prev => [...prev, { role: 'assistant', content: result.content }])
-    } else {
-      setMessages(prev => [...prev, { role: 'assistant', content: `⚠ Error: ${result?.error || 'Unknown error'}` }])
+    const ctrl = new AbortController()
+    abortRef.current = ctrl
+
+    try {
+      const resp = await fetch(streamUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: newMsgs.map(m => ({ role: m.role, content: m.content })),
+          apiKey: activeKey,
+          model: activeModel,
+          system,
+          provider: aiProvider,
+        }),
+        signal: ctrl.signal,
+      })
+
+      if (!resp.ok || !resp.body) {
+        throw new Error(`HTTP ${resp.status}`)
+      }
+
+      const reader = resp.body.getReader()
+      const decoder = new TextDecoder()
+      let buf = ''
+      let accumulated = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buf += decoder.decode(value, { stream: true })
+        const lines = buf.split('\n')
+        buf = lines.pop() ?? ''
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue
+          const payload = line.slice(6)
+          if (payload === '[DONE]') break
+          try {
+            const ev = JSON.parse(payload)
+            if (ev.error) {
+              setStreamingText(t => t + `\n⚠ ${ev.error}`)
+            } else if (ev.token) {
+              accumulated += ev.token
+              setStreamingText(accumulated)
+            }
+          } catch {}
+        }
+      }
+
+      setStreaming(false)
+      setStreamingText('')
+      setMessages(prev => [...prev, { role: 'assistant', content: accumulated || '(empty response)' }])
+    } catch (err: any) {
+      setStreaming(false)
+      setStreamingText('')
+      if (err?.name !== 'AbortError') {
+        setMessages(prev => [...prev, { role: 'assistant', content: `⚠ Error: ${err?.message || 'Unknown error'}` }])
+      }
     }
   }
+
+  const cancel = () => { abortRef.current?.abort(); abortRef.current = null }
 
   const text   = brutal ? '#0f0f0f' : '#c0c8d8'
   const dimText = brutal ? 'rgba(15,15,15,.4)' : 'rgba(200,200,220,.4)'

@@ -168,6 +168,9 @@ ipcMain.handle('get-user-data', () => app.getPath('userData'))
 // ── Create window ─────────────────────────────────────────────
 function createWindow() {
   const saved = loadWinState()
+  const iconPath = app.isPackaged
+    ? path.join(process.resourcesPath, 'icon.png')
+    : path.join(__dirname, '..', 'assets', 'icon.png')
   const win = new BrowserWindow({
     width:  saved?.width  ?? 1440,
     height: saved?.height ?? 900,
@@ -178,6 +181,7 @@ function createWindow() {
     backgroundColor: '#0b0b0f',
     titleBarStyle: 'hidden',
     frame: false,
+    icon: fs.existsSync(iconPath) ? iconPath : undefined,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
