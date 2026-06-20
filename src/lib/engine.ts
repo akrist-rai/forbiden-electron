@@ -153,14 +153,6 @@ async function goPost(path: string, body: any): Promise<any> {
 
 // ── Capture-mode execution (output panel) ─────────────────────
 async function captureRun(lang: string, code: string, stdin = ''): Promise<RunResult> {
-  const api = (window as any).electronAPI
-  if (!api) {
-    return {
-      logs: [{ type: 'error', val: 'Native execution requires the Electron app.', ts: Date.now() }],
-      error: new Error('Not in Electron'),
-      ms: 0,
-    }
-  }
   const t0 = performance.now()
   try {
     const result = await goPost('/api/run/code', { lang, code, stdin })
@@ -186,8 +178,6 @@ export async function runInTerminal(
   cwd = '',
 ): Promise<{ success: boolean; error?: string }> {
   if (!ptyId) return { success: false, error: 'No active terminal' }
-  const api = (window as any).electronAPI
-  if (!api) return { success: false, error: 'Not in Electron' }
   try {
     const result = await goPost('/api/run', { ptyId, lang, code, cwd })
     return result
