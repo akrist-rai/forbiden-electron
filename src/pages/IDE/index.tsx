@@ -32,6 +32,7 @@ import CodeMirrorEditor from '../../components/CodeMirrorEditor'
 import XTermPanel from '../../components/XTermPanel'
 import TitleBar from '../../components/TitleBar'
 import GitPanelV2 from '../../components/GitPanelV2'
+import { ConsolePanel } from '../../components/ConsolePanel'
 import { Icons as I } from '../../components/Icons'
 import { highlightCode } from '../../lib/highlight'
 import { api } from '../../lib/api'
@@ -859,8 +860,6 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
   const termEndRef = useRef(null)
   const [nodeRunState, setNodeRunState] = useState({})
   const [edgeDataLabels, setEdgeDataLabels] = useState({})
-  const jsConsoleEndRef = useRef(null)
-
   // File drop (dragOver from uiStore; only dragDepthRef stays local)
   const dragDepthRef = useRef(0)
 
@@ -902,7 +901,6 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
 
   useEffect(() => { termEndRef.current?.scrollIntoView({behavior:'smooth'}) }, [termLines])
   useEffect(() => { chatEndRef.current?.scrollIntoView({behavior:'smooth'}) }, [chatMessages])
-  useEffect(() => { jsConsoleEndRef.current?.scrollIntoView({behavior:'smooth'}) }, [jsLogs])
 
   // ── Init workspace folder on startup ────────────────────────
   useEffect(() => {
@@ -3109,83 +3107,19 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
               </div>
             )}
             {bottomTab==='notebook' && <NotebookPanel/>}
-            {bottomTab==='console' && (<>
-        {/* ── Console toolbar ── */}
-        <div style={{display:'flex',alignItems:'center',gap:4,padding:'2px 8px',flexShrink:0,borderBottom:'1px solid rgba(255,255,255,.05)',background:'rgba(0,0,0,.25)'}}>
-          <span style={{fontFamily:"'Oswald',sans-serif",fontWeight:700,fontSize:'9px',letterSpacing:'.12em',color:'#5a5a7a',flex:1}}>OUTPUT</span>
-          {jsLogs.length > 0 && (
-            <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:'9px',color:'#3e3e5a'}}>{jsLogs.filter(e=>e.type==='error'||e.type==='compile-err'||e.type==='run-err').length > 0 && <span style={{color:'#ff435a',marginRight:6}}>✕ {jsLogs.filter(e=>e.type==='error'||e.type==='compile-err'||e.type==='run-err').length}</span>}{jsLogs.filter(e=>e.type==='warn'||e.type==='compile-warn').length > 0 && <span style={{color:'#ffc410',marginRight:6}}>⚠ {jsLogs.filter(e=>e.type==='warn'||e.type==='compile-warn').length}</span>}</span>
-          )}
-          <button title="Clear console" onMouseDown={()=>setJsLogs([])} style={{background:'transparent',border:'none',color:'#3e3e5a',cursor:'pointer',padding:'2px 4px',fontSize:'11px',lineHeight:1,transition:'color .1s'}} onMouseEnter={e=>(e.currentTarget.style.color='#ff435a')} onMouseLeave={e=>(e.currentTarget.style.color='#3e3e5a')}>⊘</button>
-        </div>
-        {/* ── Log entries ── */}
-        <div style={{flex:1,overflowY:'auto',padding:'4px 0',fontFamily:"'JetBrains Mono',monospace",fontSize:'11px',lineHeight:1.6,scrollbarWidth:'thin',scrollbarColor:'rgba(255,255,255,.08) transparent'}}>
-          {jsLogs.length === 0 && (
-            <div style={{padding:'20px 12px',color:'#3e3e5a',fontFamily:"'Share Tech Mono',monospace",fontSize:'10px',textAlign:'center',letterSpacing:'.06em'}}>
-              RUN A FILE TO SEE OUTPUT
-            </div>
-          )}
-          {jsLogs.map((entry,i)=>{
-            const isSep    = entry.type==='compile-sep'||entry.type==='run-sep'
-            const isHeader = entry.type==='header'
-            const isFooter = entry.type==='footer'||entry.type==='error-footer'
-            const isError  = entry.type==='error'||entry.type==='compile-err'||entry.type==='run-err'
-            const isWarn   = entry.type==='warn'||entry.type==='compile-warn'
-            const isOk     = entry.type==='compile-ok'||entry.type==='footer'
-            const col = isError ? '#ff435a' : isWarn ? '#e2c08d' : isOk ? '#73c991'
-              : entry.type==='return' ? '#bb9af7' : entry.type==='info' ? '#5ccfe6'
-              : entry.type==='repl-in' ? '#10b981' : entry.type==='header' ? '#c0c8d8'
-              : '#c0c8d8'
-            const icon = isError ? '✕' : isWarn ? '⚠' : isOk ? '✓'
-              : entry.type==='return' ? '←' : entry.type==='repl-in' ? '>' : ''
-            if (isSep) return (
-              <div key={i} style={{display:'flex',alignItems:'center',gap:8,padding:'6px 12px 3px',opacity:.5}}>
-                <div style={{height:1,flex:1,background:'rgba(255,255,255,.07)'}}/>
-                <span style={{fontFamily:"'Share Tech Mono',monospace",fontSize:'9px',color:'#5a5a7a',letterSpacing:'.06em',whiteSpace:'nowrap'}}>{entry.val}</span>
-                <div style={{height:1,flex:1,background:'rgba(255,255,255,.07)'}}/>
-              </div>
-            )
-            if (isHeader) return (
-              <div key={i} style={{padding:'4px 12px 2px',borderTop:'1px solid rgba(255,255,255,.06)',marginTop:i>0?4:0}}>
-                <span style={{fontFamily:"'Oswald',sans-serif",fontWeight:700,fontSize:'9px',letterSpacing:'.1em',color:'#8a8aa0'}}>{entry.val}</span>
-              </div>
-            )
-            return (
-              <div key={i} style={{
-                display:'flex',alignItems:'flex-start',gap:0,padding:'0 12px',
-                borderLeft: isError ? '2px solid rgba(255,67,90,.45)' : isWarn ? '2px solid rgba(226,192,141,.35)' : '2px solid transparent',
-                background: isError ? 'rgba(255,67,90,.04)' : 'transparent',
-              }}>
-                {icon && <span style={{color:col,opacity:.6,fontSize:'10px',marginRight:6,flexShrink:0,marginTop:1,lineHeight:'1.6em'}}>{icon}</span>}
-                <span style={{color:col,whiteSpace:'pre-wrap',wordBreak:'break-all',flex:1,lineHeight:'1.6em'}}>{entry.val}</span>
-              </div>
-            )
-          })}
-          <div ref={jsConsoleEndRef}/>
-        </div>
-        {/* ── stdin (compiled langs only) ── */}
-        {(()=>{
-          const activeNode = nodesRef.current.find(n=>n.id===activeTabId)
-          const activeLang = detectLang(activeNode?.label||'')
-          if (!isCompiled(activeLang)) return null
-          return (
-            <div style={{display:'flex',alignItems:'center',gap:6,padding:'4px 10px',borderTop:'1px solid rgba(255,128,128,.1)',flexShrink:0,background:'rgba(255,80,80,.03)'}}>
-              <span style={{color:'#ff6060',fontFamily:"'Share Tech Mono',monospace",fontSize:'9px',letterSpacing:'.06em',flexShrink:0,opacity:.6}}>STDIN</span>
-              <input value={compileStdin} onChange={e=>setCompileStdin(e.target.value)}
-                style={{flex:1,background:'transparent',border:'none',outline:'none',fontFamily:"'JetBrains Mono',monospace",fontSize:'11px',color:'#c0c8d8',caretColor:'#ff6060'}}
-                placeholder={`feed input to ${activeLang.toUpperCase()}…`} spellCheck={false}/>
-              {compileStdin&&<button onMouseDown={()=>setCompileStdin('')} style={{fontSize:'9px',opacity:.35,cursor:'pointer',background:'none',border:'none',color:'inherit'}}>✕</button>}
-            </div>
-          )
-        })()}
-        {/* ── REPL ── */}
-        <div style={{display:'flex',alignItems:'center',gap:6,padding:'4px 10px',borderTop:'1px solid rgba(255,255,255,.06)',flexShrink:0,background:'rgba(0,0,0,.2)'}}>
-          <span style={{color:'#10b981',fontFamily:"'Share Tech Mono',monospace",fontSize:'10px',flexShrink:0,opacity:.7}}>{'>'}</span>
-          <input value={replInput} onChange={e=>setReplInput(e.target.value)} onKeyDown={handleReplKey}
-            style={{flex:1,background:'transparent',border:'none',outline:'none',fontFamily:"'JetBrains Mono',monospace",fontSize:'11px',color:'#c0c8d8',caretColor:'#10b981'}}
-            placeholder="eval JS…" spellCheck={false}/>
-        </div>
-            </>)}
+            {bottomTab==='console' && (
+              <ConsolePanel
+                logs={jsLogs}
+                onClear={() => setJsLogs([])}
+                compileStdin={compileStdin}
+                setCompileStdin={setCompileStdin}
+                replInput={replInput}
+                setReplInput={setReplInput}
+                handleReplKey={handleReplKey}
+                showStdin={isCompiled(detectLang(nodesRef.current.find(n=>n.id===activeTabId)?.label||''))}
+                activeLang={detectLang(nodesRef.current.find(n=>n.id===activeTabId)?.label||'')}
+              />
+            )}
           </div>
         </div>
       )}
