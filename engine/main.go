@@ -1927,6 +1927,212 @@ func handleAIChat(w http.ResponseWriter, r *http.Request) {
 	ok200(w, map[string]any{"success": true, "content": content})
 }
 
+// handleAIStream streams AI responses token-by-token via SSE.
+// Supports Anthropic, OpenAI, OpenRouter, Gemini, and Ollama.
+func handleAIStream(w http.ResponseWriter, r *http.Request) {
+	var req map[string]any
+	if err := decode(r, &req); err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "streaming not supported", 500)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("X-Accel-Buffering", "no")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	sendToken := func(tok string) {
+		b, _ := json.Marshal(map[string]string{"token": tok})
+		fmt.Fprintf(w, "data: %s\n\n", b)
+		flusher.Flush()
+	}
+	sendDone := func() {
+		fmt.Fprintf(w, "data: [DONE]\n\n")
+		flusher.Flush()
+	}
+	sendErr := func(msg string) {
+		b, _ := json.Marshal(map[string]string{"error": msg})
+		fmt.Fprintf(w, "data: %s\n\n", b)
+		flusher.Flush()
+	}
+
+	provider, _ := req["provider"].(string)
+	apiKey, _ := req["apiKey"].(string)
+	model, _ := req["model"].(string)
+	system, _ := req["system"].(string)
+	messages := req["messages"]
+
+	var url string
+	var body any
+	headers := map[string]string{"Content-Type": "application/json"}
+
+	switch provider {
+	case "anthropic", "":
+		if apiKey == "" { sendErr("No Anthropic API key"); return }
+		if model == "" { model = "claude-haiku-4-5-20251001" }
+		url = "https://api.anthropic.com/v1/messages"
+		headers["x-api-key"] = apiKey
+		headers["anthropic-version"] = "2023-06-01"
+		b := map[string]any{"model": model, "max_tokens": 4096, "stream": true, "messages": messages}
+		if system != "" { b["system"] = system }
+		body = b
+
+	case "openai", "openrouter":
+		if apiKey == "" { sendErr("No API key"); return }
+		if model == "" { model = "gpt-4o-mini" }
+		base := "https://api.openai.com/v1"
+		if provider == "openrouter" {
+			base = "https://openrouter.ai/api/v1"
+			if model == "gpt-4o-mini" { model = "openai/gpt-4o-mini" }
+		}
+		url = base + "/chat/completions"
+		headers["Authorization"] = "Bearer " + apiKey
+		msgs := []any{}
+		if system != "" { msgs = append(msgs, map[string]any{"role": "system", "content": system}) }
+		if ms, ok := messages.([]any); ok { msgs = append(msgs, ms...) }
+		body = map[string]any{"model": model, "messages": msgs, "stream": true}
+
+	case "gemini":
+		if apiKey == "" { sendErr("No Gemini API key"); return }
+		if model == "" { model = "gemini-2.0-flash" }
+		url = "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":streamGenerateContent?alt=sse&key=" + apiKey
+		var contents []any
+		if ms, ok := messages.([]any); ok {
+			for _, m := range ms {
+				msg := m.(map[string]any)
+				role := "user"
+				if msg["role"] == "assistant" { role = "model" }
+				contents = append(contents, map[string]any{"role": role, "parts": []any{map[string]any{"text": msg["content"]}}})
+			}
+		}
+		b := map[string]any{"contents": contents}
+		if system != "" { b["systemInstruction"] = map[string]any{"parts": []any{map[string]any{"text": system}}} }
+		body = b
+
+	case "ollama":
+		if model == "" { model = "llama3" }
+		host := apiKey
+		if host == "" { host = "http://localhost:11434" }
+		url = host + "/api/chat"
+		msgs := []any{}
+		if system != "" { msgs = append(msgs, map[string]any{"role": "system", "content": system}) }
+		if ms, ok := messages.([]any); ok { msgs = append(msgs, ms...) }
+		body = map[string]any{"model": model, "messages": msgs, "stream": true}
+
+	default:
+		sendErr("Unknown provider: " + provider)
+		return
+	}
+
+	bodyBytes, _ := json.Marshal(body)
+	httpReq, _ := http.NewRequestWithContext(r.Context(), "POST", url, bytes.NewReader(bodyBytes))
+	for k, v := range headers { httpReq.Header.Set(k, v) }
+
+	client := &http.Client{Timeout: 120 * time.Second}
+	resp, err := client.Do(httpReq)
+	if err != nil { sendErr(err.Error()); return }
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		rb, _ := io.ReadAll(resp.Body)
+		var data map[string]any
+		json.Unmarshal(rb, &data)
+		msg := resp.Status
+		if e, ok := data["error"].(map[string]any); ok {
+			if s, ok := e["message"].(string); ok { msg = s }
+		}
+		sendErr(msg)
+		return
+	}
+
+	scanner := bufio.NewScanner(resp.Body)
+	scanner.Buffer(make([]byte, 64*1024), 64*1024)
+
+	switch provider {
+	case "anthropic", "":
+		for scanner.Scan() {
+			line := scanner.Text()
+			if !strings.HasPrefix(line, "data: ") { continue }
+			payload := strings.TrimPrefix(line, "data: ")
+			if payload == "[DONE]" { break }
+			var ev map[string]any
+			if json.Unmarshal([]byte(payload), &ev) != nil { continue }
+			if ev["type"] == "content_block_delta" {
+				if d, ok := ev["delta"].(map[string]any); ok {
+					if tok, ok := d["text"].(string); ok && tok != "" {
+						sendToken(tok)
+					}
+				}
+			}
+		}
+
+	case "openai", "openrouter":
+		for scanner.Scan() {
+			line := scanner.Text()
+			if !strings.HasPrefix(line, "data: ") { continue }
+			payload := strings.TrimPrefix(line, "data: ")
+			if payload == "[DONE]" { break }
+			var ev map[string]any
+			if json.Unmarshal([]byte(payload), &ev) != nil { continue }
+			if choices, ok := ev["choices"].([]any); ok && len(choices) > 0 {
+				if c, ok := choices[0].(map[string]any); ok {
+					if delta, ok := c["delta"].(map[string]any); ok {
+						if tok, ok := delta["content"].(string); ok && tok != "" {
+							sendToken(tok)
+						}
+					}
+				}
+			}
+		}
+
+	case "gemini":
+		for scanner.Scan() {
+			line := scanner.Text()
+			if !strings.HasPrefix(line, "data: ") { continue }
+			payload := strings.TrimPrefix(line, "data: ")
+			var ev map[string]any
+			if json.Unmarshal([]byte(payload), &ev) != nil { continue }
+			if cands, ok := ev["candidates"].([]any); ok && len(cands) > 0 {
+				if c, ok := cands[0].(map[string]any); ok {
+					if cont, ok := c["content"].(map[string]any); ok {
+						if parts, ok := cont["parts"].([]any); ok {
+							for _, p := range parts {
+								if pm, ok := p.(map[string]any); ok {
+									if tok, ok := pm["text"].(string); ok && tok != "" {
+										sendToken(tok)
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+
+	case "ollama":
+		for scanner.Scan() {
+			line := scanner.Text()
+			if line == "" { continue }
+			var ev map[string]any
+			if json.Unmarshal([]byte(line), &ev) != nil { continue }
+			if m, ok := ev["message"].(map[string]any); ok {
+				if tok, ok := m["content"].(string); ok && tok != "" {
+					sendToken(tok)
+				}
+			}
+		}
+	}
+
+	sendDone()
+}
+
 func handleAIOllamaModels(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Host string `json:"host"`
@@ -2034,6 +2240,7 @@ func main() {
 
 	// AI
 	mux.HandleFunc("/api/ai/chat", handleAIChat)
+	mux.HandleFunc("/api/ai/stream", handleAIStream)
 	mux.HandleFunc("/api/ai/ollama-models", handleAIOllamaModels)
 
 	addr := fmt.Sprintf("127.0.0.1:%d", port)
