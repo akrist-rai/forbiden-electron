@@ -1,5 +1,5 @@
 const { app, BrowserWindow, shell, ipcMain, dialog, Menu } = require('electron')
-const { spawn } = require('child_process')
+const { spawn, exec } = require('child_process')
 const path = require('path')
 const fs   = require('fs')
 const os   = require('os')
@@ -55,14 +55,16 @@ function startEngine() {
 }
 
 // ── Window state ──────────────────────────────────────────────
-const statePath = path.join(app.getPath('userData'), 'window-state.json')
+function getStatePath() {
+  return path.join(app.getPath('userData'), 'window-state.json')
+}
 
 function loadWinState() {
-  try { return JSON.parse(fs.readFileSync(statePath, 'utf8')) } catch { return null }
+  try { return JSON.parse(fs.readFileSync(getStatePath(), 'utf8')) } catch { return null }
 }
 function saveWinState(win) {
   if (win.isMaximized() || win.isMinimized()) return
-  try { fs.writeFileSync(statePath, JSON.stringify(win.getBounds())) } catch {}
+  try { fs.writeFileSync(getStatePath(), JSON.stringify(win.getBounds())) } catch {}
 }
 
 // ── Menu ──────────────────────────────────────────────────────
@@ -164,6 +166,15 @@ ipcMain.handle('window:isMaximized', () => mainWin?.isMaximized() ?? false)
 ipcMain.handle('get-home-dir',  () => os.homedir())
 ipcMain.handle('get-platform',  () => process.platform)
 ipcMain.handle('get-user-data', () => app.getPath('userData'))
+
+// ── IPC: inline terminal shell exec ──────────────────────────
+ipcMain.handle('terminal:exec', (_e, { cmd, cwd }) => {
+  return new Promise((resolve) => {
+    exec(cmd, { cwd, timeout: 15000, maxBuffer: 1024 * 512 }, (err, stdout, stderr) => {
+      resolve({ stdout: stdout || '', stderr: stderr || (err && !stderr ? err.message : '') })
+    })
+  })
+})
 
 // ── Create window ─────────────────────────────────────────────
 function createWindow() {

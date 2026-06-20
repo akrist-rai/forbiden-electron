@@ -131,6 +131,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getScripts:  (rootPath)  => api('/api/fs/get-scripts', { rootPath }),
   },
 
+  // ── Inline terminal shell execution ────────────────────────
+  terminal: {
+    exec: (cmd, cwd) => ipcRenderer.invoke('terminal:exec', { cmd, cwd }),
+  },
+
   // ── Menu events ────────────────────────────────────────────
   on:  (channel, cb) => {
     const allowed = ['menu:open-folder', 'menu:save-file', 'menu:run-active', 'menu:toggle-terminal']
