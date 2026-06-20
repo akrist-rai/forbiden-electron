@@ -54,7 +54,7 @@ function buildFileMenu(recentWorkspaces: string[]): MenuItem[] {
     { label: 'Save File',    action: () => window.dispatchEvent(new CustomEvent('forbiden:save-file')) },
     { separator: true, label: '' },
     ...(recentWorkspaces.length > 0 ? [
-      { label: 'Open Recent ▸', disabled: true, label: '─── Recent ───', separator: false },
+      { label: '─── Recent ───', disabled: true, separator: false },
       ...recentWorkspaces.map(p => ({
         label: p.split('/').pop() || p,
         action: () => window.dispatchEvent(new CustomEvent('forbiden:open-folder', { detail: p })),

@@ -3147,6 +3147,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
   const [termPalette, setTermPalette] = useState(TERM_PALETTES[1])
   const [showTermPalette, setShowTermPalette] = useState(false)
   const [activePtyId, setActivePtyId] = useState<string | null>(null)
+  const activePtyIdRef = useRef<string | null>(null)
   const termEndRef = useRef(null)
 
   // JS Runtime
@@ -4111,10 +4112,10 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
       const byPath: Record<string, string> = {}
       projectSearchResults.forEach(r => { byPath[r.fullPath] = r.fullPath })
       let totalReplaced = 0
+      const query = projectSearchQuery.trim()
       for (const fullPath of Object.values(byPath)) {
         const readRes = await api.fs.readFile(fullPath)
         if (!readRes?.content) continue
-        const query = projectSearchQuery.trim()
         const count = readRes.content.split(query).length - 1
         if (count > 0) {
           await api.fs.writeFile(fullPath, readRes.content.split(query).join(replaceQuery))
@@ -4181,7 +4182,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
     else if (action === 'new-group') { setShowCreateGroup(true); setGroupSelected([]) }
     else if (action === 'run') { if (activeTabId) handleRunNode(activeTabId) }
     else if (action === 'terminal') { setBottomTab('terminal'); setBottomOpen(true) }
-    else if (action === 'board') { setSidebarMode('board'); setSidebarOpen(true) }
+    else if (action === 'board') { setSidebarMode('board'); setSidebarOpen(false) }
     else if (action === 'timeline') { setBottomTab('timeline'); setBottomOpen(true) }
     else if (action === 'git') { setSidebarMode('git'); setSidebarOpen(true) }
     else if (action === 'sidebar') { setSidebarOpen(v => !v) }
@@ -4413,7 +4414,11 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
                 <GitPanelV2
                   cwd={explorerRoot || (window as any).__forbiddenCwd || termCwd}
                   brutal={brutal}
-                  onOpenFile={handleExplorerOpenFile}
+                  onOpenFile={(filepath: string) => {
+                    const name = filepath.split('/').pop() || filepath
+                    const ext = name.includes('.') ? name.split('.').pop() || '' : ''
+                    handleExplorerOpenFile({ path: filepath, name, ext, type: 'file' })
+                  }}
                   aiProvider={aiProvider}
                   aiKeys={aiKeys}
                   aiModels={aiModels}
@@ -4444,7 +4449,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
                 )}
               </>)}
               {sidebarMode==='note' && (
-                <textarea style={{background:'transparent',border:'none',outline:'none',resize:'none',padding:'12px',fontFamily:"'Share Tech Mono',monospace",fontSize:'12px',lineHeight:1.7,color:brutal?'#0f0f0f':'#c0c8d8',width:'100%',height:'100%',minHeight:300}} placeholder="// scratch notes…"/>
+                <textarea value={notesText} onChange={e=>setNotesText(e.target.value)} style={{background:'transparent',border:'none',outline:'none',resize:'none',padding:'12px',fontFamily:"'Share Tech Mono',monospace",fontSize:'12px',lineHeight:1.7,color:brutal?'#0f0f0f':'#c0c8d8',width:'100%',height:'100%',minHeight:300}} placeholder="// scratch notes…"/>
               )}
 
               {/* ── PROJECT-WIDE SEARCH ── */}
@@ -5442,7 +5447,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
                 cwd={termCwd}
                 palette={termPalette}
                 onCwdChange={setTermCwd}
-                onActivePtyChange={setActivePtyId}
+                onActivePtyChange={(id) => { activePtyIdRef.current = id; setActivePtyId(id) }}
               />
             )}
             {bottomTab==='scripts' && (
@@ -5450,13 +5455,14 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
                 onRun={(cmd)=>{
                   setBottomTab('terminal')
                   setBottomOpen(true)
-                  // Give terminal tab time to mount, then inject command
+                  // Give terminal tab time to mount, then inject command via ref (avoids stale closure)
                   setTimeout(() => {
-                    if (activePtyId) {
+                    const ptyId = activePtyIdRef.current
+                    if (ptyId) {
                       const api = (window as any).electronAPI
-                      api?.runInTerminal?.(activePtyId, 'sh', cmd, explorerRoot)
+                      api?.runInTerminal?.(ptyId, 'sh', cmd, explorerRoot)
                     }
-                  }, 300)
+                  }, 800)
                 }}/>
             )}
             {bottomTab==='timeline' && (
