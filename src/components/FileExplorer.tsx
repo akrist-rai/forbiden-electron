@@ -114,7 +114,7 @@ function RenameInput({ item, onCommit, onCancel }) {
 }
 
 // ── Tree node ─────────────────────────────────────────────
-function TreeNode({ node, depth, openPaths, onToggle, onSelect, selectedPath, onCtxMenu, renamingPath, onRenameCommit, onRenameCancel }) {
+function TreeNode({ node, depth, openPaths, onToggle, onSelect, selectedPath, onCtxMenu, renamingPath, onRenameCommit, onRenameCancel, newItemState, newItemName, newItemRef, onNewItemChange, onNewItemCommit, onNewItemCancel }) {
   const isOpen = openPaths.has(node.path)
   const isSelected = selectedPath === node.path
   const isRenaming = renamingPath === node.path
@@ -167,10 +167,25 @@ function TreeNode({ node, depth, openPaths, onToggle, onSelect, selectedPath, on
         )}
       </div>
 
-      {/* Children */}
-      {node.type === 'dir' && isOpen && node.children?.map(child => (
-        <TreeNode key={child.path} node={child} depth={depth + 1} openPaths={openPaths} onToggle={onToggle} onSelect={onSelect} selectedPath={selectedPath} onCtxMenu={onCtxMenu} renamingPath={renamingPath} onRenameCommit={onRenameCommit} onRenameCancel={onRenameCancel}/>
-      ))}
+      {/* Children + new-item input — works at any nesting depth */}
+      {node.type === 'dir' && isOpen && (
+        <div>
+          {newItemState?.parentPath === node.path && (
+            <NewItemInput ref={newItemRef} type={newItemState.type} value={newItemName}
+              onChange={onNewItemChange} onCommit={onNewItemCommit} onCancel={onNewItemCancel}
+              depth={depth + 1}/>
+          )}
+          {node.children?.map(child => (
+            <TreeNode key={child.path} node={child} depth={depth + 1}
+              openPaths={openPaths} onToggle={onToggle} onSelect={onSelect}
+              selectedPath={selectedPath} onCtxMenu={onCtxMenu}
+              renamingPath={renamingPath} onRenameCommit={onRenameCommit} onRenameCancel={onRenameCancel}
+              newItemState={newItemState} newItemName={newItemName} newItemRef={newItemRef}
+              onNewItemChange={onNewItemChange} onNewItemCommit={onNewItemCommit} onNewItemCancel={onNewItemCancel}
+            />
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -218,6 +233,18 @@ export default function FileExplorer({ rootPath, brutal, onOpenFile, onOpenFolde
 
   useEffect(() => { if (rootPath) reload(rootPath) }, [rootPath])
   useEffect(() => { if (rootPath && refreshKey) reload(rootPath) }, [refreshKey])
+
+  // Auto-reload when files change (Go watcher pushes events every ~1.5s)
+  useEffect(() => {
+    if (!rootPath) return
+    const watchUrl = (window as any).electronAPI?.watch?.wsUrl?.(rootPath)
+    if (!watchUrl) return
+    let ws: WebSocket | null = new WebSocket(watchUrl)
+    ws.onmessage = () => reload(rootPath)
+    ws.onclose   = () => { ws = null }
+    ws.onerror   = () => { try { ws?.close() } catch {} ws = null }
+    return () => { try { ws?.close() } catch {} }
+  }, [rootPath, reload])
 
   useEffect(() => { if (newItemState) setTimeout(() => newItemRef.current?.focus(), 50) }, [newItemState])
 
@@ -366,13 +393,13 @@ export default function FileExplorer({ rootPath, brutal, onOpenFile, onOpenFolde
               <NewItemInput ref={newItemRef} type={newItemState.type} value={newItemName} onChange={setNewItemName} onCommit={handleNewItemCommit} onCancel={() => setNewItemState(null)} depth={0}/>
             )}
             {tree.children?.map((child: any) => (
-              <div key={child.path}>
-                <TreeNode node={child} depth={0} openPaths={openPaths} onToggle={toggle} onSelect={handleSelect} selectedPath={selectedPath!} onCtxMenu={handleCtxMenu} renamingPath={renamingPath!} onRenameCommit={handleRenameCommit} onRenameCancel={() => setRenamingPath(null)}/>
-                {/* New item input inside folder */}
-                {newItemState?.parentPath === child.path && child.type === 'dir' && (
-                  <NewItemInput ref={newItemRef} type={newItemState.type} value={newItemName} onChange={setNewItemName} onCommit={handleNewItemCommit} onCancel={() => setNewItemState(null)} depth={1}/>
-                )}
-              </div>
+              <TreeNode key={child.path} node={child} depth={0}
+                openPaths={openPaths} onToggle={toggle} onSelect={handleSelect}
+                selectedPath={selectedPath!} onCtxMenu={handleCtxMenu}
+                renamingPath={renamingPath!} onRenameCommit={handleRenameCommit} onRenameCancel={() => setRenamingPath(null)}
+                newItemState={newItemState} newItemName={newItemName} newItemRef={newItemRef}
+                onNewItemChange={setNewItemName} onNewItemCommit={handleNewItemCommit} onNewItemCancel={() => setNewItemState(null)}
+              />
             ))}
           </div>
         )}
