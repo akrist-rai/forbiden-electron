@@ -57,6 +57,18 @@ function emitMenuEvent(channel: MenuChannel, ...args: unknown[]) {
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 
+async function waitForEngine(url: string, maxMs = 10_000): Promise<void> {
+  const deadline = Date.now() + maxMs
+  while (Date.now() < deadline) {
+    try {
+      const r = await fetch(`${url}/api/status`, { signal: AbortSignal.timeout(600) })
+      if (r.ok) return
+    } catch {}
+    await new Promise(r => setTimeout(r, 120))
+  }
+  console.warn('[engine] health-check timed out — proceeding anyway')
+}
+
 export async function initTauriAPI(): Promise<void> {
   // Fetch Go engine URL — one Tauri invoke, then all calls go to Go HTTP
   try {
@@ -70,6 +82,11 @@ export async function initTauriAPI(): Promise<void> {
       }
     }
   } catch { /* use fallback port */ }
+
+  // Block until the Go engine is actually accepting connections.
+  // In a packaged AppImage the engine process may not be listening yet
+  // even though Rust has already read the READY signal from stdout.
+  await waitForEngine(engineUrl)
 
   await setupMaximizeListener()
 

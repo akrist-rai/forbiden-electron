@@ -100,7 +100,22 @@ func handleCodeRun(w http.ResponseWriter, r *http.Request) {
 
 	t0 := time.Now()
 	cmd := exec.Command("sh", "-c", cmdStr)
-	cmd.Env = append(os.Environ(), "PATH="+extendedPath())
+	// Build clean env: extend PATH, but strip PYTHONHOME/PYTHONPATH so the
+	// system Python can always find its own stdlib (AppImage sets them to
+	// the squashfs mount, which doesn't contain Python → "Failed to import encodings").
+	baseEnv := os.Environ()
+	env := make([]string, 0, len(baseEnv)+1)
+	for _, e := range baseEnv {
+		if strings.HasPrefix(e, "PYTHONHOME=") || strings.HasPrefix(e, "PYTHONPATH=") {
+			continue
+		}
+		if strings.HasPrefix(e, "PATH=") {
+			continue // replaced below
+		}
+		env = append(env, e)
+	}
+	env = append(env, "PATH="+extendedPath())
+	cmd.Env = env
 	if req.Cwd != "" {
 		cmd.Dir = req.Cwd
 	}

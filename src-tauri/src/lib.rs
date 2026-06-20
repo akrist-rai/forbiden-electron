@@ -101,9 +101,12 @@ fn start_engine(engine_url: Arc<Mutex<Option<String>>>, bin_path: PathBuf) {
             }
         };
         let stdout = child.stdout.take();
+        // Store child then immediately release the lock — never hold it while waiting.
+        // The exit handler locks this to kill the process.
         if let Ok(mut guard) = ENGINE_CHILD.lock() {
             *guard = Some(child);
         }
+        // Read stdout for the READY port line; thread exits after that.
         if let Some(stdout) = stdout {
             for line in std::io::BufReader::new(stdout).lines().flatten() {
                 if let Some(port) = line.strip_prefix("READY:") {
@@ -112,12 +115,6 @@ fn start_engine(engine_url: Arc<Mutex<Option<String>>>, bin_path: PathBuf) {
                     println!("[engine] ready at {url}");
                     break;
                 }
-            }
-        }
-        if let Ok(mut guard) = ENGINE_CHILD.lock() {
-            if let Some(c) = guard.as_mut() {
-                let _ = c.wait();
-                guard.take();
             }
         }
     });
@@ -150,13 +147,17 @@ pub fn run() {
         .expect("error while building tauri application");
 
     app.run(move |_app_handle, event| {
-        if let tauri::RunEvent::Exit = event {
-            if let Ok(mut guard) = ENGINE_CHILD.lock() {
-                if let Some(mut child) = guard.take() {
-                    println!("[engine] shutting down...");
-                    let _ = child.kill();
+        match event {
+            tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit => {
+                if let Ok(mut guard) = ENGINE_CHILD.lock() {
+                    if let Some(mut child) = guard.take() {
+                        println!("[engine] shutting down...");
+                        let _ = child.kill();
+                        let _ = child.wait(); // reap zombie; lock already released after take()
+                    }
                 }
             }
+            _ => {}
         }
     });
 }

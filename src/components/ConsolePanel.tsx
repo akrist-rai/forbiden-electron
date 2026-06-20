@@ -1,7 +1,5 @@
 import { useRef, useEffect, useState, KeyboardEvent } from 'react'
 
-// ── Types ──────────────────────────────────────────────────────
-
 export interface LogEntry {
   type: string
   val: string
@@ -21,47 +19,27 @@ interface Props {
   activeLang: string
 }
 
-// ── Entry classification ───────────────────────────────────────
+function isErr(t: string)  { return t === 'error' || t === 'compile-err' || t === 'run-err' || t === 'error-footer' }
+function isWarn(t: string) { return t === 'warn' || t === 'compile-warn' }
+function isOk(t: string)   { return t === 'compile-ok' || t === 'footer' }
+function isSep(t: string)  { return t === 'compile-sep' || t === 'run-sep' }
+function isHead(t: string) { return t === 'header' }
 
-function isSep(type: string)    { return type === 'compile-sep' || type === 'run-sep' }
-function isHead(type: string)   { return type === 'header' }
-function isErr(type: string)    { return ['error','compile-err','run-err','error-footer'].includes(type) }
-function isWarn(type: string)   { return type === 'warn' || type === 'compile-warn' }
-function isOk(type: string)     { return type === 'compile-ok' || type === 'footer' }
-function isReturn(type: string) { return type === 'return' }
-function isInfo(type: string)   { return type === 'info' }
-function isReplIn(type: string) { return type === 'repl-in' }
-
-function entryColor(type: string): string {
-  if (isErr(type))    return '#ff3d5e'
-  if (isWarn(type))   return '#ffaa00'
-  if (isOk(type))     return '#00e566'
-  if (isReturn(type)) return '#c084fc'
-  if (isInfo(type))   return '#38bdf8'
-  if (isReplIn(type)) return '#00e566'
-  return '#a8b8cc'
+function color(t: string) {
+  if (isErr(t))  return '#e05555'
+  if (isWarn(t)) return '#c8922a'
+  if (isOk(t))   return '#3d9970'
+  if (t === 'return') return '#8b6fbf'
+  if (t === 'info')   return '#3a7fad'
+  if (t === 'repl-in') return '#3d9970'
+  return '#8a9ab0'
 }
 
-function entryIcon(type: string): string {
-  if (isErr(type))    return '✕'
-  if (isWarn(type))   return '⚠'
-  if (isOk(type))     return '✓'
-  if (isReturn(type)) return '←'
-  if (isInfo(type))   return 'ℹ'
-  if (isReplIn(type)) return '›'
-  return ''
+function ts(ms?: number) {
+  if (!ms) return ''
+  const d = new Date(ms)
+  return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`
 }
-
-function fmt(ts?: number): string {
-  if (!ts) return ''
-  const d = new Date(ts)
-  const h = String(d.getHours()).padStart(2, '0')
-  const m = String(d.getMinutes()).padStart(2, '0')
-  const s = String(d.getSeconds()).padStart(2, '0')
-  return `${h}:${m}:${s}`
-}
-
-// ── ConsolePanel ───────────────────────────────────────────────
 
 export function ConsolePanel({
   logs, onClear,
@@ -71,301 +49,203 @@ export function ConsolePanel({
 }: Props) {
   const endRef   = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
-  const [hoverRow, setHoverRow] = useState<number | null>(null)
+  const [hov, setHov] = useState<number | null>(null)
 
-  useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [logs])
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [logs])
 
   const errCount  = logs.filter(e => isErr(e.type)).length
   const warnCount = logs.filter(e => isWarn(e.type)).length
-  const hasOutput = logs.length > 0
 
-  let lineNum = 0
+  let ln = 0
 
   return (
     <div style={{
-      display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden',
-      background: '#04070e', fontFamily: "'JetBrains Mono', monospace",
+      display: 'flex', flexDirection: 'column', height: '100%',
+      background: '#080c12', fontFamily: "'JetBrains Mono', monospace",
+      overflow: 'hidden',
     }}>
 
-      {/* ── Keyframes injected once ── */}
-      <style>{`
-        @keyframes cIn { from { opacity:0; transform:translateX(-6px) } to { opacity:1; transform:translateX(0) } }
-        @keyframes cPop { 0%,100%{transform:scale(1)} 50%{transform:scale(1.5)} }
-        @keyframes cGlow { 0%,100%{box-shadow:inset 2px 0 0 #ff3d5e}
-          50%{box-shadow:inset 2px 0 0 #ff6080,0 0 12px rgba(255,61,94,.18)} }
-        @keyframes cBlink { 0%,100%{opacity:1} 50%{opacity:0.35} }
-        .c-entry { animation: cIn .1s ease-out both }
-        .c-err-row { animation: cGlow 2.4s ease-in-out infinite }
-      `}</style>
-
-      {/* ════════ TOOLBAR ════════ */}
+      {/* toolbar */}
       <div style={{
-        display: 'flex', alignItems: 'center', gap: 6, padding: '0 10px',
-        height: 30, flexShrink: 0,
-        background: 'linear-gradient(90deg,#040b14 0%,#030810 100%)',
-        borderBottom: '1px solid rgba(0,229,102,.07)',
-        userSelect: 'none',
+        display: 'flex', alignItems: 'center', gap: 8, padding: '0 10px',
+        height: 28, flexShrink: 0, borderBottom: '1px solid #111820',
+        background: '#06090f',
       }}>
-        {/* Status dot */}
-        <div style={{
-          width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
-          background: hasOutput ? '#00e566' : '#0e2040',
-          boxShadow: hasOutput ? '0 0 8px rgba(0,229,102,.7)' : 'none',
-          transition: 'all .4s',
-        }}/>
+        <span style={{ fontSize: 9, letterSpacing: '.15em', color: '#1e2d40', fontWeight: 700 }}>
+          OUTPUT
+        </span>
 
-        {/* Label */}
-        <span style={{
-          fontFamily: "'Share Tech Mono',monospace",
-          fontSize: 9.5, letterSpacing: '.18em', color: '#1e3a50', fontWeight: 700,
-        }}>CONSOLE</span>
-
-        <div style={{ width: 1, height: 14, background: 'rgba(255,255,255,.05)', margin: '0 2px' }}/>
-
-        {/* Badges */}
         {errCount > 0 && (
-          <span style={{
-            fontSize: 9, fontFamily: "'JetBrains Mono',monospace",
-            color: '#ff3d5e', background: 'rgba(255,61,94,.10)',
-            padding: '1px 7px 1px 5px', borderRadius: 2,
-            border: '1px solid rgba(255,61,94,.22)',
-            display: 'flex', alignItems: 'center', gap: 4,
-          }}>
-            <span style={{ fontSize: 8 }}>✕</span>{errCount}
+          <span style={{ fontSize: 9, color: '#7a3535', letterSpacing: '.04em' }}>
+            {errCount} err
           </span>
         )}
         {warnCount > 0 && (
-          <span style={{
-            fontSize: 9, fontFamily: "'JetBrains Mono',monospace",
-            color: '#ffaa00', background: 'rgba(255,170,0,.08)',
-            padding: '1px 7px 1px 5px', borderRadius: 2,
-            border: '1px solid rgba(255,170,0,.18)',
-            display: 'flex', alignItems: 'center', gap: 4,
-          }}>
-            <span style={{ fontSize: 8 }}>⚠</span>{warnCount}
+          <span style={{ fontSize: 9, color: '#6b4f1a', letterSpacing: '.04em' }}>
+            {warnCount} warn
           </span>
         )}
 
-        <div style={{ flex: 1 }}/>
+        <div style={{ flex: 1 }} />
 
-        {/* Line count */}
-        {hasOutput && (
-          <span style={{ fontSize: 9, color: '#0e2030', fontVariantNumeric: 'tabular-nums' }}>
+        {logs.length > 0 && (
+          <span style={{ fontSize: 9, color: '#1a2838' }}>
             {logs.filter(e => !isSep(e.type) && !isHead(e.type)).length} lines
           </span>
         )}
 
-        {/* Clear button */}
         <button
+          type="button"
           onMouseDown={onClear}
-          title="Clear output"
           style={{
-            background: 'transparent', border: '1px solid transparent', cursor: 'pointer',
-            padding: '1px 6px', color: '#1e3050', fontSize: 11, lineHeight: 1,
-            borderRadius: 3, transition: 'all .15s', display: 'flex', alignItems: 'center',
+            background: 'none', border: 'none', cursor: 'pointer',
+            fontSize: 10, color: '#1e2d40', padding: '0 2px', lineHeight: 1,
+            transition: 'color .12s',
           }}
-          onMouseEnter={e => {
-            e.currentTarget.style.color = '#ff3d5e'
-            e.currentTarget.style.borderColor = 'rgba(255,61,94,.25)'
-            e.currentTarget.style.background = 'rgba(255,61,94,.06)'
-          }}
-          onMouseLeave={e => {
-            e.currentTarget.style.color = '#1e3050'
-            e.currentTarget.style.borderColor = 'transparent'
-            e.currentTarget.style.background = 'transparent'
-          }}
-        >⊘</button>
+          onMouseEnter={e => (e.currentTarget.style.color = '#c04040')}
+          onMouseLeave={e => (e.currentTarget.style.color = '#1e2d40')}
+        >
+          clear
+        </button>
       </div>
 
-      {/* ════════ LOG AREA ════════ */}
+      {/* log area */}
       <div
         style={{
           flex: 1, overflowY: 'auto', overflowX: 'hidden',
-          fontSize: 11.5, lineHeight: 1.7,
-          scrollbarWidth: 'thin',
-          scrollbarColor: 'rgba(0,229,102,.1) transparent',
+          scrollbarWidth: 'thin', scrollbarColor: '#111820 transparent',
         }}
         onClick={() => inputRef.current?.focus()}
       >
-        {/* Empty state */}
         {logs.length === 0 && (
           <div style={{
-            display: 'flex', flexDirection: 'column', alignItems: 'center',
-            justifyContent: 'center', padding: '40px 0', gap: 10, opacity: 0.25,
+            padding: '32px 16px', textAlign: 'center',
+            fontSize: 9.5, letterSpacing: '.12em', color: '#0e1820',
           }}>
-            <div style={{
-              fontSize: 32, color: '#1e3a50',
-              fontFamily: "'Share Tech Mono',monospace", lineHeight: 1,
-            }}>▶</div>
-            <span style={{
-              fontFamily: "'Share Tech Mono',monospace",
-              fontSize: 9, letterSpacing: '.15em', color: '#1e3a50',
-            }}>RUN A FILE TO SEE OUTPUT</span>
+            NO OUTPUT
           </div>
         )}
 
-        {/* Entries */}
         {logs.map((entry, i) => {
-          // ── Separator ──
           if (isSep(entry.type)) return (
             <div key={i} style={{
-              display: 'flex', alignItems: 'center',
-              padding: '6px 12px 4px 40px', margin: '2px 0',
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '4px 12px 3px 40px',
             }}>
-              <div style={{ flex: 1, height: 1, background: 'rgba(0,229,102,.06)' }}/>
-              <span style={{
-                padding: '0 10px', fontSize: 9,
-                fontFamily: "'Share Tech Mono',monospace",
-                letterSpacing: '.1em', color: '#0e2840', whiteSpace: 'nowrap',
-              }}>{entry.val}</span>
-              <div style={{ flex: 1, height: 1, background: 'rgba(0,229,102,.06)' }}/>
+              <div style={{ flex: 1, height: 1, background: '#0e1820' }} />
+              <span style={{ fontSize: 8.5, color: '#0e1820', letterSpacing: '.08em', whiteSpace: 'nowrap' }}>
+                {entry.val}
+              </span>
+              <div style={{ flex: 1, height: 1, background: '#0e1820' }} />
             </div>
           )
 
-          // ── Section header ──
           if (isHead(entry.type)) return (
-            <div key={i} className="c-entry" style={{
-              display: 'flex', alignItems: 'center',
-              padding: '7px 12px 6px',
-              background: 'rgba(0,12,24,.6)',
-              borderTop: i > 0 ? '1px solid rgba(0,229,102,.05)' : 'none',
-              borderBottom: '1px solid rgba(0,229,102,.05)',
-              marginTop: i > 0 ? 6 : 0, gap: 8,
+            <div key={i} style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '5px 12px', background: '#060910',
+              borderTop: i > 0 ? '1px solid #0e1820' : 'none',
+              borderBottom: '1px solid #0e1820',
+              marginTop: i > 0 ? 4 : 0,
             }}>
-              <span style={{
-                color: '#00a840', fontSize: 9,
-                fontFamily: "'Share Tech Mono',monospace",
-              }}>▸</span>
-              <span style={{
-                fontFamily: "'Share Tech Mono',monospace",
-                fontSize: 9.5, letterSpacing: '.08em', color: '#3a6050', flex: 1,
-              }}>{entry.val}</span>
+              <span style={{ fontSize: 9, letterSpacing: '.06em', color: '#253545' }}>
+                {entry.val}
+              </span>
               {entry.ts && (
-                <span style={{
-                  fontSize: 9, color: '#0e2030',
-                  fontVariantNumeric: 'tabular-nums', letterSpacing: '.04em',
-                }}>{fmt(entry.ts)}</span>
+                <span style={{ fontSize: 8.5, color: '#0e1820' }}>{ts(entry.ts)}</span>
               )}
             </div>
           )
 
-          // ── Regular entry ──
-          const err   = isErr(entry.type)
-          const warn  = isWarn(entry.type)
-          const color = entryColor(entry.type)
-          const icon  = entryIcon(entry.type)
-          lineNum++
-          const num  = lineNum
-          const hov  = hoverRow === i
+          const c = color(entry.type)
+          const err = isErr(entry.type)
+          const isHov = hov === i
+          ln++
 
           return (
             <div key={i}
-              className={`c-entry${err ? ' c-err-row' : ''}`}
               style={{
                 display: 'flex', alignItems: 'flex-start',
-                borderLeft: err  ? '2px solid rgba(255,61,94,.55)'
-                           : warn ? '2px solid rgba(255,170,0,.35)'
-                           : '2px solid transparent',
-                background: err ? 'rgba(255,30,50,.04)'
-                           : hov ? 'rgba(255,255,255,.015)'
-                           : 'transparent',
-                transition: 'background .08s',
-                cursor: 'default',
+                borderLeft: err ? '1px solid #3a1818' : '1px solid transparent',
+                background: err ? 'rgba(80,20,20,.08)' : isHov ? 'rgba(255,255,255,.012)' : 'transparent',
+                transition: 'background .06s',
               }}
-              onMouseEnter={() => setHoverRow(i)}
-              onMouseLeave={() => setHoverRow(null)}
+              onMouseEnter={() => setHov(i)}
+              onMouseLeave={() => setHov(null)}
             >
-              {/* Line number gutter */}
+              {/* line number */}
               <div style={{
-                width: 36, flexShrink: 0, textAlign: 'right', paddingRight: 8,
-                fontSize: 9.5, color: hov ? '#1e3a50' : '#0d1e2e',
-                lineHeight: '1.7em', userSelect: 'none',
-                fontVariantNumeric: 'tabular-nums', transition: 'color .1s',
+                width: 34, flexShrink: 0, textAlign: 'right', paddingRight: 8,
+                fontSize: 9, color: isHov ? '#1e2d40' : '#0c151e',
+                lineHeight: '1.65em', userSelect: 'none', paddingTop: 1,
+                fontVariantNumeric: 'tabular-nums',
               }}>
-                {num}
+                {ln}
               </div>
-              {/* Icon column */}
+              {/* text */}
               <div style={{
-                width: 16, flexShrink: 0, textAlign: 'center',
-                fontSize: 9.5, color, lineHeight: '1.7em', opacity: icon ? 0.85 : 0,
-              }}>
-                {icon}
-              </div>
-              {/* Content */}
-              <div style={{
-                flex: 1, padding: '0 12px 0 4px',
-                color, lineHeight: '1.7em',
+                flex: 1, padding: '0 12px 0 2px', fontSize: 11,
+                color: c, lineHeight: '1.65em',
                 whiteSpace: 'pre-wrap', wordBreak: 'break-all',
-                fontSize: 11.5,
               }}>
                 {entry.val}
               </div>
-              {/* Timestamp (shown on hover) */}
-              {entry.ts && hov && (
+              {/* timestamp on hover */}
+              {entry.ts && isHov && (
                 <div style={{
-                  fontSize: 9, color: '#0e2030', lineHeight: '1.7em',
-                  paddingRight: 10, flexShrink: 0,
+                  fontSize: 8.5, color: '#0e1820', lineHeight: '1.65em',
+                  paddingRight: 8, flexShrink: 0, paddingTop: 1,
                   fontVariantNumeric: 'tabular-nums',
                 }}>
-                  {fmt(entry.ts)}
+                  {ts(entry.ts)}
                 </div>
               )}
             </div>
           )
         })}
 
-        <div ref={endRef} style={{ height: 4 }}/>
+        <div ref={endRef} style={{ height: 2 }} />
       </div>
 
-      {/* ════════ STDIN (compiled languages only) ════════ */}
+      {/* stdin */}
       {showStdin && (
         <div style={{
-          display: 'flex', alignItems: 'center', gap: 8, padding: '5px 12px',
-          flexShrink: 0, borderTop: '1px solid rgba(255,100,60,.10)',
-          background: 'rgba(255,60,30,.025)',
+          display: 'flex', alignItems: 'center', gap: 8, padding: '4px 12px',
+          flexShrink: 0, borderTop: '1px solid #0e1820',
+          background: '#060910',
         }}>
-          <span style={{
-            fontFamily: "'Share Tech Mono',monospace",
-            fontSize: 9, letterSpacing: '.12em', color: '#b03020',
-            flexShrink: 0, textTransform: 'uppercase',
-          }}>STDIN</span>
-          <span style={{ color: 'rgba(180,80,60,.5)', fontSize: 13, lineHeight: 1 }}>›</span>
+          <span style={{ fontSize: 9, color: '#2a3a4a', letterSpacing: '.1em', flexShrink: 0 }}>
+            stdin
+          </span>
           <input
             value={compileStdin}
             onChange={e => setCompileStdin(e.target.value)}
             style={{
               flex: 1, background: 'transparent', border: 'none', outline: 'none',
-              fontFamily: "'JetBrains Mono',monospace", fontSize: 11.5,
-              color: '#c0c8d8', caretColor: '#ff6050',
+              fontSize: 11, color: '#8a9ab0', caretColor: '#4a6a80',
+              fontFamily: "'JetBrains Mono', monospace",
             }}
-            placeholder={`pipe to ${activeLang.toUpperCase()}…`}
+            placeholder={`pipe to ${activeLang}...`}
             spellCheck={false}
           />
           {compileStdin && (
-            <button
-              onMouseDown={() => setCompileStdin('')}
-              style={{
-                fontSize: 9, color: '#2a3a4a', cursor: 'pointer',
-                background: 'none', border: 'none', padding: '0 2px',
-              }}
-            >✕</button>
+            <button type="button" onMouseDown={() => setCompileStdin('')}
+              style={{ fontSize: 9, color: '#1e2d40', cursor: 'pointer', background: 'none', border: 'none' }}>
+              x
+            </button>
           )}
         </div>
       )}
 
-      {/* ════════ REPL ════════ */}
+      {/* repl */}
       <div style={{
-        display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px',
-        flexShrink: 0, borderTop: '1px solid rgba(0,229,102,.07)',
-        background: 'rgba(0,229,102,.012)',
+        display: 'flex', alignItems: 'center', gap: 8, padding: '5px 12px',
+        flexShrink: 0, borderTop: '1px solid #0e1820',
+        background: '#06090f',
       }}>
-        <span style={{
-          fontSize: 13, color: '#00e566', flexShrink: 0, lineHeight: 1,
-          textShadow: '0 0 10px rgba(0,229,102,.65)',
-          fontFamily: "'JetBrains Mono',monospace",
-        }}>❯</span>
+        <span style={{ fontSize: 10, color: '#1e3a28', fontFamily: "'JetBrains Mono',monospace" }}>
+          &gt;
+        </span>
         <input
           ref={inputRef}
           value={replInput}
@@ -373,10 +253,10 @@ export function ConsolePanel({
           onKeyDown={handleReplKey}
           style={{
             flex: 1, background: 'transparent', border: 'none', outline: 'none',
-            fontFamily: "'JetBrains Mono',monospace", fontSize: 11.5,
-            color: '#c8d2e0', caretColor: '#00e566',
+            fontSize: 11, color: '#8a9ab0', caretColor: '#3d6050',
+            fontFamily: "'JetBrains Mono', monospace",
           }}
-          placeholder="eval JS expression…"
+          placeholder="eval expression..."
           spellCheck={false}
         />
       </div>

@@ -568,7 +568,6 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
     groupColor, setGroupColor,
     groupSelected, setGroupSelected,
     notebookFloating, setNotebookFloating,
-    dragOver, setDragOver,
     globalFontScale, setGlobalFontScale,
     avatarIndex, setAvatarIndex,
   } = useUIStore()
@@ -860,9 +859,6 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
   const termEndRef = useRef(null)
   const [nodeRunState, setNodeRunState] = useState({})
   const [edgeDataLabels, setEdgeDataLabels] = useState({})
-  // File drop (dragOver from uiStore; only dragDepthRef stays local)
-  const dragDepthRef = useRef(0)
-
   // Chat & Notes (local state — not persisted)
   const [chatInput, setChatInput] = useState('')
   const [chatMessages, setChatMessages] = useState([
@@ -960,20 +956,19 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
     let rafId: number
     let idleFrames = 0
     let lastRenderMs = 0
-    const FRAME_MS = 1000 / 30 // 30fps cap — halves React re-renders vs 60fps
+    let wasDragging = false
 
     const tick = (now: number) => {
-      // Physics runs every frame for accuracy; only re-render at 30fps
-      const shouldRender = now - lastRenderMs >= FRAME_MS
+      const isDragging = !!draggingNodeRef.current
+      // 30fps for physics settling; skip React render entirely during node drag
+      // (the dragged node is updated via direct DOM in onPointerMove — zero latency)
+      const shouldRender = !isDragging && (now - lastRenderMs >= 1000 / 30)
 
       let updated = false
       const nds = nodesRef.current, eds = edgesRef.current
-      
-      // Build O(N) lookup Map
+
       const nodeMap = new Map()
-      for (let i = 0; i < nds.length; i++) {
-        nodeMap.set(nds[i].id, nds[i])
-      }
+      for (let i = 0; i < nds.length; i++) nodeMap.set(nds[i].id, nds[i])
 
       for (let i=0;i<nds.length;i++) for (let j=i+1;j<nds.length;j++) {
         const dx=nds[j].x-nds[i].x, dy=nds[j].y-nds[i].y
@@ -997,20 +992,24 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
         n.vx*=0.8; n.vy*=0.8; n.x+=n.vx; n.y+=n.vy
         if (Math.abs(n.vx)>0.05||Math.abs(n.vy)>0.05) updated=true
       }
-      if (draggingNodeRef.current) {
+      if (isDragging) {
         const d = nodeMap.get(draggingNodeRef.current.id)
         if (d) { d.x=draggingNodeRef.current.x; d.y=draggingNodeRef.current.y; d.vx=0; d.vy=0; updated=true }
       }
-      if (updated) {
-        if (shouldRender) { forceRender(); lastRenderMs = now }
-        idleFrames = 0
-      } else idleFrames++
 
-      // Keep running while moving or drag active; stop after 8 settled frames
-      if (updated || draggingNodeRef.current || idleFrames < 8) {
+      // When drag just ended, sync React state immediately so positions are correct
+      if (wasDragging && !isDragging) {
+        forceRender(); lastRenderMs = now
+      } else if (updated && shouldRender) {
+        forceRender(); lastRenderMs = now
+      }
+
+      if (updated || !updated) idleFrames = updated ? 0 : idleFrames + 1
+      wasDragging = isDragging
+
+      if (updated || isDragging || idleFrames < 8) {
         rafId = requestAnimationFrame(tick)
       }
-      // RAF stops here when settled — wakePhysicsRef restarts it
     }
 
     wakePhysicsRef.current = () => {
@@ -1357,122 +1356,6 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
     nodesRef.current=nodesRef.current.map(n=>groupSelected.includes(n.id)?{...n,classId:gid}:n)
     setShowCreateGroup(false); setGroupName(''); setGroupSelected([]); forceRender({})
     if (wsHook.workspace) wsHook.createGroup(groupName.trim(),groupColor,[...groupSelected]).catch(()=>{})
-  }
-
-  // ── FILE DROP ──
-  const handleDragEnter = (e:any) => {
-    e.preventDefault()
-    dragDepthRef.current++
-    setDragOver(true)
-  }
-  const handleDragOver = (e:any) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy' }
-  const handleDragLeave = (e:any) => {
-    // Only hide the overlay when truly leaving the canvas (not entering a child element)
-    dragDepthRef.current--
-    if (dragDepthRef.current <= 0) { dragDepthRef.current = 0; setDragOver(false) }
-  }
-
-  const handleFileDrop = async (e:any) => {
-    e.preventDefault()
-    dragDepthRef.current = 0
-    setDragOver(false)
-    const files = [...e.dataTransfer.files]
-    if (!files.length) return
-
-    // ── Handle native OS folder drop (Electron) ──────────────
-    // When a single folder is dropped from the OS file manager:
-    if (files.length === 1 && (files[0] as any).path) {
-      const nativePath: string = (files[0] as any).path
-      // Detect if it's a directory via the webkitRelativePath being empty and size 0
-      const isNativeDir = files[0].type === '' && files[0].size === 0
-      if (isNativeDir && api?.fs?.scanImports) {
-        setExplorerRoot(nativePath)
-        ;(window as any).__forbiddenCwd = nativePath
-        setTermCwd(nativePath)
-        setSidebarMode('files')
-        setSidebarOpen(true)
-        nodesRef.current = []
-        edgesRef.current = []
-        groupsRef.current = []
-        setOpenTabs([])
-        setActiveTabId(null)
-        forceRender({})
-        api.fs?.saveWorkspace?.(nativePath)
-        addEvent('import', `Folder dropped: ${nativePath.split('/').pop()}`)
-        await handleScanImports(nativePath)
-        return
-      }
-    }
-
-    const newNodes:any[] = []
-    for (const file of files) {
-      const ext = (file.name.split('.').pop() || '').toLowerCase()
-      const isText = /^(js|ts|jsx|tsx|mjs|cjs|py|md|txt|json|csv|html|htm|css|yaml|yml|sh|bash|xml|toml|rs|go|java|c|cpp|h|rb|php|lua|zig|kt|swift|cs|fs)$/.test(ext)
-      const isImg  = /^(png|jpg|jpeg|gif|webp|svg|avif|bmp)$/.test(ext)
-
-      if (isText) {
-        let text = await file.text()
-
-        // Format JSON nicely on drop
-        if (ext === 'json') {
-          try { text = JSON.stringify(JSON.parse(text), null, 2) } catch {}
-        }
-
-        // For YAML/TOML/CSV/HTML — wrap in a doc with info header so it renders usefully
-        if (/^(yaml|yml)$/.test(ext)) {
-          text = `<!-- YAML: ${file.name} -->\n\`\`\`yaml\n${text}\n\`\`\``
-        }
-        if (ext === 'csv') {
-          const rows = text.trim().split('\n').slice(0, 20)
-          const mdTable = rows[0]
-            ? rows[0].split(',').join(' | ') + '\n' + rows[0].split(',').map(() => '---').join(' | ') + '\n' +
-              rows.slice(1).map(r => r.split(',').join(' | ')).join('\n')
-            : text
-          text = `# ${file.name}\n\n${mdTable}`
-        }
-
-        const isMd   = /^(md|txt)$/.test(ext)
-        const isPy   = ext === 'py'
-        const isCode = /^(js|ts|jsx|tsx|mjs|cjs)$/.test(ext)
-        const isDoc  = isMd || /^(json|yaml|yml|toml|csv|html|htm)$/.test(ext)
-
-        const type = isMd ? 'doc'
-          : isDoc ? 'doc'
-          : isPy  ? 'function'
-          : isCode ? _guessType(file.name, text)
-          : 'function'
-
-        const themeIdx = isPy ? 4 : isDoc ? 11 : _TYPE_THEME[type] ?? 1
-
-        newNodes.push({
-          id: 'f' + Date.now() + Math.random().toString(36).slice(2,5),
-          label: file.name, filepath: file.name, type,
-          isMain: /^(index|main)\.(j|t)sx?$/.test(file.name),
-          x: (Math.random()-.5)*400, y: (Math.random()-.5)*300,
-          vx:0, vy:0, themeIdx, classId:null, code:text, modified:false,
-        })
-      } else if (isImg) {
-        const url  = URL.createObjectURL(file)
-        const code = `# ${file.name}\n\n![${file.name}](${url})`
-        newNodes.push({
-          id: 'f' + Date.now() + Math.random().toString(36).slice(2,5),
-          label: file.name, filepath: file.name, type:'doc',
-          isMain: false, x:(Math.random()-.5)*400, y:(Math.random()-.5)*300,
-          vx:0, vy:0, themeIdx:11, classId:null, code, modified:false,
-        })
-      }
-    }
-
-    if (newNodes.length) {
-      nodesRef.current = [...nodesRef.current, ...newNodes]
-      forceRender({})
-      addEvent('import', `Dropped ${newNodes.length} file${newNodes.length>1?'s':''}: ${newNodes.map((n:any)=>n.label).join(', ')}`)
-      // Open single file drop immediately; for .md auto-switch to preview
-      if (newNodes.length === 1) {
-        openNodeInEditor(newNodes[0].id)
-        if (newNodes[0].type === 'doc') setMdPreviewMode('preview')
-      }
-    }
   }
 
   // trackRecentFile defined above in store bridge (calls workspaceStore.addRecentFile)
@@ -2390,24 +2273,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
 
         {/* ── CANVAS ── */}
         <div className="ide-canvas-wrap" style={{flex:1, position:'relative'}}
-          onDragEnter={handleDragEnter}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleFileDrop}
         >
-          {dragOver && (
-            <div style={{
-              position:'absolute', inset:0, zIndex:9999, pointerEvents:'none',
-              background:'rgba(16,185,129,.07)', border:'2px dashed #10b981',
-              display:'flex', alignItems:'center', justifyContent:'center',
-              flexDirection:'column', gap:8,
-            }}>
-              <div style={{fontFamily:"'Bangers',sans-serif", fontSize:'2rem', letterSpacing:'.1em', color:'#10b981'}}>DROP FILES OR FOLDER</div>
-              <div style={{fontFamily:"'Share Tech Mono',monospace", fontSize:'11px', color:'#10b981', opacity:.7}}>
-                Folder → auto-map imports to graph &nbsp;·&nbsp; Files: .py .js .ts .md .json .c .go…
-              </div>
-            </div>
-          )}
           {/* Mode bar */}
           <div className="ide-mode-bar">
             <div style={{fontFamily:"'Bangers',sans-serif",fontSize:'13px',letterSpacing:'.12em',opacity:.5}}>{brutal?'MANGA // BRUTAL':'MANGA // CYBER'}</div>
@@ -2682,16 +2548,16 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
                     </>
                   ) : (
                     <button onClick={()=>handleRunNode(activeTabId)}
-                      title={`Run (Ctrl+Enter)${isCompiled(detectLang(activeTabNode?.label||''))?' — compile & run locally':''}`}
+                      title={`Run (Ctrl+Enter)${isCompiled(activeLang)?' — compile & run locally':''}`}
                       style={{padding:'2px 10px',cursor:'pointer',fontFamily:"'Oswald',sans-serif",fontWeight:700,fontSize:'9px',letterSpacing:'.1em',
                         background:nodeRunState[activeTabId]?.status==='ok'?'#10b981':nodeRunState[activeTabId]?.status==='error'?'#ff435a':'transparent',
-                        color:nodeRunState[activeTabId]?.status?'#000':isCompiled(detectLang(activeTabNode?.label||''))?'#ff8080':brutal?'#f2c12e':'#ff2a38',
-                        border:`1px solid ${nodeRunState[activeTabId]?.status==='ok'?'#10b981':nodeRunState[activeTabId]?.status==='error'?'#ff435a':isCompiled(detectLang(activeTabNode?.label||''))?'rgba(255,128,128,.4)':brutal?'#f2c12e':'rgba(255,42,56,.4)'}`,
+                        color:nodeRunState[activeTabId]?.status?'#000':isCompiled(activeLang)?'#ff8080':brutal?'#f2c12e':'#ff2a38',
+                        border:`1px solid ${nodeRunState[activeTabId]?.status==='ok'?'#10b981':nodeRunState[activeTabId]?.status==='error'?'#ff435a':isCompiled(activeLang)?'rgba(255,128,128,.4)':brutal?'#f2c12e':'rgba(255,42,56,.4)'}`,
                         transition:'all .15s'}}>
                       {nodeRunState[activeTabId]?.status==='running'?'⋯'
                         :nodeRunState[activeTabId]?.status==='ok'?`✓ ${nodeRunState[activeTabId].ms}ms`
                         :nodeRunState[activeTabId]?.status==='error'?'✗ ERR'
-                        :isCompiled(detectLang(activeTabNode?.label||''))?`▶ ${detectLang(activeTabNode?.label||'').toUpperCase()}`:'▶ RUN'}
+                        :isCompiled(activeLang)?`▶ ${activeLang.toUpperCase()}`:'▶ RUN'}
                     </button>
                   )}
                 </div>

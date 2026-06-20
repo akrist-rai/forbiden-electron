@@ -138,18 +138,16 @@ export function getDefaultCode(lang: Lang, label: string, nodeType = 'function')
   return ''
 }
 
-// ── Run via Tauri native command ─────────────────────────────
-import { invoke } from '@tauri-apps/api/core'
-
+// ── Run via Go engine HTTP ─────────────────────────────────────
 async function captureRun(lang: string, code: string, stdin = ''): Promise<RunResult> {
   const t0 = performance.now()
   try {
-    const result = await invoke<any>('run_code', {
-      lang,
-      code,
-      stdin: stdin || null,
-      cwd: null,
-    })
+    const engineUrl = (window as any).electronAPI?.engine?.url ?? 'http://127.0.0.1:49373'
+    const result = await fetch(`${engineUrl}/api/code/run`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lang, code, stdin }),
+    }).then(r => r.json())
     return {
       logs:  result.logs  ?? [],
       error: result.error ? new Error(result.error) : null,

@@ -1,4 +1,4 @@
-import { memo, startTransition } from 'react'
+import { memo, startTransition, useRef } from 'react'
 import { ACCENTS } from '../../constants/accents'
 import type { GraphNode, GraphGroup } from '../../stores/types'
 
@@ -61,6 +61,7 @@ function MangaNodeInner({
   draggingNodeRef, lastMousePos, transform, setNodeColorPicker, handleNodeClickInMode, openNodeInEditor,
   nodeRunState, onRun, onCtxMenu, wakePhysicsRef,
 }: Props) {
+  const nodeElRef = useRef<HTMLDivElement>(null)
   const W = node.isMain ? 108 : 90
   const H = node.isMain ? 44 : 36
   const accent = ACCENTS[node.themeIdx % ACCENTS.length]
@@ -77,6 +78,7 @@ function MangaNodeInner({
 
   return (
     <div
+      ref={nodeElRef}
       className="mn-node"
       style={{
         left: node.x - W / 2,
@@ -92,7 +94,7 @@ function MangaNodeInner({
         e.stopPropagation()
         if (edgeMode) return
         setNodeColorPicker(null)
-        draggingNodeRef.current = { id: node.id, x: node.x, y: node.y, hasDragged: false }
+        draggingNodeRef.current = { id: node.id, x: node.x, y: node.y, hasDragged: false, el: nodeElRef.current }
         lastMousePos.current = { x: e.clientX, y: e.clientY }
         e.currentTarget.setPointerCapture(e.pointerId)
         wakePhysicsRef?.current?.()
@@ -103,8 +105,14 @@ function MangaNodeInner({
         const dx = (e.clientX - lastMousePos.current.x) / transform.scale
         const dy = (e.clientY - lastMousePos.current.y) / transform.scale
         if (Math.abs(dx) > 1 || Math.abs(dy) > 1) draggingNodeRef.current.hasDragged = true
-        draggingNodeRef.current.x += dx; draggingNodeRef.current.y += dy
+        draggingNodeRef.current.x += dx
+        draggingNodeRef.current.y += dy
         lastMousePos.current = { x: e.clientX, y: e.clientY }
+        // Direct DOM update — bypasses React reconciliation for zero-latency drag
+        if (nodeElRef.current) {
+          nodeElRef.current.style.left = (draggingNodeRef.current.x - W / 2) + 'px'
+          nodeElRef.current.style.top  = (draggingNodeRef.current.y - H / 2) + 'px'
+        }
       }}
       onPointerUp={e => {
         e.stopPropagation()

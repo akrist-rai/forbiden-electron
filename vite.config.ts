@@ -6,17 +6,7 @@ const host = process.env.TAURI_DEV_HOST
 
 export default defineConfig({
   base: './',
-  plugins: [
-    react(),
-    // Remove <link rel="preload" as="style"> tags that Tauri's custom protocol
-    // (tauri://localhost) cannot serve — causes "Unable to preload CSS" warnings.
-    {
-      name: 'tauri-css-preload-fix',
-      transformIndexHtml(html: string) {
-        return html.replace(/<link rel="preload"[^>]*as="style"[^>]*>/g, '')
-      },
-    },
-  ],
+  plugins: [react()],
   server: {
     port: 5175,
     host: host || false,
@@ -33,9 +23,11 @@ export default defineConfig({
     minify: 'esbuild',
     target: 'esnext',
     sourcemap: false,
-    // Disable JS module preloading — Tauri's tauri:// protocol rejects
-    // <link rel="modulepreload"> fetches, causing console noise and stalled loads.
     modulePreload: false,
+    // Merge all CSS into a single file injected via <link rel="stylesheet"> in the HTML.
+    // Prevents Vite's JS-based CSS preload polyfill from running — that polyfill fires
+    // "Unable to preload CSS for tauri://localhost/..." errors in Tauri's WebView.
+    cssCodeSplit: false,
     rollupOptions: {
       output: {
         manualChunks: (id) => {

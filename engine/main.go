@@ -392,17 +392,24 @@ func main() {
 
 	addr := fmt.Sprintf("127.0.0.1:%d", port)
 	server := &http.Server{
-		Addr:              addr,
 		Handler:           cors(mux),
 		ReadTimeout:       120 * time.Second,
 		WriteTimeout:      120 * time.Second,
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
+	// Bind the port FIRST so it is accepting connections before we signal ready.
+	// This eliminates the race where the frontend calls /api/status before the
+	// engine's ListenAndServe has had a chance to bind.
+	listener, err := net.Listen("tcp", addr)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	fmt.Printf("READY:%d\n", port)
 	os.Stdout.Sync()
 
-	if err := server.ListenAndServe(); err != nil {
+	if err := server.Serve(listener); err != nil {
 		log.Fatal(err)
 	}
 }
