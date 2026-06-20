@@ -2,6 +2,10 @@
 import './ide.css'
 import { useState, useEffect, useRef, useMemo, useCallback, startTransition } from 'react'
 import { useWorkspace } from '../../hooks/useWorkspace'
+import { useUIStore } from '../../stores/uiStore'
+import { useEditorStore } from '../../stores/editorStore'
+import { useWorkspaceStore } from '../../stores/workspaceStore'
+import { useAiStore } from '../../stores/aiStore'
 import {
   detectLang, extractSymbols, generateImport, injectImport,
   getDefaultCode, langLabel, isCompiled,
@@ -2896,7 +2900,90 @@ function AiChatPanel({ activeNode, explorerRoot, brutal, aiProvider, aiKeys, aiM
 
 function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
   const wsHook = useWorkspace()
-  const [themeMode, setThemeMode] = useState(initialTheme)
+
+  // ── Zustand store reads ─────────────────────────────────────
+  const {
+    themeMode, setThemeMode,
+    transform, setTransform,
+    isDraggingCanvas, setIsDraggingCanvas,
+    editorOpen, setEditorOpen,
+    editorW, setEditorW,
+    sidebarOpen, setSidebarOpen,
+    sidebarW, setSidebarW,
+    bottomOpen, setBottomOpen,
+    bottomTab, setBottomTab,
+    bottomH, setBottomH,
+    sidebarMode, setSidebarMode,
+    hoveredNodeId, setHoveredNodeId,
+    hoveredEdgeId, setHoveredEdgeId,
+    edgeMode, setEdgeMode,
+    joinFirstNode, setJoinFirstNode,
+    nodeColorPicker, setNodeColorPicker,
+    nodeCtxMenu, setNodeCtxMenu,
+    openGroupId, setOpenGroupId,
+    showCmd, setShowCmd,
+    showFileFinder, setShowFileFinder,
+    showCreateNode, setShowCreateNode,
+    showCreateGroup, setShowCreateGroup,
+    showJumpLine, setShowJumpLine,
+    showShortcuts, setShowShortcuts,
+    zenMode, setZenMode,
+    newNodeName, setNewNodeName,
+    newNodeType, setNewNodeType,
+    newNodeColor, setNewNodeColor,
+    groupName, setGroupName,
+    groupColor, setGroupColor,
+    groupSelected, setGroupSelected,
+    notebookFloating, setNotebookFloating,
+    dragOver, setDragOver,
+    globalFontScale, setGlobalFontScale,
+    avatarIndex, setAvatarIndex,
+  } = useUIStore()
+
+  const {
+    openTabs, openTab, closeTab, setOpenTabsDirect: _setOpenTabsDirect,
+    activeTabId, setActiveTabId,
+    pinnedTabs: pinnedTabsArr, togglePinTab,
+    globalEditorPalette, setGlobalEditorPalette,
+    splitTabId, setSplitTabId,
+    splitMode, setSplitMode,
+    formatOnSave, setFormatOnSave,
+    jumpLineTarget, setJumpLineTarget,
+    editorCursorPos, setEditorCursorPos,
+  } = useEditorStore()
+  // pinnedTabs as Set for backward-compat with monolith code (uses .has/.add/.delete)
+  const pinnedTabs = new Set(pinnedTabsArr)
+  const setOpenTabs = (v) => {
+    const curr = useEditorStore.getState().openTabs
+    _setOpenTabsDirect(typeof v === 'function' ? v(curr) : v)
+  }
+  const setPinnedTabs = (v) => {
+    // handled via togglePinTab; this shim accepts a new Set and syncs
+    const ids = v instanceof Set ? [...v] : v
+    useEditorStore.setState({ pinnedTabs: ids })
+  }
+
+  const {
+    explorerRoot, setExplorerRoot,
+    explorerRefreshKey, triggerRefresh,
+    recentFiles, addRecentFile,
+    searchQuery, setSearchQuery,
+    projectSearchQuery, setProjectSearchQuery,
+    projectSearchResults, setProjectSearchResults,
+    projectSearchLoading, setProjectSearchLoading,
+    replaceQuery, setReplaceQuery,
+    replaceLoading, setReplaceLoading,
+  } = useWorkspaceStore()
+  const setExplorerRefreshKey = () => triggerRefresh()
+  const trackRecentFile = (f) => addRecentFile(f)
+
+  const {
+    aiProvider, setAiProvider,
+    aiKeys, setAiKeys,
+    aiModels, setAiModels,
+    ollamaModels, setOllamaModels,
+  } = useAiStore()
+
   const brutal = themeMode === 'brutal'
 
   // Graph state
@@ -2922,9 +3009,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
     }, 800)
   }, [_rt])
 
-  // Canvas
-  const [transform, setTransform] = useState({ x: 300, y: 220, scale: 1 })
-  const [isDraggingCanvas, setIsDraggingCanvas] = useState(false)
+  // Canvas refs (transform/isDraggingCanvas come from uiStore above)
   const lastMousePos = useRef({ x:0, y:0 })
   const draggingNodeRef  = useRef(null)
   const wakePhysicsRef   = useRef<() => void>(() => {})
@@ -2934,13 +3019,6 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
   // ── Unified floating panel system ──────────────────────────────
   const W = typeof window!=='undefined' ? window.innerWidth  : 1400
   const H = typeof window!=='undefined' ? window.innerHeight : 900
-  const [editorOpen,  setEditorOpen]  = useState(true)
-  const [editorW,     setEditorW]     = useState(() => Math.round(window.innerWidth * 0.65))
-  const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [sidebarW,    setSidebarW]    = useState(240)
-  const [bottomOpen,  setBottomOpen]  = useState(false)
-  const [bottomTab,   setBottomTab]   = useState('console')
-  const [bottomH,     setBottomH]     = useState(260)
   const splitDragRef = useRef<any>(null)
   const panelDragRef = useRef(null)
   const tlDragRef    = useRef<any>(null)
@@ -3069,18 +3147,10 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
     forceRender({})
   }
 
-  // ── Legacy compat shims ─────────────────────────────────────
-  const [sidebarMode, setSidebarMode] = useState('files')
-
   // Refresh git badge when source-control sidebar opens
   useEffect(() => {
     if (sidebarOpen && sidebarMode === 'git') refreshGit()
   }, [sidebarOpen, sidebarMode])
-
-  // Tabs & editor
-  const [openTabs, setOpenTabs] = useState([])
-  const [activeTabId, setActiveTabId] = useState(null)
-  const [pinnedTabs, setPinnedTabs] = useState<Set<string>>(new Set())
 
   const handleDeleteNode = useCallback((nid) => {
     const deletedLabel = nodesRef.current.find(n=>n.id===nid)?.label||nid
@@ -3093,27 +3163,6 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
     addEvent('node-delete', `Deleted ${deletedLabel}`)
     wsHook.deleteNode(nid).catch(()=>{})
   }, [activeTabId, addEvent])
-  const [globalEditorPalette, setGlobalEditorPalette] = useState(PALETTES[0])
-
-  // Node interaction
-  const [hoveredNodeId, setHoveredNodeId] = useState(null)
-  const [hoveredEdgeId, setHoveredEdgeId] = useState(null)
-  const [edgeMode, setEdgeMode] = useState(null) // null|'join'|'cut'
-  const [joinFirstNode, setJoinFirstNode] = useState(null)
-  const [nodeColorPicker, setNodeColorPicker] = useState(null)
-  const [nodeCtxMenu, setNodeCtxMenu] = useState(null)   // {nodeId, x, y}
-
-  // Modals
-  const [openGroupId, setOpenGroupId] = useState(null)
-  const [showCmd, setShowCmd] = useState(false)
-  const [showCreateNode, setShowCreateNode] = useState(false)
-  const [newNodeName, setNewNodeName] = useState('')
-  const [newNodeType, setNewNodeType] = useState('function')
-  const [newNodeColor, setNewNodeColor] = useState(1)
-  const [showCreateGroup, setShowCreateGroup] = useState(false)
-  const [groupName, setGroupName] = useState('')
-  const [groupColor, setGroupColor] = useState('#10b981')
-  const [groupSelected, setGroupSelected] = useState([])
 
   // Board
   const [board, setBoard] = useState(INITIAL_BOARD)
@@ -3167,19 +3216,10 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
   const [mdPreviewMode, setMdPreviewMode] = useState('preview')
   const [mdFontSize,    setMdFontSize]    = useState(16)
 
-  // Floating notebook panel
-  const [notebookFloating, setNotebookFloating] = useState(false)
-
-  // File drop
-  const [dragOver, setDragOver] = useState(false)
+  // File drop (dragOver from uiStore; only dragDepthRef stays local)
   const dragDepthRef = useRef(0)
 
-  // File explorer
-  const [explorerRoot,       setExplorerRoot]       = useState<string | null>(null)
-  const [explorerRefreshKey, setExplorerRefreshKey] = useState(0)
-  const [globalFontScale, setGlobalFontScale] = useState(1)
-
-  // Chat & Notes
+  // Chat & Notes (local state — not persisted)
   const [chatInput, setChatInput] = useState('')
   const [chatMessages, setChatMessages] = useState([
     {id:1, from:'System', text:'Sync established. 4 nodes active.', self:false},
@@ -3187,10 +3227,8 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
     {id:3, from:'You', text:'Architecture booted. Running tests.', self:true},
   ])
   const [notesText, setNotesText] = useState('// OPERATOR NOTES\n// Sprint-01 planning\n\nTODO:\n- Finish graph force simulation\n- Wire WebSocket protocol\n- Add color palette persistence\n')
-  const [searchQuery, setSearchQuery] = useState('')
   const [welcomeSearch, setWelcomeSearch] = useState('')
   const [welcomeFilter, setWelcomeFilter] = useState('all')
-  const [avatarIndex, setAvatarIndex] = useState(initialAvatar)
   const chatEndRef = useRef(null)
 
   // ── COMPUTED ──
@@ -3490,27 +3528,14 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
 
   // ── NODE / EDGE ──
   const openNodeInEditor = id => {
-    setOpenTabs(t => t.includes(id)?t:[...t,id])
-    setActiveTabId(id)
+    openTab(id)  // openTab = editorStore.openTab (sets openTabs + activeTabId atomically)
     setEditorCursorPos(null)
   }
-  const closeTab = id => {
+  const closeTabLocal = id => {
     if (pinnedTabs.has(id)) return // pinned tabs cannot be closed
-    setOpenTabs(t => {
-      const newT = t.filter(tid=>tid!==id)
-      if (activeTabId===id) setActiveTabId(newT[newT.length-1]||null)
-      return newT
-    })
+    closeTab(id)  // closeTab = editorStore.closeTab (handles tab list + active tab)
   }
-  const togglePinTab = (id: string) => {
-    setPinnedTabs(prev => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id); else next.add(id)
-      return next
-    })
-  }
-  // ── Format-on-save (must be declared before saveNodeToDisk uses it) ──
-  const [formatOnSave, setFormatOnSave] = useState<boolean>(() => localStorage.getItem('forbiden_format_on_save') === 'true')
+  // togglePinTab comes from editorStore (imported above)
 
   // ── Disk save helper ─────────────────────────────────────────
   const saveNodeToDisk = useCallback(async (id: string, skipFormat = false) => {
@@ -3794,16 +3819,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
     }
   }
 
-  const trackRecentFile = useCallback((fileInfo: { path?: string; fullPath?: string; name?: string; rel?: string }) => {
-    const fp = fileInfo.path || fileInfo.fullPath || ''
-    if (!fp) return
-    const entry = { path: fp, name: fileInfo.name || fp.split('/').pop() || fp, rel: fileInfo.rel || fp }
-    setRecentFiles(prev => {
-      const next = [entry, ...prev.filter(r => r.path !== fp)].slice(0, 20)
-      localStorage.setItem('forbiden_recent_files', JSON.stringify(next))
-      return next
-    })
-  }, [])
+  // trackRecentFile defined above in store bridge (calls workspaceStore.addRecentFile)
 
   // ── EXPLORER: open file from tree ─────────────────────────────
   const handleExplorerOpenFile = useCallback(async (node: any) => {
@@ -4052,48 +4068,16 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
     }
   }
 
-  // ── CMD PALETTE ──
+  // ── CMD PALETTE local preview (ephemeral, no store needed) ──
   const [cmdPreviewPalette, setCmdPreviewPalette] = useState(null)
 
-  // ── PHASE 2 STATE ──
-  const [showFileFinder, setShowFileFinder] = useState(false)
-  const [showShortcuts, setShowShortcuts] = useState(false)
-  const [zenMode, setZenMode] = useState(false)
-  const [showJumpLine, setShowJumpLine] = useState(false)
-  const [jumpLineTarget, setJumpLineTarget] = useState<number|null>(null)
-  const [projectSearchQuery, setProjectSearchQuery] = useState('')
-  const [projectSearchResults, setProjectSearchResults] = useState<any[]>([])
-  const [projectSearchLoading, setProjectSearchLoading] = useState(false)
   const projectSearchDebounce = useRef<any>(null)
-  const [splitTabId, setSplitTabId] = useState<string|null>(null)
-  const [splitMode, setSplitMode] = useState<'vertical'|'horizontal'>('vertical')
-  const [editorCursorPos, setEditorCursorPos] = useState<{line:number,col:number}|null>(null)
-  const [replaceQuery, setReplaceQuery] = useState('')
-  const [replaceLoading, setReplaceLoading] = useState(false)
-  const [recentFiles, setRecentFiles] = useState<any[]>(() => {
-    try { return JSON.parse(localStorage.getItem('forbiden_recent_files') || '[]') } catch { return [] }
-  })
 
-  // ── PHASE 4: AI PROVIDER STATE ──
-  const [aiProvider, setAiProvider] = useState<string>(() => localStorage.getItem('forbiden_ai_provider') || 'anthropic')
-  const [aiKeys, setAiKeys] = useState<Record<string,string>>(() => {
-    try { return JSON.parse(localStorage.getItem('forbiden_ai_keys') || '{}') } catch { return {} }
-  })
-  const [aiModels, setAiModels] = useState<Record<string,string>>(() => {
-    try { return JSON.parse(localStorage.getItem('forbiden_ai_models') || '{}') } catch { return {} }
-  })
-  const [ollamaModels, setOllamaModels] = useState<string[]>([])
-
-  const saveAiProvider = (p: string) => { setAiProvider(p); localStorage.setItem('forbiden_ai_provider', p) }
-  const saveAiKey = (provider: string, key: string) => {
-    const next = { ...aiKeys, [provider]: key }
-    setAiKeys(next); localStorage.setItem('forbiden_ai_keys', JSON.stringify(next))
-  }
-  const saveAiModel = (provider: string, model: string) => {
-    const next = { ...aiModels, [provider]: model }
-    setAiModels(next); localStorage.setItem('forbiden_ai_models', JSON.stringify(next))
-  }
-  const saveFormatOnSave = (v: boolean) => { setFormatOnSave(v); localStorage.setItem('forbiden_format_on_save', String(v)) }
+  // AI save helpers — now write to aiStore (Zustand persist replaces manual localStorage)
+  const saveAiProvider = (p: string) => setAiProvider(p)
+  const saveAiKey = (provider: string, key: string) => setAiKeys({ ...aiKeys, [provider]: key })
+  const saveAiModel = (provider: string, model: string) => setAiModels({ ...aiModels, [provider]: model })
+  const saveFormatOnSave = (v: boolean) => setFormatOnSave(v)
 
   const fetchOllamaModels = async () => {
     const api = (window as any).electronAPI
@@ -4995,7 +4979,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
                       {isPinned && <span style={{fontSize:'8px',marginRight:3,opacity:.6}}>📌</span>}
                       {n.label}
                       {n.modified&&<span className="modified-dot"/>}
-                      {!isPinned && <span className="ide-tab-close" onClick={e=>{e.stopPropagation();closeTab(id)}}><I.X/></span>}
+                      {!isPinned && <span className="ide-tab-close" onClick={e=>{e.stopPropagation();closeTabLocal(id)}}><I.X/></span>}
                     </div>
                   )
                 })}

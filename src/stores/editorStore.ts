@@ -2,6 +2,10 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { Palette, SplitMode } from './types'
 
+type Setter<T> = T | ((prev: T) => T)
+const upd = <T>(val: Setter<T>, prev: T): T =>
+  typeof val === 'function' ? (val as (p: T) => T)(prev) : val
+
 // Default FORBINDEN palette — matches PALETTES[0] in IDE
 const DEFAULT_PALETTE: Palette = {
   id: 'forbinden',
@@ -33,7 +37,8 @@ interface EditorState {
   // Actions
   openTab: (id: string) => void
   closeTab: (id: string) => void
-  setActiveTabId: (id: string | null) => void
+  setActiveTabId: (id: string | null | ((prev: string | null) => string | null)) => void
+  setOpenTabsDirect: (tabs: string[]) => void
   togglePinTab: (id: string) => void
   setSplitTabId: (id: string | null) => void
   setSplitMode: (mode: SplitMode) => void
@@ -75,7 +80,8 @@ export const useEditorStore = create<EditorState>()(
           }
         }),
 
-      setActiveTabId: (id) => set({ activeTabId: id }),
+      setActiveTabId: (id) => set((s) => ({ activeTabId: upd(id, s.activeTabId) })),
+      setOpenTabsDirect: (tabs) => set({ openTabs: tabs }),
 
       togglePinTab: (id) =>
         set((s) => ({

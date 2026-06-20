@@ -2,11 +2,17 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { SidebarMode, BottomTab, EdgeMode, ThemeMode } from './types'
 
+type Setter<T> = T | ((prev: T) => T)
+const upd = <T>(val: Setter<T>, prev: T): T =>
+  typeof val === 'function' ? (val as (p: T) => T)(prev) : val
+
 interface Transform {
   x: number
   y: number
   scale: number
 }
+
+type NodePicker = { nodeId: string; x: number; y: number } | null
 
 interface UiState {
   // Layout
@@ -42,8 +48,8 @@ interface UiState {
   hoveredNodeId: string | null
   hoveredEdgeId: string | null
   joinFirstNode: string | null
-  nodeColorPicker: { nodeId: string; x: number; y: number } | null
-  nodeCtxMenu: { nodeId: string; x: number; y: number } | null
+  nodeColorPicker: NodePicker
+  nodeCtxMenu: NodePicker
   openGroupId: string | null
   // Theme
   themeMode: ThemeMode
@@ -52,23 +58,23 @@ interface UiState {
   // Misc
   dragOver: boolean
   notebookFloating: boolean
-  // Actions — layout
-  setSidebarOpen: (open: boolean) => void
-  setSidebarMode: (mode: SidebarMode) => void
-  setSidebarW: (w: number) => void
-  setBottomOpen: (open: boolean) => void
-  setBottomTab: (tab: BottomTab) => void
-  setBottomH: (h: number) => void
-  setEditorOpen: (open: boolean) => void
-  setEditorW: (w: number) => void
+  // Actions — layout (all accept updater functions)
+  setSidebarOpen: (open: Setter<boolean>) => void
+  setSidebarMode: (mode: Setter<SidebarMode>) => void
+  setSidebarW: (w: Setter<number>) => void
+  setBottomOpen: (open: Setter<boolean>) => void
+  setBottomTab: (tab: Setter<BottomTab>) => void
+  setBottomH: (h: Setter<number>) => void
+  setEditorOpen: (open: Setter<boolean>) => void
+  setEditorW: (w: Setter<number>) => void
   // Actions — modals
-  setShowCmd: (show: boolean) => void
-  setShowFileFinder: (show: boolean) => void
-  setShowCreateNode: (show: boolean) => void
-  setShowCreateGroup: (show: boolean) => void
-  setShowJumpLine: (show: boolean) => void
-  setShowShortcuts: (show: boolean) => void
-  setZenMode: (zen: boolean) => void
+  setShowCmd: (show: Setter<boolean>) => void
+  setShowFileFinder: (show: Setter<boolean>) => void
+  setShowCreateNode: (show: Setter<boolean>) => void
+  setShowCreateGroup: (show: Setter<boolean>) => void
+  setShowJumpLine: (show: Setter<boolean>) => void
+  setShowShortcuts: (show: Setter<boolean>) => void
+  setZenMode: (zen: Setter<boolean>) => void
   // Actions — node creation form
   setNewNodeName: (name: string) => void
   setNewNodeType: (type: string) => void
@@ -76,25 +82,25 @@ interface UiState {
   // Actions — group creation form
   setGroupName: (name: string) => void
   setGroupColor: (color: string) => void
-  setGroupSelected: (ids: string[]) => void
+  setGroupSelected: (ids: Setter<string[]>) => void
   // Actions — canvas
-  setTransform: (transform: Transform | ((prev: Transform) => Transform)) => void
+  setTransform: (transform: Setter<Transform>) => void
   setIsDraggingCanvas: (dragging: boolean) => void
   // Actions — graph interaction
-  setEdgeMode: (mode: EdgeMode) => void
+  setEdgeMode: (mode: Setter<EdgeMode>) => void
   setHoveredNodeId: (id: string | null) => void
   setHoveredEdgeId: (id: string | null) => void
   setJoinFirstNode: (id: string | null) => void
-  setNodeColorPicker: (picker: { nodeId: string; x: number; y: number } | null) => void
-  setNodeCtxMenu: (menu: { nodeId: string; x: number; y: number } | null) => void
+  setNodeColorPicker: (picker: Setter<NodePicker>) => void
+  setNodeCtxMenu: (menu: NodePicker) => void
   setOpenGroupId: (id: string | null) => void
   // Actions — theme
   setThemeMode: (mode: ThemeMode) => void
   setGlobalFontScale: (scale: number) => void
   setAvatarIndex: (index: number) => void
   // Actions — misc
-  setDragOver: (over: boolean) => void
-  setNotebookFloating: (floating: boolean) => void
+  setDragOver: (over: Setter<boolean>) => void
+  setNotebookFloating: (floating: Setter<boolean>) => void
 }
 
 export const useUIStore = create<UiState>()(
@@ -136,42 +142,41 @@ export const useUIStore = create<UiState>()(
       dragOver: false,
       notebookFloating: false,
 
-      setSidebarOpen: (open) => set({ sidebarOpen: open }),
-      setSidebarMode: (mode) => set({ sidebarMode: mode }),
-      setSidebarW: (w) => set({ sidebarW: w }),
-      setBottomOpen: (open) => set({ bottomOpen: open }),
-      setBottomTab: (tab) => set({ bottomTab: tab }),
-      setBottomH: (h) => set({ bottomH: h }),
-      setEditorOpen: (open) => set({ editorOpen: open }),
-      setEditorW: (w) => set({ editorW: w }),
-      setShowCmd: (show) => set({ showCmd: show }),
-      setShowFileFinder: (show) => set({ showFileFinder: show }),
-      setShowCreateNode: (show) => set({ showCreateNode: show }),
-      setShowCreateGroup: (show) => set({ showCreateGroup: show }),
-      setShowJumpLine: (show) => set({ showJumpLine: show }),
-      setShowShortcuts: (show) => set({ showShortcuts: show }),
-      setZenMode: (zen) => set({ zenMode: zen }),
-      setNewNodeName: (name) => set({ newNodeName: name }),
-      setNewNodeType: (type) => set({ newNodeType: type }),
-      setNewNodeColor: (color) => set({ newNodeColor: color }),
-      setGroupName: (name) => set({ groupName: name }),
-      setGroupColor: (color) => set({ groupColor: color }),
-      setGroupSelected: (ids) => set({ groupSelected: ids }),
-      setTransform: (transform) =>
-        set((s) => ({ transform: typeof transform === 'function' ? transform(s.transform) : transform })),
+      setSidebarOpen:      (v) => set((s) => ({ sidebarOpen: upd(v, s.sidebarOpen) })),
+      setSidebarMode:      (v) => set((s) => ({ sidebarMode: upd(v, s.sidebarMode) })),
+      setSidebarW:         (v) => set((s) => ({ sidebarW: upd(v, s.sidebarW) })),
+      setBottomOpen:       (v) => set((s) => ({ bottomOpen: upd(v, s.bottomOpen) })),
+      setBottomTab:        (v) => set((s) => ({ bottomTab: upd(v, s.bottomTab) })),
+      setBottomH:          (v) => set((s) => ({ bottomH: upd(v, s.bottomH) })),
+      setEditorOpen:       (v) => set((s) => ({ editorOpen: upd(v, s.editorOpen) })),
+      setEditorW:          (v) => set((s) => ({ editorW: upd(v, s.editorW) })),
+      setShowCmd:          (v) => set((s) => ({ showCmd: upd(v, s.showCmd) })),
+      setShowFileFinder:   (v) => set((s) => ({ showFileFinder: upd(v, s.showFileFinder) })),
+      setShowCreateNode:   (v) => set((s) => ({ showCreateNode: upd(v, s.showCreateNode) })),
+      setShowCreateGroup:  (v) => set((s) => ({ showCreateGroup: upd(v, s.showCreateGroup) })),
+      setShowJumpLine:     (v) => set((s) => ({ showJumpLine: upd(v, s.showJumpLine) })),
+      setShowShortcuts:    (v) => set((s) => ({ showShortcuts: upd(v, s.showShortcuts) })),
+      setZenMode:          (v) => set((s) => ({ zenMode: upd(v, s.zenMode) })),
+      setNewNodeName:      (name) => set({ newNodeName: name }),
+      setNewNodeType:      (type) => set({ newNodeType: type }),
+      setNewNodeColor:     (color) => set({ newNodeColor: color }),
+      setGroupName:        (name) => set({ groupName: name }),
+      setGroupColor:       (color) => set({ groupColor: color }),
+      setGroupSelected:    (v) => set((s) => ({ groupSelected: upd(v, s.groupSelected) })),
+      setTransform:        (v) => set((s) => ({ transform: upd(v, s.transform) })),
       setIsDraggingCanvas: (dragging) => set({ isDraggingCanvas: dragging }),
-      setEdgeMode: (mode) => set({ edgeMode: mode }),
-      setHoveredNodeId: (id) => set({ hoveredNodeId: id }),
-      setHoveredEdgeId: (id) => set({ hoveredEdgeId: id }),
-      setJoinFirstNode: (id) => set({ joinFirstNode: id }),
-      setNodeColorPicker: (picker) => set({ nodeColorPicker: picker }),
-      setNodeCtxMenu: (menu) => set({ nodeCtxMenu: menu }),
-      setOpenGroupId: (id) => set({ openGroupId: id }),
-      setThemeMode: (mode) => set({ themeMode: mode }),
-      setGlobalFontScale: (scale) => set({ globalFontScale: scale }),
-      setAvatarIndex: (index) => set({ avatarIndex: index }),
-      setDragOver: (over) => set({ dragOver: over }),
-      setNotebookFloating: (floating) => set({ notebookFloating: floating }),
+      setEdgeMode:         (v) => set((s) => ({ edgeMode: upd(v, s.edgeMode) })),
+      setHoveredNodeId:    (id) => set({ hoveredNodeId: id }),
+      setHoveredEdgeId:    (id) => set({ hoveredEdgeId: id }),
+      setJoinFirstNode:    (id) => set({ joinFirstNode: id }),
+      setNodeColorPicker:  (v) => set((s) => ({ nodeColorPicker: upd(v, s.nodeColorPicker) })),
+      setNodeCtxMenu:      (menu) => set({ nodeCtxMenu: menu }),
+      setOpenGroupId:      (id) => set({ openGroupId: id }),
+      setThemeMode:        (mode) => set({ themeMode: mode }),
+      setGlobalFontScale:  (scale) => set({ globalFontScale: scale }),
+      setAvatarIndex:      (index) => set({ avatarIndex: index }),
+      setDragOver:         (v) => set((s) => ({ dragOver: upd(v, s.dragOver) })),
+      setNotebookFloating: (v) => set((s) => ({ notebookFloating: upd(v, s.notebookFloating) })),
     }),
     {
       name: 'forbiden-ui-v1',
