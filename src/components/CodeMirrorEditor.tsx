@@ -50,6 +50,7 @@ interface CodeMirrorEditorProps {
   onChange: (code: string) => void
   onSave?: () => void
   externalPalette?: Palette
+  onPaletteChange?: (palette: Palette) => void
   compact?: boolean
   minHeight?: string
   jumpToLine?: number
@@ -317,7 +318,7 @@ function buildHighlight(palette: Palette) {
 //  COMPONENT
 // ══════════════════════════════════════════════════════════════
 
-export default function CodeMirrorEditor({ node, onChange, onSave, externalPalette, compact = false, minHeight, jumpToLine, onCursorChange, aiProvider, aiKey, aiModel }: CodeMirrorEditorProps) {
+export default function CodeMirrorEditor({ node, onChange, onSave, externalPalette, onPaletteChange, compact = false, minHeight, jumpToLine, onCursorChange, aiProvider, aiKey, aiModel }: CodeMirrorEditorProps) {
   const [palette, setPalette] = useState<Palette>(PALETTES[0])
   const [showPaletteMenu, setShowPaletteMenu] = useState(false)
   const [showFind, setShowFind] = useState(false)
@@ -798,7 +799,7 @@ export default function CodeMirrorEditor({ node, onChange, onSave, externalPalet
                   <div
                     key={p.id}
                     className={`ide-palette-opt ${palette.id === p.id ? 'active' : ''}`}
-                    onClick={() => { setPalette(p); setShowPaletteMenu(false) }}
+                    onClick={() => { setPalette(p); onPaletteChange?.(p); setShowPaletteMenu(false) }}
                     style={{ background: p.bg }}
                   >
                     <div className="ide-palette-swatches">
@@ -818,7 +819,7 @@ export default function CodeMirrorEditor({ node, onChange, onSave, externalPalet
                   <div
                     key={p.id}
                     className={`ide-palette-opt ${palette.id === p.id ? 'active' : ''}`}
-                    onClick={() => { setPalette(p); setShowPaletteMenu(false) }}
+                    onClick={() => { setPalette(p); onPaletteChange?.(p); setShowPaletteMenu(false) }}
                     style={{ background: p.bg }}
                   >
                     <div className="ide-palette-swatches">
