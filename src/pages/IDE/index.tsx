@@ -314,25 +314,20 @@ function CodeEditor({ node, onChange, externalPalette }) {
           />
           {/* Autocomplete dropdown */}
           {acList.length > 0 && (
-            <div style={{
+            <div className="ide-ac-popup" style={{
               position:'absolute',
               top: Math.min((cursor.line) * lineH + 20 - (textareaRef.current?.scrollTop||0), (lineH*20)),
-              left: Math.min(36 + 14 + (cursor.col - 1) * (fontSize * 0.605), '60%'),
-              zIndex:20, minWidth:180, maxWidth:300,
-              background:palette.bg, border:`1px solid ${palette.kw}55`,
-              boxShadow:`0 6px 24px rgba(0,0,0,.7)`,
-              fontFamily:"'JetBrains Mono',monospace", fontSize:(fontSize-1)+'px',
-              overflow:'hidden', borderRadius:2,
+              left: Math.min(36 + 14 + (cursor.col - 1) * (fontSize * 0.605), '60%' as any),
+              fontSize:(fontSize-1)+'px',
             }}>
               {acList.map((item,i)=>(
-                <div key={item} onMouseDown={e=>{e.preventDefault();insertAc(item)}}
-                  style={{padding:'4px 10px',cursor:'pointer',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',
-                    background:i===acIdx?palette.kw+'28':'transparent',
-                    color:i===acIdx?palette.kw:palette.base,borderLeft:i===acIdx?`2px solid ${palette.kw}`:'2px solid transparent'}}>
+                <div key={item} className={`ide-ac-item${i===acIdx?' active':''}`}
+                  onMouseDown={e=>{e.preventDefault();insertAc(item)}}
+                  style={{color:i===acIdx?palette.kw:palette.base}}>
                   {item}
                 </div>
               ))}
-              <div style={{padding:'2px 10px',opacity:.3,fontSize:(fontSize-3)+'px',borderTop:`1px solid ${palette.lineNum}33`}}>
+              <div className="ide-ac-footer">
                 Tab/↵ insert · Esc close
               </div>
             </div>
@@ -1885,14 +1880,9 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
         {/* ▶ RUN — primary action, only when a runnable file is open */}
         {canRun && (
           <button
-            className="ide-topbar-btn"
+            className={`ide-topbar-btn${isCompiled(activeLang)?' ide-run-compiled':' ide-run-interp'}`}
             onClick={()=>handleRunNode(activeTabId)}
-            style={{
-              background: isCompiled(activeLang) ? 'rgba(255,100,80,.18)' : 'rgba(16,185,129,.18)',
-              color:       isCompiled(activeLang) ? '#ff8060' : '#10b981',
-              border:      `1px solid ${isCompiled(activeLang)?'rgba(255,100,80,.4)':'rgba(16,185,129,.4)'}`,
-              fontWeight: 700, letterSpacing: '.1em',
-            }}
+            style={{fontWeight:700,letterSpacing:'.1em'}}
           >
             ▶ RUN
           </button>
@@ -1904,7 +1894,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
         <input ref={folderInputRef} type="file" multiple {...{'webkitdirectory':''}} style={{display:'none'}} onChange={handleFolderUpload}/>
         <button className="ide-topbar-btn" onClick={()=>setShowFileFinder(true)} title="Quick Open (Ctrl+P)">⌕</button>
         <button className="ide-topbar-btn" onClick={()=>setShowCmd(true)} title="Command palette (Ctrl+Shift+P)">⌘</button>
-        <button className="ide-topbar-btn" onClick={()=>setZenMode(v=>!v)} title="Zen mode (Ctrl+Shift+Z)" style={zenMode?{color:'#10b981',borderColor:'rgba(16,185,129,.4)'}:{}}>ZEN</button>
+        <button className="ide-topbar-btn" onClick={()=>setZenMode(v=>!v)} title="Zen mode (Ctrl+Shift+Z)" style={zenMode?{color:brutal?'#10b981':'#28f1c3',borderColor:brutal?'rgba(16,185,129,.4)':'rgba(40,241,195,.35)'}:{}}>ZEN</button>
         <button className="ide-topbar-btn" onClick={()=>setShowShortcuts(v=>!v)} title="Keyboard shortcuts (Ctrl+?)"
           style={showShortcuts?{color:'#ffc410',borderColor:'rgba(255,196,16,.4)'}:{}}>?</button>
 
@@ -3127,13 +3117,13 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
       {/* ═══════ STATUS BAR ═══════ */}
       <div className="ide-status-bar">
         <div className="ide-status-badge" style={{background:brutal?'#c8001a':'#ff2a38',color:'#fff'}}>FORBIDEN</div>
-        <span style={{color:'#10b981'}}>● LOCAL</span>
+        <span style={{color:brutal?'#10b981':'#28f1c3'}}>● LOCAL</span>
         {gitBranch && (
           <span
             title="Source Control (Ctrl+Shift+G)"
             onClick={()=>{ setSidebarMode('git'); setSidebarOpen(o=>sidebarMode==='git'?!o:true) }}
             style={{display:'flex',alignItems:'center',gap:4,cursor:'pointer',padding:'0 4px',borderRadius:2,transition:'background .12s'}}
-            onMouseEnter={e=>(e.currentTarget.style.background='rgba(255,255,255,.08)')}
+            onMouseEnter={e=>(e.currentTarget.style.background=brutal?'rgba(255,255,255,.08)':'rgba(255,42,56,.08)')}
             onMouseLeave={e=>(e.currentTarget.style.background='transparent')}
           >
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -3152,7 +3142,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
         <span style={{opacity:.2}}>|</span>
         <span>{nodeCount} nodes · {edgeCount} edges</span>
         {groupsRef.current.length>0 && <><span style={{opacity:.2}}>|</span><span>{groupsRef.current.length} classes</span></>}
-        {edgeMode && <><span style={{opacity:.2}}>|</span><span style={{color:edgeMode==='join'?'#10b981':'#ff435a'}}>{edgeMode==='join'?'JOIN MODE':'CUT MODE'}</span></>}
+        {edgeMode && <><span style={{opacity:.2}}>|</span><span style={{color:edgeMode==='join'?(brutal?'#10b981':'#28f1c3'):'#ff435a'}}>{edgeMode==='join'?'JOIN MODE':'CUT MODE'}</span></>}
         <div className="ide-sb-hints">
           {([['⌘P','find'],['N','node'],['J','join'],['X','cut'],['`','term']] as [string,string][]).map(([k,label])=>(
             <div key={k} className="ide-sb-hint">

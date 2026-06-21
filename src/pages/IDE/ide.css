@@ -1405,6 +1405,11 @@ body {
   position:absolute; inset:0;
   width:100%; height:100%; pointer-events:none;
 }
+.theme-cyber .idw-speedlines,
+.theme-cyber .idw-halftone,
+.theme-cyber .idw-scanlines {
+  display: none;
+}
 
 /* Hero text block */
 .idw-hero {
@@ -4382,134 +4387,156 @@ body {
 
 .gp-root {
   flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative;
-  color: #c0c8d8;
+  color: #aab4c8;
 }
-.theme-cyber .gp-root { background: #06060e; }
-.theme-brutal .gp-root { background: #131313; color: #f0ece0; }
+.theme-cyber .gp-root { background: #05050d; }
+.theme-brutal .gp-root { background: #121212; color: #ede8dc; }
 
-.gp-center {
-  align-items: center; justify-content: center; gap: 10px;
-}
+.gp-center { align-items: center; justify-content: center; gap: 12px; }
 
 /* Toolbar */
 .gp-toolbar {
-  display: flex; align-items: center; gap: 1px; padding: 3px 6px;
-  flex-shrink: 0; border-bottom: 1px solid rgba(255,255,255,.04);
-  position: relative;
+  display: flex; align-items: center; gap: 1px; padding: 3px 8px;
+  flex-shrink: 0; border-bottom: 1px solid rgba(255,255,255,.05);
+  background: rgba(0,0,0,.18); position: relative;
 }
+.gp-toolbar-group { display: flex; align-items: center; gap: 1px; }
 .gp-toolbar-sep {
-  width: 1px; height: 14px; background: rgba(255,255,255,.08); margin: 0 3px; flex-shrink: 0;
+  width: 1px; height: 13px; background: rgba(255,255,255,.07); margin: 0 4px; flex-shrink: 0;
 }
-
 .gp-header-btn {
-  width: 22px; height: 22px; display: flex; align-items: center; justify-content: center;
-  background: transparent; border: none; cursor: pointer; border-radius: 3px;
+  width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;
+  background: transparent; border: none; cursor: pointer; border-radius: 4px;
   outline: none; padding: 0; flex-shrink: 0;
-  transition: background .1s, color .1s; color: #5a5a7a;
+  transition: background .1s, color .1s; color: #404060;
 }
-.gp-header-btn:hover { background: rgba(255,255,255,.08); color: #c0c8d8; }
-.gp-header-btn.active { color: #10b981; }
-.gp-header-btn:disabled { opacity: .4; cursor: default; }
-.theme-brutal .gp-header-btn:hover { color: #f0ece0; }
-.theme-brutal .gp-header-btn.active { color: #f2c12e; }
+.gp-header-btn:hover  { background: rgba(255,255,255,.09); color: #aab4c8; }
+.gp-header-btn.active { color: #10b981; background: rgba(16,185,129,.1); }
+.gp-header-btn:disabled { opacity: .3; cursor: default; }
+.theme-brutal .gp-header-btn:hover  { color: #ede8dc; }
+.theme-brutal .gp-header-btn.active { color: #f2c12e; background: rgba(242,193,46,.1); }
 
 .gp-change-count {
-  font-family: 'JetBrains Mono', monospace; font-size: 9px; color: #5a5a7a;
-  margin-right: 4px; flex-shrink: 0;
+  font-family: 'JetBrains Mono', monospace; font-size: 9px; color: #505070;
+  margin-right: 2px; flex-shrink: 0;
 }
+.gp-change-count.conflict { color: #ff5566; }
 
-/* Result banner */
+/* Notification banner */
 .gp-result {
-  padding: 4px 10px; font-size: 10px; font-family: monospace; flex-shrink: 0;
-  border-bottom: 1px solid rgba(255,255,255,.04); max-height: 52px;
-  overflow-y: auto; line-height: 1.4;
+  padding: 5px 12px; font-size: 10px; font-family: 'JetBrains Mono', monospace;
+  flex-shrink: 0; border-bottom: 1px solid rgba(255,255,255,.04);
+  max-height: 52px; overflow-y: auto; line-height: 1.45;
 }
-.gp-result.ok { color: #10b981; }
-.gp-result.err { color: #ff435a; }
+.gp-result.ok  { color: #10b981; background: rgba(16,185,129,.05); }
+.gp-result.err { color: #ff5566; background: rgba(255,67,90,.05); }
 
 /* Branch row */
 .gp-branch-row {
-  display: flex; align-items: center; gap: 6px; padding: 5px 10px; flex-shrink: 0;
-  border-bottom: 1px solid rgba(255,255,255,.04); position: relative;
+  display: flex; align-items: center; gap: 7px; padding: 5px 10px; flex-shrink: 0;
+  border-bottom: 1px solid rgba(255,255,255,.05); position: relative;
+  background: rgba(255,255,255,.01);
 }
-.gp-branch-icon { flex-shrink: 0; opacity: .4; }
+.gp-branch-icon { flex-shrink: 0; color: #3a3a58; }
 .gp-branch-btn {
-  background: transparent; border: none; cursor: pointer; padding: 1px 4px; outline: none;
-  display: flex; align-items: center; gap: 3px; flex: 1;
+  background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.07);
+  border-radius: 4px; cursor: pointer; padding: 3px 8px; outline: none;
+  display: flex; align-items: center; gap: 5px; flex: 1;
   font-family: 'JetBrains Mono', monospace; font-size: 11px;
+  transition: background .1s, border-color .1s;
 }
+.gp-branch-btn:hover { background: rgba(255,255,255,.07); border-color: rgba(255,255,255,.12); }
 .theme-cyber .gp-branch-btn { color: #10b981; }
 .theme-brutal .gp-branch-btn { color: #f2c12e; font-family: 'Oswald', sans-serif; font-size: 12px; font-weight: 700; }
-.gp-branch-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 160px; }
-.gp-branch-caret { font-size: 7px; opacity: .5; flex-shrink: 0; }
+.gp-branch-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 145px; }
+.gp-branch-caret { font-size: 8px; opacity: .4; flex-shrink: 0; }
+
+.gp-sync-badges { display: flex; align-items: center; gap: 3px; flex-shrink: 0; }
+.gp-sync-up {
+  font-family: 'JetBrains Mono', monospace; font-size: 9px; color: #10b981;
+  background: rgba(16,185,129,.1); padding: 1px 5px; border-radius: 3px;
+}
+.gp-sync-dn {
+  font-family: 'JetBrains Mono', monospace; font-size: 9px; color: #a090e0;
+  background: rgba(160,144,224,.1); padding: 1px 5px; border-radius: 3px;
+}
 
 /* Branch dropdown */
 .gp-branch-dd {
-  position: absolute; top: calc(100% + 2px); left: 0; z-index: 9999;
-  background: #0d0d18; border: 1px solid rgba(255,255,255,.12);
-  border-radius: 4px; min-width: 200px; max-width: 320px;
-  box-shadow: 0 12px 40px rgba(0,0,0,.9); display: flex; flex-direction: column;
+  position: absolute; top: calc(100% + 3px); left: 0; z-index: 9999;
+  background: #090914; border: 1px solid rgba(255,255,255,.1);
+  border-radius: 6px; min-width: 215px; max-width: 330px;
+  box-shadow: 0 20px 56px rgba(0,0,0,.96), 0 0 0 1px rgba(255,255,255,.02);
+  display: flex; flex-direction: column; overflow: hidden;
 }
-.theme-brutal .gp-branch-dd { background: #1a1a1a; border-color: rgba(242,193,46,.25); }
-.gp-stash-dd { min-width: 260px; }
-.gp-branch-dd-search {
-  padding: 6px 8px; border-bottom: 1px solid rgba(255,255,255,.06);
-}
-.gp-branch-dd-list { max-height: 220px; overflow-y: auto; }
+.theme-brutal .gp-branch-dd { background: #161616; border-color: rgba(242,193,46,.18); }
+.gp-stash-dd { min-width: 265px; }
+.gp-branch-dd-search { padding: 7px 8px; border-bottom: 1px solid rgba(255,255,255,.06); }
+.gp-branch-dd-list { max-height: 228px; overflow-y: auto; }
 .gp-branch-dd-loading {
-  padding: 8px 10px; font-size: 10px; color: #6a6a8a;
+  padding: 10px 12px; font-size: 10px; color: #505070;
   font-family: 'JetBrains Mono', monospace; display: flex; align-items: center; gap: 6px;
 }
+.gp-branch-dd-group {
+  padding: 5px 11px 3px; font-size: 8px; color: #383858;
+  font-family: 'Oswald', sans-serif; font-weight: 700; letter-spacing: .14em;
+  text-transform: uppercase; border-top: 1px solid rgba(255,255,255,.04);
+}
 .gp-branch-dd-item {
-  display: flex; align-items: center; gap: 6px; padding: 4px 10px; cursor: pointer;
-  font-family: 'JetBrains Mono', monospace; font-size: 11px;
+  display: flex; align-items: center; gap: 6px; padding: 5px 11px; cursor: pointer;
+  font-family: 'JetBrains Mono', monospace; font-size: 11px; transition: background .07s;
 }
-.gp-branch-dd-item:hover { background: rgba(255,255,255,.05); }
-.gp-branch-dd-item.current { background: rgba(16,185,129,.1); }
-.gp-branch-dd-check { color: #10b981; font-size: 10px; flex-shrink: 0; }
-.gp-branch-dd-name { flex: 1; color: #c0c8d8; }
+.gp-branch-dd-item:hover { background: rgba(255,255,255,.06); }
+.gp-branch-dd-item.current { background: rgba(16,185,129,.07); }
+.gp-branch-dd-item.remote .gp-branch-dd-name { color: #6a6a8a; }
+.gp-branch-dd-check { color: #10b981; font-size: 10px; flex-shrink: 0; width: 12px; }
+.gp-branch-dd-name { flex: 1; color: #aab4c8; }
 .gp-branch-dd-item.current .gp-branch-dd-name { color: #10b981; }
-.gp-branch-dd-create {
-  padding: 6px 8px; border-top: 1px solid rgba(255,255,255,.06);
-  display: flex; gap: 4px;
-}
+.gp-branch-dd-create { padding: 7px 8px; border-top: 1px solid rgba(255,255,255,.06); display: flex; gap: 5px; }
 .gp-branch-dd-create-btn {
-  background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.12);
-  color: #c0c8d8; cursor: pointer; border-radius: 2px; width: 24px; height: 24px;
+  background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.1);
+  color: #aab4c8; cursor: pointer; border-radius: 3px; width: 26px; height: 26px;
   display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-  font-size: 14px; outline: none;
+  font-size: 14px; outline: none; transition: background .1s;
 }
 .gp-branch-dd-create-btn:disabled { opacity: .3; cursor: default; }
 .gp-branch-dd-create-btn:not(:disabled):hover { background: rgba(255,255,255,.15); }
 
 /* Stash panel */
 .gp-stash-header {
-  padding: 5px 10px; font-family: 'Oswald', sans-serif; font-weight: 700;
-  font-size: 9px; letter-spacing: .12em; color: #5a5a7a;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 10px; font-family: 'Oswald', sans-serif; font-weight: 700;
+  font-size: 9px; letter-spacing: .12em; color: #404060; text-transform: uppercase;
   border-bottom: 1px solid rgba(255,255,255,.06);
 }
-.gp-stash-item {
-  padding: 5px 10px; border-bottom: 1px solid rgba(255,255,255,.04);
-  display: flex; flex-direction: column; gap: 2px;
+.gp-stash-pop-btn {
+  background: rgba(16,185,129,.09); border: 1px solid rgba(16,185,129,.2);
+  color: #10b981; font-family: 'JetBrains Mono', monospace; font-size: 9px;
+  padding: 2px 8px; cursor: pointer; outline: none; border-radius: 3px; transition: background .1s;
 }
-.gp-stash-ref { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: #bb9af7; }
-.gp-stash-msg { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #c0c8d8; }
-.gp-stash-date { font-size: 9px; color: #5a5a7a; font-family: 'JetBrains Mono', monospace; }
+.gp-stash-pop-btn:hover { background: rgba(16,185,129,.18); }
+.gp-stash-pop-btn:disabled { opacity: .4; cursor: default; }
+.gp-stash-item {
+  padding: 6px 12px; border-bottom: 1px solid rgba(255,255,255,.03); display: flex; flex-direction: column; gap: 2px;
+}
+.gp-stash-ref  { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: #9080d0; }
+.gp-stash-msg  { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #aab4c8; }
+.gp-stash-date { font-size: 9px; color: #404060; font-family: 'JetBrains Mono', monospace; }
 
 /* Input */
 .gp-input {
-  width: 100%; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1);
-  color: #c0c8d8; font-family: 'JetBrains Mono', monospace; font-size: 11px;
-  padding: 4px 8px; border-radius: 2px; outline: none; box-sizing: border-box;
+  width: 100%; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08);
+  color: #aab4c8; font-family: 'JetBrains Mono', monospace; font-size: 11px;
+  padding: 4px 8px; border-radius: 3px; outline: none; box-sizing: border-box; transition: border-color .1s;
 }
-.gp-input:focus { border-color: rgba(16,185,129,.4); }
-.theme-brutal .gp-input { background: rgba(255,255,255,.04); border-color: rgba(242,193,46,.2); color: #f0ece0; }
-.theme-brutal .gp-input:focus { border-color: rgba(242,193,46,.5); }
+.gp-input:focus { border-color: rgba(16,185,129,.3); }
+.theme-brutal .gp-input { background: rgba(255,255,255,.04); border-color: rgba(242,193,46,.14); color: #ede8dc; }
+.theme-brutal .gp-input:focus { border-color: rgba(242,193,46,.42); }
 
 /* Body */
 .gp-body {
   flex: 1; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column;
-  scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.07) transparent;
+  scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.06) transparent;
 }
 .gp-body::-webkit-scrollbar { width: 4px; }
 .gp-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,.07); border-radius: 2px; }
@@ -4517,165 +4544,161 @@ body {
 
 /* Commit area */
 .gp-commit-area {
-  padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,.04); flex-shrink: 0;
+  padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,.05); flex-shrink: 0;
 }
-.gp-commit-hdr {
-  display: flex; align-items: center; gap: 4px; margin-bottom: 5px;
-}
+.gp-commit-hdr { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
 .gp-commit-hdr-label {
   font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 9px;
-  letter-spacing: .12em; color: #5a5a7a; text-transform: uppercase; flex: 1;
+  letter-spacing: .13em; color: #404060; text-transform: uppercase; flex: 1;
 }
 .gp-ai-btn {
-  background: rgba(187,154,247,.12); border: 1px solid rgba(187,154,247,.3);
-  color: #bb9af7; font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 8px;
-  letter-spacing: .08em; padding: 1px 6px; cursor: pointer; outline: none;
-  transition: background .1s;
+  background: rgba(160,144,224,.1); border: 1px solid rgba(160,144,224,.2);
+  color: #a090e0; font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 8px;
+  letter-spacing: .08em; padding: 2px 7px; cursor: pointer; outline: none; border-radius: 3px;
+  transition: background .1s, border-color .1s; display: flex; align-items: center; gap: 3px;
 }
-.gp-ai-btn:hover { background: rgba(187,154,247,.22); }
+.gp-ai-btn:hover { background: rgba(160,144,224,.18); border-color: rgba(160,144,224,.34); }
 .gp-ai-btn:disabled { opacity: .4; cursor: default; }
-
 .gp-textarea {
-  width: 100%; background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.08);
-  font-family: 'JetBrains Mono', monospace; font-size: 11px; padding: 5px 7px;
-  resize: vertical; outline: none; border-radius: 2px; box-sizing: border-box;
-  line-height: 1.5; min-height: 50px; color: #c0c8d8;
-  transition: border-color .1s;
+  width: 100%; background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.07);
+  font-family: 'JetBrains Mono', monospace; font-size: 11px; padding: 6px 8px;
+  resize: vertical; outline: none; border-radius: 3px; box-sizing: border-box;
+  line-height: 1.5; min-height: 54px; color: #aab4c8; transition: border-color .1s, background .1s;
 }
-.gp-textarea:focus { border-color: rgba(16,185,129,.4); }
-.theme-brutal .gp-textarea { color: #f0ece0; border-color: rgba(242,193,46,.2); }
-.theme-brutal .gp-textarea:focus { border-color: rgba(242,193,46,.5); }
-
+.gp-textarea:focus { border-color: rgba(16,185,129,.28); background: rgba(255,255,255,.04); }
+.theme-brutal .gp-textarea { color: #ede8dc; border-color: rgba(242,193,46,.14); }
+.theme-brutal .gp-textarea:focus { border-color: rgba(242,193,46,.38); }
 .gp-commit-btn {
-  width: 100%; margin-top: 6px; border: none; outline: none; border-radius: 2px;
+  width: 100%; margin-top: 7px; border: 1px solid rgba(200,30,50,.15); outline: none; border-radius: 3px;
   font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 10px;
-  letter-spacing: .08em; padding: 6px 0; cursor: default;
+  letter-spacing: .08em; padding: 7px 0; cursor: default;
   display: flex; align-items: center; justify-content: center; gap: 6px;
-  transition: background .15s, color .15s;
-  background: rgba(255,42,56,.15); color: rgba(255,255,255,.3);
+  transition: all .15s; background: rgba(200,30,50,.07); color: rgba(255,255,255,.18);
 }
 .gp-commit-btn.ready {
-  background: #ff2a38; color: #fff; cursor: pointer;
+  background: #b8101e; color: #fff; cursor: pointer; border-color: transparent;
+  box-shadow: 0 1px 10px rgba(184,16,30,.22);
 }
-.gp-commit-btn.ready:hover { background: #ff1030; }
-.gp-commit-btn:disabled { opacity: .7; cursor: default; }
-.theme-brutal .gp-commit-btn { background: rgba(242,193,46,.15); color: rgba(15,15,15,.3); }
-.theme-brutal .gp-commit-btn.ready { background: #f2c12e; color: #0f0f0f; }
-.theme-brutal .gp-commit-btn.ready:hover { background: #e0b020; }
+.gp-commit-btn.ready:hover { background: #a00c1a; box-shadow: 0 2px 14px rgba(184,16,30,.3); }
+.gp-commit-btn:disabled { opacity: .6; cursor: default; }
+.theme-brutal .gp-commit-btn { background: rgba(242,193,46,.07); color: rgba(15,15,15,.2); border-color: rgba(242,193,46,.14); }
+.theme-brutal .gp-commit-btn.ready { background: #f2c12e; color: #0f0f0f; border-color: transparent; box-shadow: 0 1px 10px rgba(242,193,46,.18); }
+.theme-brutal .gp-commit-btn.ready:hover { background: #deb020; }
 
 /* Section */
 .gp-section { border-top: 1px solid rgba(255,255,255,.04); }
 .gp-section-hdr {
-  display: flex; align-items: center; gap: 4px; padding: 4px 8px;
-  cursor: pointer; -webkit-user-select: none; user-select: none; min-height: 24px; transition: background .1s;
+  display: flex; align-items: center; gap: 5px; padding: 5px 10px;
+  cursor: pointer; -webkit-user-select: none; user-select: none;
+  min-height: 27px; border-left: 2px solid transparent;
+  transition: background .08s, border-color .15s;
 }
 .gp-section-hdr:hover { background: rgba(255,255,255,.04); }
-.gp-section-caret { font-size: 8px; color: #6a6a8a; flex-shrink: 0; width: 10px; text-align: center; }
+.gp-section-caret { font-size: 8px; color: #404060; flex-shrink: 0; width: 10px; text-align: center; }
 .gp-section-title {
-  font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 10px;
-  letter-spacing: .1em; text-transform: uppercase; flex: 1;
+  font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 9px;
+  letter-spacing: .13em; text-transform: uppercase; flex: 1; color: #585878;
 }
-.theme-cyber .gp-section-title { color: #8a8aa0; }
-.theme-brutal .gp-section-title { color: rgba(240,236,224,.6); }
 .gp-section-count {
-  font-family: 'JetBrains Mono', monospace; font-size: 9px; color: #6a6a8a; flex-shrink: 0;
+  font-family: 'JetBrains Mono', monospace; font-size: 9px; color: #404060;
+  background: rgba(255,255,255,.05); padding: 0 5px 1px; border-radius: 8px; flex-shrink: 0;
 }
 .gp-section-action {
-  background: transparent; border: none; cursor: pointer; outline: none;
-  font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #6a6a8a;
-  padding: 1px 4px; border-radius: 2px; flex-shrink: 0; margin-left: 2px;
-  transition: background .1s, color .1s;
+  background: transparent; border: 1px solid rgba(255,255,255,.07); cursor: pointer; outline: none;
+  color: #505070; width: 19px; height: 19px; border-radius: 3px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; margin-left: 2px;
+  transition: background .09s, color .09s, border-color .09s;
 }
-.gp-section-action:hover { background: rgba(255,255,255,.1); color: #c0c8d8; }
+.gp-section-action:hover { background: rgba(255,255,255,.1); color: #aab4c8; border-color: rgba(255,255,255,.16); }
 
 /* File rows */
 .gp-file-row {
-  display: flex; align-items: center; padding: 0 4px 0 16px; min-height: 22px; cursor: default;
-  transition: background .08s;
+  display: flex; align-items: center; padding: 0 6px 0 12px; min-height: 23px; cursor: default;
+  transition: background .07s; border-left: 2px solid transparent;
 }
-.gp-file-row.hov { background: rgba(255,255,255,.06); }
+.gp-file-row.hov { background: rgba(255,255,255,.05); }
+.gp-conflict-row { background: rgba(255,67,90,.04); border-left-color: rgba(255,67,90,.3); }
+.gp-conflict-row:hover { background: rgba(255,67,90,.07); }
 .gp-file-status {
-  font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700;
-  width: 12px; flex-shrink: 0; text-align: center;
+  font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700;
+  width: 16px; flex-shrink: 0; text-align: center; line-height: 1; padding: 1px 2px; border-radius: 2px;
 }
 .gp-file-name {
-  flex: 1; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #c0c8d8;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-left: 6px;
-  cursor: pointer;
+  flex: 1; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #aab4c8;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-left: 7px;
+  cursor: pointer; transition: color .08s;
 }
-.theme-brutal .gp-file-name { color: #f0ece0; }
-.gp-file-dir { font-size: 10px; margin-left: 5px; opacity: .4; }
+.gp-file-name:hover { color: #ccd6e8; }
+.gp-conflict-name { color: #e06070 !important; }
+.theme-brutal .gp-file-name { color: #ede8dc; }
+.gp-file-dir { font-size: 9px; margin-left: 5px; opacity: .32; }
 .gp-file-actions {
-  display: flex; align-items: center; gap: 1px; flex-shrink: 0;
-  opacity: 0; transition: opacity .1s;
+  display: flex; align-items: center; gap: 2px; flex-shrink: 0; opacity: 0; transition: opacity .1s;
 }
-.gp-file-row.hov .gp-file-actions { opacity: 1; }
-
+.gp-file-row.hov .gp-file-actions,
+.gp-conflict-row .gp-file-actions { opacity: 1; }
 .gp-action-btn {
-  background: transparent; border: none; cursor: pointer; border-radius: 2px;
-  outline: none; color: #9494b0; width: 18px; height: 18px;
+  background: transparent; border: none; cursor: pointer; border-radius: 3px;
+  outline: none; color: #585878; width: 20px; height: 20px;
   display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-  transition: background .1s, color .1s; padding: 0;
+  transition: background .09s, color .09s; padding: 0;
 }
-.gp-action-btn:hover { background: rgba(255,255,255,.1); color: #c0c8d8; }
-.gp-action-btn.danger { color: #ff435a; }
-.gp-action-btn.danger:hover { background: rgba(255,67,90,.18); }
-.gp-action-btn.active { background: rgba(40,241,195,.15); color: #28f1c3; }
+.gp-action-btn:hover { background: rgba(255,255,255,.1); color: #aab4c8; }
+.gp-action-btn.danger { color: #aa3344; }
+.gp-action-btn.danger:hover { background: rgba(255,67,90,.16); color: #ff5566; }
+.gp-action-btn.active { background: rgba(16,185,129,.12); color: #10b981; }
 
 /* Diff */
 .gp-diff {
-  max-height: 200px; overflow-y: auto; overflow-x: auto;
-  background: #03030a; border-top: 1px solid rgba(255,255,255,.05);
-  scrollbar-width: thin;
+  max-height: 220px; overflow-y: auto; overflow-x: auto;
+  background: #020208; border-top: 1px solid rgba(255,255,255,.04); scrollbar-width: thin;
 }
 .gp-diff::-webkit-scrollbar { width: 4px; height: 4px; }
 .gp-diff::-webkit-scrollbar-thumb { background: rgba(255,255,255,.07); border-radius: 2px; }
 .gp-diff::-webkit-scrollbar-track { background: transparent; }
 .gp-diff-line { display: flex; min-height: 16px; }
-.gp-diff-line.add { background: rgba(115,201,145,.1); }
-.gp-diff-line.del { background: rgba(241,76,76,.1); }
-.gp-diff-line.hunk { background: rgba(40,241,195,.06); }
-.gp-diff-ln {
-  width: 28px; flex-shrink: 0; font-family: 'JetBrains Mono', monospace; font-size: 9px;
-  color: #3e3e5a; text-align: right; padding-right: 6px; padding-top: 1px;
-  -webkit-user-select: none; user-select: none;
+.gp-diff-line.add  { background: rgba(16,185,129,.08); }
+.gp-diff-line.del  { background: rgba(241,76,76,.08); }
+.gp-diff-line.hunk { background: rgba(66,133,244,.06); }
+.gp-diff-sign {
+  width: 14px; flex-shrink: 0; font-family: 'JetBrains Mono', monospace; font-size: 10px;
+  text-align: center; padding-top: 1px; -webkit-user-select: none; user-select: none; color: #303050;
 }
+.gp-diff-line.add  .gp-diff-sign { color: #10b981; }
+.gp-diff-line.del  .gp-diff-sign { color: #f14c4c; }
+.gp-diff-line.hunk .gp-diff-sign { color: #4285f4; }
 .gp-diff-code {
   margin: 0; flex: 1; font-family: 'JetBrains Mono', monospace; font-size: 10px;
-  white-space: pre; padding: 1px 6px; line-height: 14px; color: #c0c8d8;
+  white-space: pre; padding: 1px 6px; line-height: 14px; color: #7a8498;
 }
-.gp-diff-line.add .gp-diff-code { color: #73c991; }
-.gp-diff-line.del .gp-diff-code { color: #f14c4c; }
-.gp-diff-line.hunk .gp-diff-code { color: #28f1c3; }
-.gp-diff-line.meta .gp-diff-code { color: #6a6a8a; opacity: .7; }
-.gp-diff-line.dim .gp-diff-code { opacity: .5; }
-.gp-diff-empty {
-  padding: 6px 10px; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #5a5a7a;
-}
+.gp-diff-line.add  .gp-diff-code { color: #73c991; }
+.gp-diff-line.del  .gp-diff-code { color: #f14c4c; }
+.gp-diff-line.hunk .gp-diff-code { color: #4285f4; opacity: .8; }
+.gp-diff-line.meta .gp-diff-code { color: #505070; }
+.gp-diff-line.dim  .gp-diff-code { opacity: .4; }
+.gp-diff-empty { padding: 8px 12px; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #404060; }
 .gp-diff-loading {
-  padding: 4px 10px; font-family: monospace; font-size: 10px; color: #6a6a8a;
+  padding: 5px 12px; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #505070;
   display: flex; align-items: center; gap: 6px;
 }
 
 /* Commit list */
 .gp-commit-row {
-  display: flex; align-items: center; gap: 6px; padding: 2px 8px 2px 22px;
-  min-height: 22px; cursor: default; transition: background .08s;
+  display: flex; align-items: center; gap: 8px; padding: 3px 10px 3px 20px;
+  min-height: 22px; cursor: default; transition: background .07s;
 }
 .gp-commit-row:hover { background: rgba(255,255,255,.04); }
-.gp-commit-hash { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: #bb9af7; flex-shrink: 0; }
+.gp-commit-hash { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: #6860a0; flex-shrink: 0; }
 .gp-commit-msg {
-  font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #8a8aa0;
+  font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #606080;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;
 }
 
 /* Commit graph */
 .gp-graph { display: flex; flex-direction: column; max-height: 300px; overflow: hidden; }
-.gp-graph-scroll {
-  flex: 1; overflow-y: auto; overflow-x: hidden; scrollbar-width: thin;
-}
+.gp-graph-scroll { flex: 1; overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; }
 .gp-graph-scroll::-webkit-scrollbar { width: 4px; }
-.gp-graph-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,.07); border-radius: 2px; }
+.gp-graph-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,.06); border-radius: 2px; }
 .gp-graph-scroll::-webkit-scrollbar-track { background: transparent; }
 .gp-graph-inner { display: flex; }
 .gp-graph-svg-col { flex-shrink: 0; position: relative; }
@@ -4683,77 +4706,70 @@ body {
 .gp-graph-dot { cursor: pointer; }
 .gp-graph-labels { flex: 1; min-width: 0; }
 .gp-graph-row {
-  height: 26px; display: flex; align-items: center; gap: 4px; padding: 0 8px 0 4px;
-  cursor: pointer; overflow: hidden; border-left: 2px solid transparent; transition: background .08s;
+  height: 24px; display: flex; align-items: center; gap: 5px; padding: 0 8px 0 4px;
+  cursor: pointer; overflow: hidden; border-left: 2px solid transparent; transition: background .07s;
 }
-.gp-graph-row:hover { background: rgba(255,255,255,.03); }
-.gp-graph-row.sel { background: rgba(255,255,255,.06); }
-.gp-graph-hash { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: #bb9af7; flex-shrink: 0; }
+.gp-graph-row:hover { background: rgba(255,255,255,.04); }
+.gp-graph-row.sel  { background: rgba(255,255,255,.06); }
+.gp-graph-hash { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: #6860a0; flex-shrink: 0; }
 .gp-graph-ref {
-  font-size: 8px; padding: 0 3px; background: rgba(16,185,129,.15); color: #10b981;
-  border-radius: 2px; flex-shrink: 0; font-family: 'Oswald', sans-serif; font-weight: 700;
+  font-size: 8px; padding: 1px 4px; border-radius: 3px; flex-shrink: 0;
+  font-family: 'Oswald', sans-serif; font-weight: 700; letter-spacing: .04em;
 }
 .gp-graph-subject {
-  font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #8a8aa0;
+  font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #686888;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;
 }
-.gp-graph-time { font-family: 'JetBrains Mono', monospace; font-size: 8px; color: #5a5a7a; flex-shrink: 0; }
+.gp-graph-time { font-family: 'JetBrains Mono', monospace; font-size: 8px; color: #383858; flex-shrink: 0; }
 .gp-graph-detail {
-  flex-shrink: 0; border-top: 1px solid rgba(255,255,255,.06); padding: 6px 10px;
+  flex-shrink: 0; border-top: 1px solid rgba(255,255,255,.05); padding: 7px 12px;
   background: rgba(255,255,255,.02); font-family: 'JetBrains Mono', monospace; font-size: 10px;
   display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
 }
-.gp-graph-detail-hash { color: #bb9af7; }
-.gp-graph-detail-author { color: #ffc410; opacity: .7; }
-.gp-graph-detail-time { color: #5a5a7a; }
-.gp-graph-detail-msg { width: 100%; color: #c0c8d8; opacity: .85; line-height: 1.4; }
+.gp-graph-detail-hash   { color: #8070c0; }
+.gp-graph-detail-author { color: #d4b060; opacity: .8; }
+.gp-graph-detail-time   { color: #404060; }
+.gp-graph-detail-msg    { width: 100%; color: #8090a8; line-height: 1.45; }
 .gp-graph-loading {
-  padding: 12px; text-align: center; display: flex; align-items: center;
+  padding: 14px; text-align: center; display: flex; align-items: center;
   justify-content: center; gap: 8px;
-  font-family: 'Share Tech Mono', monospace; font-size: 9px; color: #5a5a7a;
+  font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #404060;
 }
-.gp-graph-empty {
-  padding: 12px; text-align: center; font-family: 'Share Tech Mono', monospace;
-  font-size: 10px; color: #3e3e5a;
-}
+.gp-graph-empty { padding: 14px; text-align: center; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #303050; }
 
 /* Empty / clean states */
 .gp-empty-section {
-  padding: 4px 22px; font-family: 'JetBrains Mono', monospace; font-size: 10px;
-  color: #3e3e5a; font-style: italic;
+  padding: 4px 20px; font-family: 'JetBrains Mono', monospace; font-size: 10px;
+  color: #323250; font-style: italic;
 }
 .gp-clean {
-  padding: 20px 16px; text-align: center; display: flex; flex-direction: column;
-  align-items: center; gap: 6px;
-  font-family: 'Share Tech Mono', monospace; font-size: 10px; color: #3e3e5a;
-  letter-spacing: .06em;
+  padding: 24px 16px; text-align: center; display: flex; flex-direction: column;
+  align-items: center; gap: 7px;
+  font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #323250; letter-spacing: .04em;
 }
-.gp-clean-icon { opacity: .15; }
+.gp-clean-icon { opacity: .12; }
 
 /* No-repo state */
-.gp-no-repo-icon { font-size: 28px; opacity: .2; }
+.gp-no-repo-icon { display: flex; justify-content: center; }
 .gp-no-repo-label {
-  font-family: 'Share Tech Mono', monospace; font-size: 10px; opacity: .35;
-  text-align: center; letter-spacing: .08em; line-height: 1.8; color: #c0c8d8;
+  font-family: 'JetBrains Mono', monospace; font-size: 11px; opacity: .28;
+  text-align: center; line-height: 1.85; color: #aab4c8;
 }
-.gp-no-repo-path { font-size: 9px; opacity: .7; }
+.gp-no-repo-path { display: block; font-size: 9px; opacity: .7; }
 .gp-init-btn {
-  background: transparent; border: 1px solid rgba(16,185,129,.4); color: #10b981;
-  font-family: 'JetBrains Mono', monospace; font-size: 10px; padding: 5px 14px;
-  cursor: pointer; letter-spacing: .08em; outline: none; transition: background .1s;
+  background: rgba(16,185,129,.06); border: 1px solid rgba(16,185,129,.22); color: #10b981;
+  font-family: 'JetBrains Mono', monospace; font-size: 10px; padding: 6px 18px;
+  cursor: pointer; letter-spacing: .08em; outline: none; border-radius: 4px;
+  transition: background .1s, border-color .1s; display: flex; align-items: center; gap: 6px;
 }
-.gp-init-btn:hover { background: rgba(16,185,129,.08); }
+.gp-init-btn:hover { background: rgba(16,185,129,.13); border-color: rgba(16,185,129,.38); }
 .gp-init-btn:disabled { opacity: .5; cursor: default; }
-.theme-brutal .gp-init-btn { border-color: rgba(242,193,46,.4); color: #f2c12e; }
-.theme-brutal .gp-init-btn:hover { background: rgba(242,193,46,.08); }
+.theme-brutal .gp-init-btn { border-color: rgba(242,193,46,.28); color: #f2c12e; background: rgba(242,193,46,.04); }
+.theme-brutal .gp-init-btn:hover { background: rgba(242,193,46,.11); border-color: rgba(242,193,46,.46); }
 
-.gp-loading-label {
-  font-family: 'Share Tech Mono', monospace; font-size: 10px; color: #5a5a7a; letter-spacing: .08em;
-}
-.gp-error {
-  color: #ff435a; font-size: 10px; font-family: monospace; margin-top: 3px; padding: 2px 0;
-}
-.gp-muted { opacity: .4; }
+.gp-loading-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #404060; letter-spacing: .05em; }
+.gp-error { color: #ff5566; font-size: 10px; font-family: 'JetBrains Mono', monospace; margin-top: 4px; }
+.gp-muted { opacity: .35; }
 
 /* ═══════════════════════════════════════════════════════════════
    NOTES PANEL
@@ -6588,17 +6604,7 @@ body {
   position: relative !important;
   overflow: hidden !important;
 }
-/* Animated sweep line inside topbar */
-.theme-cyber .ide-topbar::before {
-  content: '' !important;
-  position: absolute !important;
-  left: 0 !important; right: 0 !important;
-  height: 1px !important;
-  background: linear-gradient(to right, transparent 0%, rgba(255,42,56,.55) 50%, transparent 100%) !important;
-  animation: sweep-line 14s linear infinite !important;
-  pointer-events: none !important;
-  z-index: 999 !important;
-}
+/* Sweep line removed — was causing blinking */
 
 
 /* ─────────────────────────────────────────────────────────────────
@@ -7448,4 +7454,1329 @@ body {
   border-radius: 0 !important;
 }
 .theme-cyber ::-webkit-scrollbar-track { background: transparent !important; }
+
+
+/* ══════════════════════════════════════════════════════════════════
+   FORBIDEN v3 — PASS 5
+   Find bar · Manga hero · Stagger · Terminal · Micro-polish
+   ══════════════════════════════════════════════════════════════════ */
+
+/* ─────────────────────────────────────────────────────────────────
+   FIND / REPLACE BAR (.ide-find-bar)
+   ───────────────────────────────────────────────────────────────── */
+
+@keyframes find-bar-enter {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.theme-cyber .ide-find-bar {
+  background: rgba(0,0,6,.95) !important;
+  border-bottom: 1px solid rgba(255,42,56,.14) !important;
+  border-top: none !important;
+  animation: find-bar-enter 0.14s cubic-bezier(0.25,1,0.5,1) both !important;
+  padding: 4px 10px !important;
+  gap: 6px !important;
+}
+
+/* Find label pill */
+.theme-cyber .ide-find-label {
+  font-family: 'Oswald', sans-serif !important;
+  font-size: 8px !important;
+  letter-spacing: .2em !important;
+  color: rgba(255,42,56,.6) !important;
+  flex-shrink: 0 !important;
+}
+
+/* Find/replace inputs */
+.theme-cyber .ide-find-input {
+  background: rgba(255,255,255,.025) !important;
+  border: none !important;
+  border-bottom: 1px solid rgba(255,42,56,.22) !important;
+  color: #b0b8cc !important;
+  font-family: 'Share Tech Mono', monospace !important;
+  font-size: 11px !important;
+  padding: 2px 6px !important;
+  border-radius: 0 !important;
+  outline: none !important;
+  transition: border-color .12s !important;
+  caret-color: #ff2a38 !important;
+}
+.theme-cyber .ide-find-input:focus {
+  border-bottom-color: #ff2a38 !important;
+  background: rgba(255,42,56,.03) !important;
+}
+.theme-cyber .ide-find-input::placeholder {
+  color: rgba(100,105,140,.4) !important;
+}
+
+/* Match count badge */
+.theme-cyber .ide-find-count {
+  font-family: 'JetBrains Mono', monospace !important;
+  font-size: 9px !important;
+  color: rgba(120,125,165,.45) !important;
+  flex-shrink: 0 !important;
+}
+
+/* Action buttons in find bar */
+.theme-cyber .ide-find-btn {
+  background: transparent !important;
+  border: 1px solid rgba(255,42,56,.14) !important;
+  color: rgba(160,165,200,.5) !important;
+  border-radius: 0 !important;
+  font-family: 'Oswald', sans-serif !important;
+  font-weight: 700 !important;
+  font-size: 8px !important;
+  letter-spacing: .12em !important;
+  padding: 2px 8px !important;
+  transition: background .1s, color .1s, border-color .1s !important;
+  cursor: pointer !important;
+}
+.theme-cyber .ide-find-btn:hover {
+  background: rgba(255,42,56,.08) !important;
+  color: #ff2a38 !important;
+  border-color: rgba(255,42,56,.4) !important;
+}
+.theme-cyber .ide-find-btn:active {
+  background: rgba(255,42,56,.14) !important;
+}
+
+/* Close button */
+.theme-cyber .ide-find-close {
+  color: rgba(130,135,175,.3) !important;
+  border-radius: 0 !important;
+  transition: color .1s, background .1s !important;
+}
+.theme-cyber .ide-find-close:hover {
+  color: #ff2a38 !important;
+  background: rgba(255,42,56,.08) !important;
+}
+
+/* Find highlight in code */
+.theme-cyber .find-highlight {
+  background: rgba(255,196,16,.2) !important;
+  outline: 1px solid rgba(255,196,16,.5) !important;
+  border-radius: 0 !important;
+}
+.theme-cyber .find-highlight.current {
+  background: rgba(255,42,56,.3) !important;
+  outline-color: #ff2a38 !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   MANGA HERO — cyber overrides
+   ───────────────────────────────────────────────────────────────── */
+
+/* Caption box */
+.theme-cyber .manga-hero-caption {
+  background: rgba(0,0,6,.9) !important;
+  border: 1px solid rgba(255,42,56,.22) !important;
+  border-radius: 0 !important;
+  color: rgba(180,185,215,.75) !important;
+  font-size: 10px !important;
+  letter-spacing: .06em !important;
+}
+
+/* Giant SFX watermark */
+.theme-cyber .manga-hero-sfx-bg {
+  color: rgba(255,42,56,.045) !important;
+  -webkit-text-stroke: 1px rgba(255,42,56,.08) !important;
+}
+
+/* Title */
+.theme-cyber .manga-hero-title {
+  -webkit-text-stroke: 2px rgba(255,42,56,.7) !important;
+  text-shadow: 4px 4px 0 rgba(0,0,0,.8), 0 0 40px rgba(255,42,56,.25) !important;
+  color: #f5f2eb !important;
+}
+
+/* Stats */
+.theme-cyber .manga-hero-stat-n {
+  color: #ff2a38 !important;
+  text-shadow: 0 0 16px rgba(255,42,56,.4) !important;
+}
+.theme-cyber .manga-hero-stat-l {
+  color: rgba(150,155,195,.45) !important;
+  letter-spacing: .2em !important;
+}
+
+/* CTA buttons */
+.theme-cyber .manga-hero-cta-play {
+  background: #ff2a38 !important;
+  border-color: #ff2a38 !important;
+  color: #fff !important;
+  border-radius: 0 !important;
+  box-shadow: 0 0 24px rgba(255,42,56,.4), inset 0 1px 0 rgba(255,255,255,.15) !important;
+}
+.theme-cyber .manga-hero-cta-play:hover {
+  background: #ff3f4c !important;
+  box-shadow: 0 0 36px rgba(255,42,56,.6) !important;
+  transform: translateY(-2px) !important;
+}
+.theme-cyber .manga-hero-cta-browse {
+  border-color: rgba(255,42,56,.4) !important;
+  color: rgba(255,42,56,.85) !important;
+  background: rgba(255,42,56,.06) !important;
+  border-radius: 0 !important;
+}
+.theme-cyber .manga-hero-cta-browse:hover {
+  border-color: rgba(255,42,56,.7) !important;
+  color: #ff2a38 !important;
+  background: rgba(255,42,56,.1) !important;
+}
+
+/* Grid cells */
+.theme-cyber .manga-hero-grid-cell {
+  border: 1px solid rgba(255,42,56,.12) !important;
+}
+.theme-cyber .manga-hero-grid-cell:hover {
+  border-color: rgba(255,42,56,.4) !important;
+  box-shadow: inset 0 0 20px rgba(255,42,56,.08) !important;
+}
+
+/* Strip */
+.theme-cyber .manga-hero-strip {
+  border-top: 1px solid rgba(255,42,56,.12) !important;
+  background: rgba(0,0,6,.6) !important;
+}
+.theme-cyber .manga-hero-strip-item {
+  border: 1px solid rgba(255,42,56,.1) !important;
+}
+.theme-cyber .manga-hero-strip-item:hover {
+  border-color: rgba(255,42,56,.35) !important;
+}
+
+/* Scan overlay */
+.theme-cyber .manga-hero-scan {
+  background: repeating-linear-gradient(
+    0deg, transparent, transparent 2px, rgba(0,0,0,.18) 2px, rgba(0,0,0,.18) 4px
+  ) !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   STAGGERED LIST ANIMATIONS
+   File explorer rows, git file rows, commit list
+   ───────────────────────────────────────────────────────────────── */
+
+@keyframes row-enter {
+  from { opacity: 0; transform: translateX(-4px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* File explorer: stagger by position (CSS nth-child approximation) */
+.theme-cyber .fe-row { animation: row-enter 0.12s both !important; }
+.theme-cyber .fe-row:nth-child(1)  { animation-delay: .00s !important; }
+.theme-cyber .fe-row:nth-child(2)  { animation-delay: .02s !important; }
+.theme-cyber .fe-row:nth-child(3)  { animation-delay: .04s !important; }
+.theme-cyber .fe-row:nth-child(4)  { animation-delay: .06s !important; }
+.theme-cyber .fe-row:nth-child(5)  { animation-delay: .08s !important; }
+.theme-cyber .fe-row:nth-child(6)  { animation-delay: .10s !important; }
+.theme-cyber .fe-row:nth-child(7)  { animation-delay: .12s !important; }
+.theme-cyber .fe-row:nth-child(8)  { animation-delay: .14s !important; }
+.theme-cyber .fe-row:nth-child(9)  { animation-delay: .16s !important; }
+.theme-cyber .fe-row:nth-child(n+10) { animation-delay: .18s !important; }
+
+/* Command palette items: stagger */
+.theme-cyber .ide-cmd-item { animation: row-enter 0.1s both !important; }
+.theme-cyber .ide-cmd-item:nth-child(1)  { animation-delay: .00s !important; }
+.theme-cyber .ide-cmd-item:nth-child(2)  { animation-delay: .025s !important; }
+.theme-cyber .ide-cmd-item:nth-child(3)  { animation-delay: .05s !important; }
+.theme-cyber .ide-cmd-item:nth-child(4)  { animation-delay: .075s !important; }
+.theme-cyber .ide-cmd-item:nth-child(5)  { animation-delay: .1s !important; }
+.theme-cyber .ide-cmd-item:nth-child(n+6) { animation-delay: .12s !important; }
+
+/* Branch dropdown items */
+.theme-cyber .gp-branch-dd-item { animation: row-enter 0.1s both !important; }
+.theme-cyber .gp-branch-dd-item:nth-child(1) { animation-delay: .00s !important; }
+.theme-cyber .gp-branch-dd-item:nth-child(2) { animation-delay: .03s !important; }
+.theme-cyber .gp-branch-dd-item:nth-child(3) { animation-delay: .06s !important; }
+.theme-cyber .gp-branch-dd-item:nth-child(n+4) { animation-delay: .09s !important; }
+
+
+/* ─────────────────────────────────────────────────────────────────
+   TERMINAL (PTY inside bottom panel)
+   ───────────────────────────────────────────────────────────────── */
+
+/* xterm.js overrides for cyber theme */
+.theme-cyber .xterm-viewport {
+  background: #02020e !important;
+  border-top: none !important;
+}
+.theme-cyber .xterm-screen { padding: 4px !important; }
+
+/* Terminal cursor glow */
+.theme-cyber .xterm-cursor-blink {
+  box-shadow: 0 0 8px rgba(255,42,56,.7) !important;
+}
+
+/* Terminal scrollbar */
+.theme-cyber .xterm-viewport::-webkit-scrollbar { width: 2px !important; }
+.theme-cyber .xterm-viewport::-webkit-scrollbar-thumb {
+  background: rgba(255,42,56,.2) !important;
+  border-radius: 0 !important;
+}
+
+/* xterm selection */
+.theme-cyber .xterm-selection div {
+  background: rgba(255,42,56,.22) !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   NODE LABEL POPUP (tooltip on graph node)
+   ───────────────────────────────────────────────────────────────── */
+
+@keyframes label-pop {
+  from { opacity: 0; transform: translateY(4px) scale(0.95); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.theme-cyber .node-label {
+  animation: label-pop 0.12s cubic-bezier(0.25,1,0.5,1) both !important;
+  border-radius: 0 !important;
+  font-size: 10px !important;
+  letter-spacing: .04em !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   GIT GRAPH ROWS — stagger
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .gp-graph-row { animation: row-enter 0.1s both !important; }
+.theme-cyber .gp-graph-row:nth-child(1)  { animation-delay: .00s !important; }
+.theme-cyber .gp-graph-row:nth-child(2)  { animation-delay: .02s !important; }
+.theme-cyber .gp-graph-row:nth-child(3)  { animation-delay: .04s !important; }
+.theme-cyber .gp-graph-row:nth-child(4)  { animation-delay: .06s !important; }
+.theme-cyber .gp-graph-row:nth-child(5)  { animation-delay: .08s !important; }
+.theme-cyber .gp-graph-row:nth-child(n+6) { animation-delay: .10s !important; }
+
+
+/* ─────────────────────────────────────────────────────────────────
+   CYBER GRID LINES (subtle across any scrollable panel)
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .ide-editor-pane::after {
+  content: '' !important;
+  position: absolute !important;
+  inset: 0 !important;
+  pointer-events: none !important;
+  background-image:
+    linear-gradient(rgba(255,42,56,.012) 1px, transparent 1px) !important;
+  background-size: 100% 22px !important;
+  z-index: 0 !important;
+  opacity: .6 !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   ACTIVE NODE CIRCLE — sharper pulse ring
+   ───────────────────────────────────────────────────────────────── */
+
+@keyframes node-pulse {
+  0%   { box-shadow: 0 0 0 0 var(--np, rgba(255,42,56,.6)), inset 0 0 12px rgba(0,0,0,.7); }
+  60%  { box-shadow: 0 0 0 8px transparent, inset 0 0 12px rgba(0,0,0,.7); }
+  100% { box-shadow: 0 0 0 0 transparent, inset 0 0 12px rgba(0,0,0,.7); }
+}
+
+.theme-cyber .node-circle.selected,
+.theme-cyber .node-circle.active {
+  animation: node-pulse 1.8s ease-out infinite !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   MINI KEYBOARD SHORTCUT BADGES (kbd elements)
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber kbd {
+  background: rgba(255,42,56,.06) !important;
+  border: 1px solid rgba(255,42,56,.2) !important;
+  color: rgba(200,205,225,.65) !important;
+  padding: 1px 5px !important;
+  font-family: 'Share Tech Mono', monospace !important;
+  font-size: 9px !important;
+  border-radius: 0 !important;
+  letter-spacing: .06em !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   FOCUS VISIBLE — unified for all interactive elements
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber *:focus-visible {
+  outline: 1px solid rgba(255,42,56,.55) !important;
+  outline-offset: 1px !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   CHECKBOX + RADIO (settings panel)
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber input[type="checkbox"] {
+  accent-color: #ff2a38 !important;
+}
+.theme-cyber input[type="radio"] {
+  accent-color: #ff2a38 !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   SELECT DROPDOWNS (native)
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber select {
+  background: rgba(2,2,12,.98) !important;
+  border: 1px solid rgba(255,42,56,.18) !important;
+  color: #b0b8cc !important;
+  border-radius: 0 !important;
+  font-family: 'Share Tech Mono', monospace !important;
+  font-size: 11px !important;
+  padding: 3px 8px !important;
+  outline: none !important;
+  cursor: pointer !important;
+}
+.theme-cyber select:focus {
+  border-color: rgba(255,42,56,.45) !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   EMPTY EDITOR — "no file open" placeholder
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .ide-no-file {
+  background: #000008 !important;
+  background-image:
+    radial-gradient(circle, rgba(255,42,56,.04) 1px, transparent 1px),
+    radial-gradient(ellipse at 50% 30%, rgba(255,42,56,.04) 0%, transparent 55%) !important;
+  background-size: 24px 24px, auto !important;
+  color: rgba(80,85,120,.45) !important;
+}
+.theme-cyber .ide-no-file-icon { opacity: .08 !important; }
+.theme-cyber .ide-no-file-hint {
+  font-family: 'Share Tech Mono', monospace !important;
+  font-size: 10px !important;
+  letter-spacing: .12em !important;
+  color: rgba(100,105,140,.35) !important;
+}
+.theme-cyber .ide-no-file-hint strong {
+  color: rgba(255,42,56,.5) !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   PROGRESS BARS (anywhere in the app)
+   ───────────────────────────────────────────────────────────────── */
+
+@keyframes progress-shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.theme-cyber progress,
+.theme-cyber [role="progressbar"] {
+  accent-color: #ff2a38 !important;
+}
+
+.theme-cyber .ide-progress {
+  background: rgba(255,42,56,.08) !important;
+  border-radius: 0 !important;
+  overflow: hidden !important;
+  height: 2px !important;
+}
+.theme-cyber .ide-progress-bar {
+  background: linear-gradient(
+    90deg, #ff2a38 0%, #ff6080 50%, #ff2a38 100%
+  ) !important;
+  background-size: 200% 100% !important;
+  animation: progress-shimmer 1.6s linear infinite !important;
+  height: 100% !important;
+  border-radius: 0 !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   ENGINE-WAIT LOADING SCREEN
+   ───────────────────────────────────────────────────────────────── */
+
+@keyframes engine-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes engine-fade-in {
+  from { opacity: 0; transform: scale(0.97); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.theme-cyber .ide-loading-overlay {
+  background: #000008 !important;
+  animation: engine-fade-in 0.3s ease both !important;
+}
+
+.theme-cyber .ide-loading-spinner {
+  border: 2px solid rgba(255,42,56,.12) !important;
+  border-top-color: #ff2a38 !important;
+  border-radius: 50% !important;
+  animation: engine-spin 0.7s linear infinite !important;
+  box-shadow: 0 0 16px rgba(255,42,56,.25) !important;
+}
+
+.theme-cyber .ide-loading-text {
+  color: rgba(100,105,140,.55) !important;
+  font-family: 'Share Tech Mono', monospace !important;
+  font-size: 10px !important;
+  letter-spacing: .2em !important;
+  animation: logo-flicker 4s step-end infinite !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   DRAG & DROP OVERLAY
+   ───────────────────────────────────────────────────────────────── */
+
+@keyframes dnd-pulse {
+  0%,100% { border-color: rgba(255,42,56,.4); }
+  50%     { border-color: rgba(255,42,56,.8); }
+}
+
+.theme-cyber .ide-dnd-overlay {
+  background: rgba(0,0,8,.88) !important;
+  border: 2px dashed rgba(255,42,56,.5) !important;
+  border-radius: 0 !important;
+  animation: dnd-pulse 1s ease-in-out infinite !important;
+  color: rgba(255,42,56,.75) !important;
+  font-family: 'Oswald', sans-serif !important;
+  font-size: 14px !important;
+  letter-spacing: .2em !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   AVATAR / USER ICON (topbar, AI panel)
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .ide-avatar {
+  border: 1px solid rgba(255,42,56,.3) !important;
+  border-radius: 0 !important;
+  transition: border-color .15s, box-shadow .15s !important;
+}
+.theme-cyber .ide-avatar:hover {
+  border-color: rgba(255,42,56,.65) !important;
+  box-shadow: 0 0 12px rgba(255,42,56,.2) !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   BOTTOM PANEL — CONSOLE / TERMINAL split border
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .ide-panel-divider {
+  background: rgba(255,42,56,.1) !important;
+  transition: background .15s !important;
+}
+.theme-cyber .ide-panel-divider:hover {
+  background: rgba(255,42,56,.35) !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   SIDEBAR SEARCH INPUT (TOC / file search)
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .ide-toc-search {
+  background: rgba(255,255,255,.02) !important;
+  border: 1px solid rgba(255,42,56,.12) !important;
+  border-radius: 0 !important;
+  color: #a0a8bc !important;
+  caret-color: #ff2a38 !important;
+  font-size: 10px !important;
+}
+.theme-cyber .ide-toc-search:focus {
+  border-color: rgba(255,42,56,.4) !important;
+  background: rgba(255,42,56,.02) !important;
+}
+.theme-cyber .ide-toc-search::placeholder {
+  color: rgba(90,95,130,.4) !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   ENSURE WILL-CHANGE ON ALL ANIMATED ELEMENTS (GPU promote)
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .ide-icon-btn,
+.theme-cyber .ide-topbar-btn,
+.theme-cyber .gp-commit-btn,
+.theme-cyber .board-card,
+.theme-cyber .node-circle,
+.theme-cyber .ide-file-tab { will-change: transform !important; }
+
+.theme-cyber .ide-cmd-box,
+.theme-cyber .gp-branch-dd,
+.theme-cyber .floating-panel,
+.theme-cyber .create-modal-box { will-change: transform, opacity !important; }
+
+
+/* ══════════════════════════════════════════════════════════════════
+   FORBIDEN v3 — PASS 6 (FINAL)
+   Boot screen green cleanup · Auth page · Final micro-details
+   ══════════════════════════════════════════════════════════════════ */
+
+/* ─────────────────────────────────────────────────────────────────
+   BOOT SCREEN — remaining green → red overrides
+   ───────────────────────────────────────────────────────────────── */
+
+/* kicker badge (last span) */
+.theme-cyber .boot-kicker span:last-child {
+  color: #28f1c3 !important;
+  background: rgba(40,241,195,.08) !important;
+  border-color: rgba(40,241,195,.22) !important;
+}
+
+/* console strong text */
+.theme-cyber .boot-console strong {
+  color: #ff2a38 !important;
+  text-shadow: 0 0 24px rgba(255,42,56,.3) !important;
+}
+
+/* boot-strip top border */
+.boot-strip {
+  border-top: 1px solid rgba(255,42,56,.1) !important;
+}
+
+/* boot-title: deeper shadow */
+.theme-cyber .boot-title {
+  text-shadow: 4px 4px 0 rgba(0,0,0,.9), 0 0 40px rgba(255,42,56,.15) !important;
+}
+
+/* boot-console bg */
+.theme-cyber .boot-console {
+  background: rgba(1,1,8,.96) !important;
+  border: 1px solid rgba(255,42,56,.1) !important;
+  border-radius: 0 !important;
+}
+
+/* boot engine cards */
+.theme-cyber .boot-engine {
+  border: 1px solid rgba(255,42,56,.12) !important;
+  background: rgba(2,2,10,.98) !important;
+  transition: border-color .12s, box-shadow .15s !important;
+}
+.theme-cyber .boot-engine:hover,
+.theme-cyber .boot-engine.active {
+  border-color: rgba(255,42,56,.45) !important;
+  box-shadow: 0 0 20px rgba(255,42,56,.1) !important;
+}
+.theme-cyber .boot-engine.active {
+  box-shadow: 0 0 0 1px rgba(255,42,56,.35), 0 0 24px rgba(255,42,56,.12) !important;
+}
+
+/* boot CTA button */
+.theme-cyber .boot-cta-btn {
+  background: #ff2a38 !important;
+  border-color: #ff2a38 !important;
+  box-shadow: 0 0 24px rgba(255,42,56,.4) !important;
+  border-radius: 0 !important;
+}
+.theme-cyber .boot-cta-btn:hover {
+  background: #ff3f4c !important;
+  box-shadow: 0 0 36px rgba(255,42,56,.6) !important;
+  transform: translateY(-1px) !important;
+}
+
+/* boot top status */
+.theme-cyber .boot-top-status {
+  color: rgba(160,165,200,.4) !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   AUTH PAGE (index.css auth classes)
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .auth-eyebrow {
+  color: #ff2a38 !important;
+  text-shadow: 0 0 16px rgba(255,42,56,.4) !important;
+}
+.theme-cyber .auth-title .g,
+.theme-cyber .auth-title-g {
+  color: #ff2a38 !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   OUTLINE PANEL icons — teal for functions
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .sb-outline-icon.fn  { color: #28f1c3 !important; }
+.theme-cyber .sb-outline-icon.cls { color: rgba(187,154,247,.7) !important; }
+.theme-cyber .sb-outline-icon.var { color: rgba(255,196,16,.6) !important; }
+
+
+/* ─────────────────────────────────────────────────────────────────
+   STATUS BAR — polish the hover on git branch
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .ide-status-bar .ide-sb-git-branch {
+  border-radius: 0 !important;
+  padding: 1px 5px !important;
+  transition: background .1s !important;
+}
+.theme-cyber .ide-status-bar .ide-sb-git-branch:hover {
+  background: rgba(255,42,56,.08) !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   CYBER GLASS — universal modifier for any overlay
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .cyber-glass {
+  background: rgba(2,2,12,.97) !important;
+  border: 1px solid rgba(255,42,56,.2) !important;
+  backdrop-filter: blur(20px) saturate(1.1) !important;
+  box-shadow: 0 16px 60px rgba(0,0,0,.95), inset 0 1px 0 rgba(255,255,255,.03) !important;
+  border-radius: 0 !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   MISSION BOARD overlay header
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .ide-board-shell > div:first-child {
+  border-bottom: 1px solid rgba(255,42,56,.15) !important;
+  background: rgba(0,0,8,.8) !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   GLOBAL: remove border-radius from all interactive elements
+   (enforce the sharp cyber aesthetic everywhere)
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber button,
+.theme-cyber input,
+.theme-cyber textarea,
+.theme-cyber select {
+  border-radius: 0 !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   CONTAIN: layout/paint containment for large panels
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .ide-sidebar-pane { contain: layout style !important; }
+.theme-cyber .ide-bottom-panel { contain: layout style !important; }
+.theme-cyber .gp-body          { contain: layout style !important; }
+.theme-cyber .fe-root          { contain: layout style !important; }
+
+
+/* ─────────────────────────────────────────────────────────────────
+   FINAL VIBE CHECK — subtle red ambient on main layout
+   ───────────────────────────────────────────────────────────────── */
+
+/* Red ambient glow in bottom-left corner of IDE */
+.theme-cyber .ide-root::before {
+  content: '' !important;
+  position: fixed !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  width: 320px !important;
+  height: 200px !important;
+  background: radial-gradient(ellipse at 0% 100%, rgba(255,42,56,.04) 0%, transparent 70%) !important;
+  pointer-events: none !important;
+  z-index: 0 !important;
+}
+
+/* Red ambient glow in top-right (editor corner) */
+.theme-cyber .ide-root::after {
+  content: '' !important;
+  position: fixed !important;
+  top: 40px !important;
+  right: 0 !important;
+  width: 400px !important;
+  height: 160px !important;
+  background: radial-gradient(ellipse at 100% 0%, rgba(255,42,56,.03) 0%, transparent 65%) !important;
+  pointer-events: none !important;
+  z-index: 0 !important;
+}
+
+
+/* ══════════════════════════════════════════════════════════════════
+   FORBIDEN v3 — PASS 7
+   Autocomplete popup · Run button · Terminal polish · Extra effects
+   ══════════════════════════════════════════════════════════════════ */
+
+/* ─────────────────────────────────────────────────────────────────
+   AUTOCOMPLETE POPUP (.ide-ac-popup / .ide-ac-item)
+   ───────────────────────────────────────────────────────────────── */
+
+.ide-ac-popup {
+  position: absolute;
+  z-index: 20;
+  min-width: 180px;
+  max-width: 300px;
+  overflow: hidden;
+  font-family: 'JetBrains Mono', monospace;
+  border-radius: 2px;
+  box-shadow: 0 6px 24px rgba(0,0,0,.7);
+}
+
+.theme-cyber .ide-ac-popup {
+  background: rgba(1,1,14,.99) !important;
+  border: 1px solid rgba(255,42,56,.28) !important;
+  border-radius: 0 !important;
+  box-shadow: 0 12px 40px rgba(0,0,0,.98), 0 0 0 1px rgba(255,255,255,.02) !important;
+  animation: modal-enter 0.12s cubic-bezier(0.34,1.4,0.64,1) both !important;
+}
+
+.ide-ac-item {
+  padding: 4px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-left: 2px solid transparent;
+}
+
+.theme-cyber .ide-ac-item {
+  transition: background .07s, border-color .07s !important;
+  font-size: 11px !important;
+}
+.theme-cyber .ide-ac-item:hover {
+  background: rgba(255,42,56,.07) !important;
+  border-left-color: rgba(255,42,56,.5) !important;
+}
+.theme-cyber .ide-ac-item.active {
+  background: rgba(255,42,56,.1) !important;
+  border-left-color: #ff2a38 !important;
+  color: #ff2a38 !important;
+}
+
+.ide-ac-footer {
+  padding: 3px 10px;
+  opacity: .3;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 9px;
+  letter-spacing: .06em;
+}
+
+.theme-cyber .ide-ac-footer {
+  border-top: 1px solid rgba(255,42,56,.08) !important;
+  color: rgba(140,145,180,.5) !important;
+  letter-spacing: .1em !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   RUN BUTTON VARIANTS
+   ───────────────────────────────────────────────────────────────── */
+
+/* Interpreted (Python, JS, TS) — teal */
+.theme-cyber .ide-run-interp {
+  background: rgba(40,241,195,.1) !important;
+  color: #28f1c3 !important;
+  border: 1px solid rgba(40,241,195,.3) !important;
+}
+.theme-cyber .ide-run-interp:hover {
+  background: rgba(40,241,195,.18) !important;
+  border-color: rgba(40,241,195,.55) !important;
+  box-shadow: 0 0 14px rgba(40,241,195,.2) !important;
+  text-shadow: 0 0 10px rgba(40,241,195,.5) !important;
+}
+
+/* Compiled (C, C++, Go) — amber */
+.theme-cyber .ide-run-compiled {
+  background: rgba(255,100,80,.1) !important;
+  color: #ff8060 !important;
+  border: 1px solid rgba(255,100,80,.3) !important;
+}
+.theme-cyber .ide-run-compiled:hover {
+  background: rgba(255,100,80,.18) !important;
+  border-color: rgba(255,100,80,.55) !important;
+  box-shadow: 0 0 14px rgba(255,100,80,.2) !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   TERMINAL — deeper polish
+   ───────────────────────────────────────────────────────────────── */
+
+/* Terminal prompt and ok colors — use teal */
+.theme-cyber .ide-term-prompt { color: #28f1c3 !important; }
+.theme-cyber .ide-term-ok     { color: #28f1c3 !important; }
+.theme-cyber .ide-term-err    { color: #ff2a38 !important; }
+.theme-cyber .ide-term-warn   { color: #ffc410 !important; }
+
+/* Terminal header bar */
+.theme-cyber .ide-term-bar {
+  background: rgba(0,0,6,.85) !important;
+  border-bottom: 1px solid rgba(255,42,56,.1) !important;
+}
+.theme-cyber .ide-term-title {
+  color: rgba(130,135,175,.4) !important;
+  font-family: 'Oswald', sans-serif !important;
+  font-size: 9px !important;
+  letter-spacing: .18em !important;
+}
+.theme-cyber .ide-term-close-btn {
+  color: rgba(130,135,175,.3) !important;
+  border-radius: 0 !important;
+}
+.theme-cyber .ide-term-close-btn:hover {
+  color: #ff2a38 !important;
+  background: rgba(255,42,56,.08) !important;
+}
+
+/* REPL prompt */
+.theme-cyber .cp-repl-prompt { color: #28f1c3 !important; }
+.theme-cyber .cp-repl-input  { caret-color: #28f1c3 !important; }
+
+
+/* ─────────────────────────────────────────────────────────────────
+   UNSAVED BADGE (topbar modified count)
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .ide-unsaved-badge {
+  background: rgba(242,193,46,.08) !important;
+  color: #f2c12e !important;
+  border: 1px solid rgba(242,193,46,.28) !important;
+  font-family: 'Oswald', sans-serif !important;
+  font-size: 9px !important;
+  letter-spacing: .1em !important;
+  animation: modified-pulse 2.4s ease-in-out infinite !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   ZEN MODE — fullscreen overlay polish
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .ide-zen-mode {
+  background: #000008 !important;
+}
+.theme-cyber .ide-zen-mode .ide-file-tabs {
+  background: rgba(0,0,6,.95) !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   SHORTCUTS OVERLAY
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .ide-shortcut-panel {
+  background: rgba(1,1,14,.98) !important;
+  border: 1px solid rgba(255,42,56,.2) !important;
+  box-shadow: 0 16px 60px rgba(0,0,0,.98) !important;
+  border-radius: 0 !important;
+  animation: modal-enter 0.16s cubic-bezier(0.34,1.4,0.64,1) both !important;
+}
+.theme-cyber .ide-shortcut-row {
+  border-bottom: 1px solid rgba(255,42,56,.05) !important;
+  color: rgba(150,155,195,.65) !important;
+}
+.theme-cyber .ide-shortcut-row:hover {
+  background: rgba(255,42,56,.04) !important;
+}
+.theme-cyber .ide-shortcut-key {
+  background: rgba(255,42,56,.07) !important;
+  border: 1px solid rgba(255,42,56,.18) !important;
+  color: rgba(200,205,225,.7) !important;
+  font-size: 9px !important;
+  border-radius: 0 !important;
+}
+.theme-cyber .ide-shortcut-desc {
+  color: rgba(120,125,165,.55) !important;
+  font-size: 10px !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   FILE FINDER (quick-open Ctrl+P)
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .ide-file-finder {
+  background: rgba(1,1,14,.99) !important;
+  border: 1px solid rgba(255,42,56,.28) !important;
+  border-radius: 0 !important;
+  box-shadow: 0 24px 80px rgba(0,0,0,.99) !important;
+  animation: modal-enter 0.15s cubic-bezier(0.34,1.4,0.64,1) both !important;
+}
+.theme-cyber .ide-file-finder-input {
+  background: rgba(0,0,8,.8) !important;
+  border-bottom: 1px solid rgba(255,42,56,.18) !important;
+  color: #c0c8d8 !important;
+  font-size: 13px !important;
+  letter-spacing: .04em !important;
+  caret-color: #ff2a38 !important;
+}
+.theme-cyber .ide-file-finder-item {
+  border-left: 2px solid transparent !important;
+  color: rgba(160,165,200,.65) !important;
+  transition: background .07s, border-color .07s !important;
+}
+.theme-cyber .ide-file-finder-item:hover,
+.theme-cyber .ide-file-finder-item.active {
+  background: rgba(255,42,56,.07) !important;
+  border-left-color: #ff2a38 !important;
+  color: #f0ece8 !important;
+}
+.theme-cyber .ide-file-finder-name {
+  font-size: 12px !important;
+  letter-spacing: .03em !important;
+}
+.theme-cyber .ide-file-finder-path {
+  color: rgba(110,115,150,.5) !important;
+  font-size: 9px !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   NODE TYPE BADGES / DOTS in sidebar list
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .ide-toc-name {
+  color: rgba(165,172,200,.75) !important;
+  font-size: 11px !important;
+  letter-spacing: .02em !important;
+}
+.theme-cyber .ide-toc-info {
+  gap: 2px !important;
+}
+.theme-cyber .ide-toc-type {
+  font-size: 9px !important;
+  letter-spacing: .12em !important;
+  opacity: .75 !important;
+}
+
+/* Search context line in TOC */
+.theme-cyber .ide-toc-item .ide-toc-ctx {
+  color: rgba(110,115,150,.45) !important;
+  font-size: 10px !important;
+  font-family: 'JetBrains Mono', monospace !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   NOTES PANEL — textarea polish
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .sb-notes-textarea {
+  background: rgba(1,1,10,.98) !important;
+  color: #9098b0 !important;
+  caret-color: #ff2a38 !important;
+  font-family: 'JetBrains Mono', monospace !important;
+  font-size: 12px !important;
+  line-height: 1.6 !important;
+  border: none !important;
+  resize: none !important;
+  outline: none !important;
+}
+.theme-cyber .sb-notes-textarea::placeholder {
+  color: rgba(80,85,120,.3) !important;
+}
+.theme-cyber .sb-notes-bar {
+  background: rgba(0,0,6,.8) !important;
+  border-bottom: 1px solid rgba(255,42,56,.09) !important;
+  padding: 5px 10px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+}
+.theme-cyber .sb-notes-bar-label {
+  color: rgba(140,145,180,.3) !important;
+  font-family: 'Oswald', sans-serif !important;
+  font-size: 9px !important;
+  letter-spacing: .2em !important;
+}
+.theme-cyber .sb-notes-bar-count {
+  color: rgba(100,105,140,.4) !important;
+  font-family: 'JetBrains Mono', monospace !important;
+  font-size: 9px !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   CANVAS MINIMAP
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .ide-minimap {
+  background: rgba(0,0,6,.9) !important;
+  border-left: 1px solid rgba(255,42,56,.1) !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   GRAPH FILTER CHIPS (graph mode bar)
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .graph-filter-chip {
+  background: rgba(255,255,255,.03) !important;
+  border: 1px solid rgba(255,42,56,.1) !important;
+  color: rgba(140,145,180,.45) !important;
+  border-radius: 0 !important;
+  font-size: 9px !important;
+  letter-spacing: .1em !important;
+  transition: background .1s, border-color .1s, color .1s !important;
+}
+.theme-cyber .graph-filter-chip:hover {
+  background: rgba(255,42,56,.06) !important;
+  border-color: rgba(255,42,56,.3) !important;
+  color: rgba(200,205,225,.7) !important;
+}
+.theme-cyber .graph-filter-chip.active {
+  background: rgba(255,42,56,.1) !important;
+  border-color: rgba(255,42,56,.4) !important;
+  color: #ff2a38 !important;
+  box-shadow: 0 0 8px rgba(255,42,56,.15) !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   VERTICAL RESIZER HANDLE
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .ide-v-resize {
+  background: rgba(255,42,56,.05) !important;
+  transition: background .15s !important;
+  cursor: col-resize !important;
+}
+.theme-cyber .ide-v-resize:hover,
+.theme-cyber .ide-v-resize.dragging {
+  background: rgba(255,42,56,.22) !important;
+}
+.theme-cyber .ide-v-resize::after {
+  content: '' !important;
+  display: block !important;
+  width: 1px !important;
+  height: 24px !important;
+  background: rgba(255,42,56,.4) !important;
+  margin: auto !important;
+  position: absolute !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%,-50%) !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   NODE ACTIONS (hover buttons on graph nodes)
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .node-action-btn {
+  background: rgba(1,1,14,.96) !important;
+  border: 1px solid rgba(255,42,56,.22) !important;
+  color: rgba(200,205,225,.6) !important;
+  border-radius: 0 !important;
+  transition: background .1s, border-color .1s, color .1s !important;
+}
+.theme-cyber .node-action-btn:hover {
+  background: rgba(255,42,56,.1) !important;
+  border-color: rgba(255,42,56,.5) !important;
+  color: #ff2a38 !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   GROUP DOCK — labels below the canvas
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .group-dock {
+  background: rgba(0,0,6,.85) !important;
+  border-top: 1px solid rgba(255,42,56,.12) !important;
+}
+.theme-cyber .group-dock-label {
+  color: rgba(140,145,180,.3) !important;
+  font-size: 8px !important;
+  letter-spacing: .2em !important;
+}
+.theme-cyber .group-dock-card {
+  background: rgba(2,2,12,.98) !important;
+  border: 1px solid rgba(255,42,56,.14) !important;
+  border-radius: 0 !important;
+  transition: border-color .12s, box-shadow .12s, transform .12s !important;
+}
+.theme-cyber .group-dock-card:hover {
+  border-color: rgba(255,42,56,.4) !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 4px 16px rgba(0,0,0,.6) !important;
+}
+.theme-cyber .group-dock-card.active {
+  border-color: #ff2a38 !important;
+  box-shadow: 0 0 12px rgba(255,42,56,.2) !important;
+}
+.theme-cyber .group-dock-count {
+  color: rgba(255,42,56,.6) !important;
+  font-size: 9px !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   EDGE / ARROW STYLES in graph
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .edge-label {
+  background: rgba(1,1,14,.95) !important;
+  border: 1px solid rgba(255,42,56,.18) !important;
+  color: rgba(140,145,180,.6) !important;
+  font-size: 9px !important;
+  border-radius: 0 !important;
+  padding: 1px 5px !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   CONTEXT-SENSITIVE SEARCH "NO RESULTS" / LOADING states
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .ide-search-no-results {
+  color: rgba(90,95,130,.45) !important;
+  font-family: 'Share Tech Mono', monospace !important;
+  font-size: 11px !important;
+  letter-spacing: .12em !important;
+  text-align: center !important;
+}
+
+.theme-cyber .ide-search-loading {
+  color: rgba(255,196,16,.65) !important;
+  font-size: 10px !important;
+  letter-spacing: .14em !important;
+  animation: logo-flicker 3s step-end infinite !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   CANVAS SELECTION BOX (drag to select)
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .canvas-selection-box {
+  border: 1px solid rgba(255,42,56,.5) !important;
+  background: rgba(255,42,56,.06) !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   SMOOTH TOPBAR SEPARATOR
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .ide-topbar-sep {
+  background: rgba(255,42,56,.1) !important;
+  width: 1px !important;
+  height: 18px !important;
+  flex-shrink: 0 !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   ICONS — lucide/heroicons that inherit color
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber svg.icon {
+  opacity: .65 !important;
+  transition: opacity .1s !important;
+}
+.theme-cyber button:hover svg.icon,
+.theme-cyber [class*="btn"]:hover svg.icon {
+  opacity: 1 !important;
+}
+
+
+/* ══════════════════════════════════════════════════════════════════
+   FORBIDEN v3 — PASS 8
+   Remove ALL overlays from images (scan lines, dot tone, speed lines)
+   ══════════════════════════════════════════════════════════════════ */
+
+/* Kill scan-line overlay on manga hero background */
+.theme-cyber .manga-hero-scan {
+  background: none !important;
+}
+
+/* Kill halftone dot overlay on manga hero background */
+.theme-cyber .manga-hero-tone {
+  background: none !important;
+  background-image: none !important;
+}
+
+/* Kill dot overlay on individual poster cells */
+.theme-cyber .manga-hero-poster::after {
+  display: none !important;
+}
+
+/* Kill any repeating-gradient overlay that may sit on top of cinema images */
+.theme-cyber .manga-hero-cinema::after,
+.theme-cyber .manga-hero-cinema::before {
+  display: none !important;
+}
+
+/* Kill the canvas speed-line conic-gradient overlay (both themes worth being safe) */
+.theme-cyber .ide-canvas-wrap::before {
+  background: none !important;
+}
+.theme-cyber .canvas-container::after {
+  background: none !important;
+}
+
+/* Kill dot-pattern overlays on any other background image containers */
+.theme-cyber .manga-hero-root *::before,
+.theme-cyber .manga-hero-root *::after {
+  background-image: none !important;
+}
+
+/* Ensure cinema images themselves are clean — no filter darkening needed */
+.theme-cyber .manga-hero-cinema img {
+  filter: contrast(1.04) saturate(0.85) !important;
+}
+
+
+/* ══════════════════════════════════════════════════════════════════
+   FORBIDEN v3 — IMAGE CLEAN
+   Remove every filter, veil, and overlay from images in cyber theme
+   ══════════════════════════════════════════════════════════════════ */
+
+/* Strip filters from all images */
+.theme-cyber .idw-mp > img,
+.theme-cyber .manga-hero-cinema img,
+.theme-cyber .manga-hero-poster img,
+.theme-cyber .manga-hero-strip-thumb img,
+.theme-cyber .ide-chapter-splash > img,
+.theme-cyber .ide-chapter-thumb > img,
+.theme-cyber .ide-toc-thumb img,
+.theme-cyber .idw-mp img,
+.theme-cyber .manga-editor-art img,
+.theme-cyber .ide-welcome-left > img {
+  filter: none !important;
+}
+
+/* Remove dark veil overlay */
+.theme-cyber .idw-global-veil {
+  background: none !important;
+}
+
+/* Remove gradient overlay on individual image panels */
+.theme-cyber .idw-mp-overlay {
+  background: none !important;
+}
+
+/* Remove gradient overlays on manga hero cinema */
+.theme-cyber .manga-hero-grad-l,
+.theme-cyber .manga-hero-grad-b {
+  background: none !important;
+}
+
+/* Remove pseudo-element overlays on manga hero poster cells */
+.theme-cyber .manga-hero-poster::after {
+  display: none !important;
+}
+
+/* Remove my earlier filter override too */
+.theme-cyber .manga-hero-cinema img {
+  filter: none !important;
+}
 
