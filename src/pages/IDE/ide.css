@@ -5598,3 +5598,843 @@ body {
   border: 1px solid rgba(255,42,56,.25) !important;
 }
 
+
+/* ══════════════════════════════════════════════════════════════════
+   FORBIDEN v3 — REDESIGN ROUND 2
+   Git panel · Command palette · Board/Kanban · Manga/Node · Notes
+   ══════════════════════════════════════════════════════════════════ */
+
+/* ─────────────────────────────────────────────────────────────────
+   GIT PANEL (.gp-*)
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .gp-root {
+  background: #02020e !important;
+  color: #b0b8cc !important;
+}
+
+/* Toolbar: subtle top strip */
+.theme-cyber .gp-toolbar {
+  background: rgba(0,0,6,.85) !important;
+  border-bottom: 1px solid rgba(255,42,56,.1) !important;
+  gap: 2px !important;
+}
+.theme-cyber .gp-toolbar-sep {
+  background: rgba(255,42,56,.12) !important;
+}
+
+.theme-cyber .gp-header-btn {
+  color: rgba(140,140,180,.28) !important;
+  border-radius: 0 !important;
+}
+.theme-cyber .gp-header-btn:hover {
+  background: rgba(255,42,56,.07) !important;
+  color: #ff2a38 !important;
+}
+.theme-cyber .gp-header-btn.active {
+  color: #28f1c3 !important;
+}
+
+.theme-cyber .gp-change-count {
+  color: rgba(140,140,180,.35) !important;
+  font-size: 8px !important;
+}
+
+/* Branch row */
+.theme-cyber .gp-branch-row {
+  border-bottom: 1px solid rgba(255,42,56,.08) !important;
+  background: rgba(0,0,8,.6) !important;
+}
+.theme-cyber .gp-branch-btn {
+  color: #28f1c3 !important;
+  font-size: 10px !important;
+  letter-spacing: .04em !important;
+}
+.theme-cyber .gp-branch-icon { color: rgba(40,241,195,.4) !important; }
+.theme-cyber .gp-branch-caret { color: rgba(40,241,195,.4) !important; }
+
+/* Branch dropdown */
+.theme-cyber .gp-branch-dd {
+  background: #010110 !important;
+  border: 1px solid rgba(255,42,56,.25) !important;
+  border-radius: 0 !important;
+  box-shadow: 0 16px 48px rgba(0,0,0,.98) !important;
+}
+.theme-cyber .gp-branch-dd-search {
+  border-bottom: 1px solid rgba(255,42,56,.1) !important;
+}
+.theme-cyber .gp-branch-dd-item { font-size: 10px !important; }
+.theme-cyber .gp-branch-dd-item:hover { background: rgba(255,42,56,.06) !important; }
+.theme-cyber .gp-branch-dd-item.current { background: rgba(40,241,195,.07) !important; }
+.theme-cyber .gp-branch-dd-name { color: #a0a8bc !important; }
+.theme-cyber .gp-branch-dd-item.current .gp-branch-dd-name { color: #28f1c3 !important; }
+.theme-cyber .gp-branch-dd-check { color: #28f1c3 !important; }
+.theme-cyber .gp-branch-dd-create { border-top: 1px solid rgba(255,42,56,.08) !important; }
+.theme-cyber .gp-branch-dd-create-btn {
+  background: rgba(255,42,56,.08) !important;
+  border-color: rgba(255,42,56,.2) !important;
+  color: #ff2a38 !important;
+  border-radius: 0 !important;
+}
+.theme-cyber .gp-branch-dd-create-btn:not(:disabled):hover {
+  background: rgba(255,42,56,.18) !important;
+}
+
+/* Stash dropdown */
+.theme-cyber .gp-stash-header {
+  color: rgba(140,140,180,.3) !important;
+  border-bottom: 1px solid rgba(255,42,56,.08) !important;
+  background: rgba(0,0,6,.6) !important;
+}
+.theme-cyber .gp-stash-ref { color: rgba(187,154,247,.65) !important; }
+.theme-cyber .gp-stash-msg { color: #9098b0 !important; }
+.theme-cyber .gp-stash-date { color: rgba(100,100,140,.5) !important; }
+.theme-cyber .gp-stash-item {
+  border-bottom: 1px solid rgba(255,42,56,.05) !important;
+}
+.theme-cyber .gp-stash-item:hover { background: rgba(255,42,56,.03) !important; }
+
+/* Commit area */
+.theme-cyber .gp-commit-area {
+  border-bottom: 1px solid rgba(255,42,56,.07) !important;
+  background: rgba(0,0,6,.4) !important;
+}
+.theme-cyber .gp-commit-hdr-label {
+  color: rgba(140,140,180,.3) !important;
+  letter-spacing: .18em !important;
+}
+.theme-cyber .gp-ai-btn {
+  background: rgba(187,154,247,.08) !important;
+  border-color: rgba(187,154,247,.22) !important;
+  border-radius: 0 !important;
+}
+.theme-cyber .gp-ai-btn:hover { background: rgba(187,154,247,.16) !important; }
+.theme-cyber .gp-textarea {
+  background: rgba(255,255,255,.02) !important;
+  border-color: rgba(255,42,56,.12) !important;
+  color: #b0b8cc !important;
+  border-radius: 0 !important;
+  font-size: 10px !important;
+}
+.theme-cyber .gp-textarea:focus { border-color: rgba(255,42,56,.4) !important; }
+.theme-cyber .gp-input {
+  background: rgba(255,255,255,.02) !important;
+  border-color: rgba(255,42,56,.12) !important;
+  border-radius: 0 !important;
+  font-size: 10px !important;
+  color: #b0b8cc !important;
+}
+.theme-cyber .gp-input:focus { border-color: rgba(255,42,56,.4) !important; }
+.theme-cyber .gp-commit-btn {
+  background: rgba(255,42,56,.08) !important;
+  color: rgba(255,255,255,.2) !important;
+  border-radius: 0 !important;
+  font-size: 9px !important;
+  letter-spacing: .14em !important;
+}
+.theme-cyber .gp-commit-btn.ready {
+  background: #ff2a38 !important;
+  color: #fff !important;
+  box-shadow: 0 0 14px rgba(255,42,56,.3) !important;
+}
+.theme-cyber .gp-commit-btn.ready:hover {
+  background: #ff3f4c !important;
+  box-shadow: 0 0 22px rgba(255,42,56,.45) !important;
+}
+
+/* Result banner */
+.theme-cyber .gp-result {
+  background: rgba(0,0,6,.5) !important;
+  border-bottom: 1px solid rgba(255,42,56,.07) !important;
+  font-size: 9px !important;
+}
+.theme-cyber .gp-result.ok { color: #28f1c3 !important; }
+.theme-cyber .gp-result.err { color: #ff2a38 !important; }
+
+/* Section headers */
+.theme-cyber .gp-section {
+  border-top: 1px solid rgba(255,42,56,.07) !important;
+}
+.theme-cyber .gp-section-hdr:hover {
+  background: rgba(255,42,56,.04) !important;
+}
+.theme-cyber .gp-section-caret { color: rgba(100,100,140,.5) !important; }
+.theme-cyber .gp-section-title {
+  color: rgba(140,140,180,.35) !important;
+  font-size: 9px !important;
+  letter-spacing: .2em !important;
+}
+.theme-cyber .gp-section-count { color: rgba(100,100,140,.5) !important; }
+.theme-cyber .gp-section-action {
+  color: rgba(100,100,140,.5) !important;
+  border-radius: 0 !important;
+}
+.theme-cyber .gp-section-action:hover {
+  background: rgba(255,42,56,.07) !important;
+  color: #ff2a38 !important;
+}
+
+/* File rows */
+.theme-cyber .gp-file-row.hov { background: rgba(255,42,56,.04) !important; }
+.theme-cyber .gp-file-status { font-size: 10px !important; }
+.theme-cyber .gp-file-name {
+  color: #9098b0 !important;
+  font-size: 11px !important;
+}
+.theme-cyber .gp-file-dir { color: rgba(100,100,140,.4) !important; }
+.theme-cyber .gp-action-btn {
+  color: rgba(120,120,160,.4) !important;
+  border-radius: 0 !important;
+}
+.theme-cyber .gp-action-btn:hover {
+  background: rgba(255,42,56,.07) !important;
+  color: #ff2a38 !important;
+}
+.theme-cyber .gp-action-btn.active { color: #28f1c3 !important; background: rgba(40,241,195,.1) !important; }
+
+/* Body scrollbar */
+.theme-cyber .gp-body {
+  scrollbar-color: rgba(255,42,56,.14) transparent !important;
+}
+.theme-cyber .gp-body::-webkit-scrollbar-thumb { background: rgba(255,42,56,.14) !important; border-radius: 0 !important; }
+
+/* Diff block */
+.theme-cyber .gp-diff {
+  background: #010108 !important;
+  border-top: 1px solid rgba(255,42,56,.1) !important;
+}
+.theme-cyber .gp-diff::-webkit-scrollbar-thumb { background: rgba(255,42,56,.12) !important; border-radius: 0 !important; }
+.theme-cyber .gp-diff-line.add { background: rgba(40,241,195,.07) !important; }
+.theme-cyber .gp-diff-line.del { background: rgba(255,42,56,.09) !important; }
+.theme-cyber .gp-diff-line.hunk { background: rgba(255,42,56,.05) !important; }
+.theme-cyber .gp-diff-ln { color: rgba(60,60,90,.55) !important; }
+.theme-cyber .gp-diff-code { color: #8090a8 !important; font-size: 9px !important; }
+.theme-cyber .gp-diff-line.add .gp-diff-code { color: #28f1c3 !important; }
+.theme-cyber .gp-diff-line.del .gp-diff-code { color: #ff2a38 !important; }
+.theme-cyber .gp-diff-line.hunk .gp-diff-code { color: rgba(255,42,56,.6) !important; }
+.theme-cyber .gp-diff-line.meta .gp-diff-code { color: rgba(100,100,140,.5) !important; }
+
+/* Commit list */
+.theme-cyber .gp-commit-row:hover { background: rgba(255,42,56,.03) !important; }
+.theme-cyber .gp-commit-hash { color: rgba(187,154,247,.55) !important; font-size: 8px !important; }
+.theme-cyber .gp-commit-msg { color: rgba(120,130,160,.65) !important; font-size: 10px !important; }
+
+/* Graph */
+.theme-cyber .gp-graph-scroll::-webkit-scrollbar-thumb { background: rgba(255,42,56,.12) !important; border-radius: 0 !important; }
+.theme-cyber .gp-graph-row:hover { background: rgba(255,42,56,.03) !important; }
+.theme-cyber .gp-graph-row.sel {
+  background: rgba(255,42,56,.06) !important;
+  border-left-color: rgba(255,42,56,.5) !important;
+}
+.theme-cyber .gp-graph-hash { color: rgba(187,154,247,.55) !important; font-size: 8px !important; }
+.theme-cyber .gp-graph-ref {
+  background: rgba(40,241,195,.1) !important;
+  color: #28f1c3 !important;
+  border-radius: 0 !important;
+  font-size: 7px !important;
+}
+.theme-cyber .gp-graph-subject { color: rgba(110,120,150,.7) !important; font-size: 9px !important; }
+.theme-cyber .gp-graph-time { color: rgba(80,80,120,.5) !important; }
+.theme-cyber .gp-graph-detail {
+  background: rgba(0,0,6,.6) !important;
+  border-top: 1px solid rgba(255,42,56,.08) !important;
+  font-size: 9px !important;
+}
+.theme-cyber .gp-graph-detail-hash { color: rgba(187,154,247,.7) !important; }
+.theme-cyber .gp-graph-detail-author { color: rgba(255,196,16,.55) !important; }
+.theme-cyber .gp-graph-detail-msg { color: rgba(160,170,195,.8) !important; }
+
+/* Empty / clean states */
+.theme-cyber .gp-empty-section { color: rgba(70,70,110,.6) !important; }
+.theme-cyber .gp-clean { color: rgba(60,60,100,.55) !important; }
+.theme-cyber .gp-no-repo-label { color: rgba(120,120,160,.45) !important; }
+.theme-cyber .gp-init-btn {
+  border-color: rgba(40,241,195,.3) !important;
+  color: #28f1c3 !important;
+  border-radius: 0 !important;
+  font-size: 9px !important;
+  letter-spacing: .14em !important;
+}
+.theme-cyber .gp-init-btn:hover { background: rgba(40,241,195,.06) !important; }
+.theme-cyber .gp-loading-label { color: rgba(80,80,120,.6) !important; }
+.theme-cyber .gp-error { color: #ff2a38 !important; }
+
+
+/* ─────────────────────────────────────────────────────────────────
+   COMMAND PALETTE (.ide-cmd-*)
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .ide-cmd-box {
+  background: rgba(1,1,14,.99) !important;
+  border: 1px solid rgba(255,42,56,.3) !important;
+  box-shadow: 0 32px 80px rgba(0,0,0,.99), 0 0 60px rgba(0,0,0,.9) !important;
+  border-radius: 0 !important;
+}
+.theme-cyber .ide-cmd-input-row {
+  border-bottom: 1px solid rgba(255,42,56,.18) !important;
+  background: rgba(0,0,8,.7) !important;
+}
+.theme-cyber .ide-cmd-prefix {
+  font-size: .9rem !important;
+  opacity: .85 !important;
+}
+.theme-cyber .ide-cmd-input {
+  font-size: .65rem !important;
+  letter-spacing: .04em !important;
+}
+.theme-cyber .ide-cmd-item {
+  font-size: .52rem !important;
+  letter-spacing: .03em !important;
+  color: rgba(160,165,200,.55) !important;
+  border-left: 2px solid transparent !important;
+}
+.theme-cyber .ide-cmd-item:hover,
+.theme-cyber .ide-cmd-item.focused {
+  background: rgba(255,42,56,.07) !important;
+  color: #f0ece8 !important;
+  border-left-color: #ff2a38 !important;
+}
+.theme-cyber .ide-cmd-icon { color: rgba(255,42,56,.6) !important; }
+.theme-cyber .ide-cmd-item:hover .ide-cmd-icon,
+.theme-cyber .ide-cmd-item.focused .ide-cmd-icon { color: #ff2a38 !important; }
+.theme-cyber .ide-cmd-hint { color: rgba(120,125,165,.5) !important; }
+.theme-cyber .ide-cmd-footer {
+  border-top: 1px solid rgba(255,42,56,.08) !important;
+  color: rgba(100,105,140,.4) !important;
+  font-size: 9px !important;
+}
+
+/* Color picker */
+.theme-cyber .ide-color-picker {
+  background: rgba(1,1,16,.99) !important;
+  border: 1px solid rgba(255,42,56,.25) !important;
+  border-radius: 0 !important;
+  box-shadow: 0 12px 40px rgba(0,0,0,.98) !important;
+}
+.theme-cyber .ide-color-swatch {
+  border-radius: 0 !important;
+}
+.theme-cyber .ide-color-swatch.selected {
+  border-color: rgba(255,255,255,.8) !important;
+  box-shadow: 0 0 8px currentColor !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   BOARD / KANBAN
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .ide-board-overlay {
+  background: rgba(0,0,0,.88) !important;
+  backdrop-filter: blur(8px) !important;
+}
+.theme-cyber .ide-board-shell {
+  background: rgba(2,2,12,.99) !important;
+  border: 1px solid rgba(255,42,56,.25) !important;
+  border-radius: 0 !important;
+  box-shadow: 0 0 80px rgba(0,0,0,.99) !important;
+}
+
+/* Board header / tabs */
+.theme-cyber .board-topbar {
+  background: rgba(0,0,6,.9) !important;
+  border-bottom: 1px solid rgba(255,42,56,.14) !important;
+}
+
+/* Columns */
+.theme-cyber .board-col {
+  background: rgba(255,255,255,.015) !important;
+  border: 1px solid rgba(255,42,56,.1) !important;
+  border-radius: 0 !important;
+}
+.theme-cyber .board-col-hdr {
+  background: rgba(0,0,6,.5) !important;
+  font-size: 11px !important;
+  letter-spacing: .12em !important;
+  color: rgba(160,165,200,.55) !important;
+  border-bottom: 1px solid rgba(255,42,56,.08) !important;
+}
+
+/* Cards */
+.theme-cyber .board-card {
+  background: rgba(255,255,255,.03) !important;
+  border: 1px solid rgba(255,42,56,.08) !important;
+  border-radius: 0 !important;
+}
+.theme-cyber .board-card:hover {
+  border-color: rgba(255,42,56,.28) !important;
+  background: rgba(255,42,56,.04) !important;
+  box-shadow: 0 2px 12px rgba(0,0,0,.5) !important;
+}
+.theme-cyber .board-card-title {
+  color: #9098b0 !important;
+  font-size: .5rem !important;
+}
+.theme-cyber .board-priority {
+  font-size: 9px !important;
+  letter-spacing: .1em !important;
+}
+.theme-cyber .board-tag {
+  font-size: 9px !important;
+  opacity: .65 !important;
+}
+.theme-cyber .board-card-footer { opacity: .35 !important; }
+.theme-cyber .board-progress { background: rgba(255,42,56,.08) !important; }
+
+/* Add card button */
+.theme-cyber .board-add-card {
+  border-color: rgba(255,42,56,.1) !important;
+  color: rgba(160,165,200,.25) !important;
+  font-size: 10px !important;
+  letter-spacing: .12em !important;
+}
+.theme-cyber .board-add-card:hover {
+  border-color: rgba(255,42,56,.35) !important;
+  color: #ff2a38 !important;
+  background: rgba(255,42,56,.04) !important;
+}
+
+/* Card detail modal */
+.theme-cyber .board-card-detail-overlay {
+  background: rgba(0,0,0,.88) !important;
+  backdrop-filter: blur(8px) !important;
+}
+.theme-cyber .board-card-detail-box {
+  background: rgba(1,1,14,.98) !important;
+  border: 1px solid rgba(255,42,56,.28) !important;
+  border-radius: 0 !important;
+  box-shadow: 0 20px 60px rgba(0,0,0,.98) !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   MANGA / NODE EDITOR (.manga-*, .grp-*)
+   ───────────────────────────────────────────────────────────────── */
+
+/* Art header */
+.theme-cyber .manga-editor-art {
+  border-bottom: 1px solid rgba(255,42,56,.25) !important;
+}
+.manga-editor-art img {
+  filter: contrast(1.1) saturate(0.7) brightness(0.92) !important;
+}
+.manga-editor-art-accent { opacity: .6 !important; }
+
+/* Code column screentone: slightly stronger in cyber */
+.theme-cyber .manga-editor-code-col::before {
+  background-image: radial-gradient(circle, rgba(255,42,56,.012) 1px, transparent 1px) !important;
+  background-size: 6px 6px !important;
+}
+
+/* Chrome chapter */
+.theme-cyber .manga-chrome-chapter {
+  border-right: 1px solid rgba(255,42,56,.15) !important;
+}
+
+/* Group editor shell */
+.theme-cyber .grp-editor-shell {
+  border: 1px solid rgba(255,42,56,.28) !important;
+  box-shadow: 0 32px 100px rgba(0,0,0,.99), inset 0 1px 0 rgba(255,255,255,.025) !important;
+  border-radius: 0 !important;
+}
+.theme-cyber .grp-editor-chrome {
+  background: rgba(0,0,8,.95) !important;
+  border-bottom: 1px solid rgba(255,42,56,.18) !important;
+}
+.theme-cyber .grp-chrome-meta { color: rgba(40,241,195,.7) !important; }
+.theme-cyber .grp-chrome-sep { background: rgba(255,42,56,.12) !important; }
+.theme-cyber .grp-chrome-dot { border-radius: 0 !important; }
+
+/* Group sidebar */
+.theme-cyber .grp-sidebar {
+  background-color: #02020e !important;
+  border-right: 1px solid rgba(255,42,56,.12) !important;
+  background-image: radial-gradient(circle, rgba(255,42,56,.01) 1px, transparent 1px) !important;
+  background-size: 6px 6px !important;
+}
+.theme-cyber .grp-sidebar-hdr {
+  background: rgba(0,0,6,.9) !important;
+  border-bottom: 1px solid rgba(255,42,56,.12) !important;
+}
+.theme-cyber .grp-sidebar-sup {
+  color: rgba(200,200,220,.28) !important;
+  letter-spacing: .2em !important;
+}
+.theme-cyber .grp-member-row {
+  border-left: 2px solid transparent !important;
+}
+.theme-cyber .grp-member-row:hover { background: rgba(255,42,56,.04) !important; }
+.theme-cyber .grp-member-row.sel {
+  border-left-color: #ff2a38 !important;
+  background: rgba(255,42,56,.07) !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   NOTES PANEL (.sb-notes-*)
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .sb-notes-wrap {
+  background: #02020e !important;
+}
+.theme-cyber .sb-notes-toolbar {
+  background: rgba(0,0,6,.8) !important;
+  border-bottom: 1px solid rgba(255,42,56,.1) !important;
+}
+.theme-cyber .sb-notes-toolbar-btn {
+  color: rgba(140,140,180,.3) !important;
+  border-radius: 0 !important;
+}
+.theme-cyber .sb-notes-toolbar-btn:hover {
+  background: rgba(255,42,56,.06) !important;
+  color: #ff2a38 !important;
+}
+.theme-cyber .sb-notes-toolbar-btn.active {
+  color: #ff2a38 !important;
+  background: rgba(255,42,56,.08) !important;
+}
+.theme-cyber .sb-notes-list { background: #02020e !important; }
+.theme-cyber .sb-note-item {
+  border-bottom: 1px solid rgba(255,42,56,.06) !important;
+}
+.theme-cyber .sb-note-item:hover { background: rgba(255,42,56,.04) !important; }
+.theme-cyber .sb-note-item.active {
+  background: rgba(255,42,56,.07) !important;
+  border-left: 2px solid #ff2a38 !important;
+}
+.theme-cyber .sb-note-title { color: #9098b0 !important; }
+.theme-cyber .sb-note-preview { color: rgba(100,110,140,.55) !important; }
+.theme-cyber .sb-note-date { color: rgba(80,85,120,.5) !important; }
+.theme-cyber .sb-notes-editor { background: rgba(1,1,12,.98) !important; }
+.theme-cyber .sb-notes-editor-area {
+  background: transparent !important;
+  color: #98a4ba !important;
+  caret-color: #ff2a38 !important;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   PALETTE DROPDOWN (.palette-*)
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .palette-dropdown {
+  background: rgba(1,1,14,.99) !important;
+  border: 1px solid rgba(255,42,56,.22) !important;
+  border-radius: 0 !important;
+  box-shadow: 0 12px 40px rgba(0,0,0,.98) !important;
+}
+.theme-cyber .palette-section-label {
+  color: rgba(120,125,165,.35) !important;
+  letter-spacing: .18em !important;
+  font-size: 8px !important;
+  border-bottom: 1px solid rgba(255,42,56,.06) !important;
+}
+.theme-cyber .palette-option {
+  color: rgba(150,155,195,.7) !important;
+}
+.theme-cyber .palette-option:hover,
+.theme-cyber .palette-option.active {
+  background: rgba(255,42,56,.07) !important;
+  color: #f0ece8 !important;
+}
+.theme-cyber .palette-swatch { border-radius: 0 !important; }
+.theme-cyber .palette-swatch-name { color: rgba(150,155,195,.7) !important; }
+
+
+/* ─────────────────────────────────────────────────────────────────
+   SEARCH PANEL (project search)
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .proj-search-wrap,
+.theme-cyber .ide-proj-search {
+  background: #02020e !important;
+}
+.theme-cyber .proj-search-input-row {
+  border-bottom: 1px solid rgba(255,42,56,.1) !important;
+  background: rgba(0,0,6,.5) !important;
+}
+.theme-cyber .proj-search-input {
+  background: rgba(255,255,255,.025) !important;
+  border: 1px solid rgba(255,42,56,.14) !important;
+  color: #b0b8cc !important;
+  border-radius: 0 !important;
+  font-size: 11px !important;
+}
+.theme-cyber .proj-search-input:focus {
+  border-color: rgba(255,42,56,.4) !important;
+}
+.theme-cyber .proj-search-case-btn {
+  color: rgba(140,140,180,.35) !important;
+  border: 1px solid rgba(255,42,56,.1) !important;
+  border-radius: 0 !important;
+}
+.theme-cyber .proj-search-case-btn:hover,
+.theme-cyber .proj-search-case-btn.active {
+  background: rgba(255,42,56,.1) !important;
+  color: #ff2a38 !important;
+  border-color: rgba(255,42,56,.35) !important;
+}
+.theme-cyber .proj-search-result-count {
+  color: rgba(120,125,165,.45) !important;
+  font-size: 9px !important;
+  letter-spacing: .1em !important;
+}
+.theme-cyber .proj-search-group {
+  border-bottom: 1px solid rgba(255,42,56,.06) !important;
+}
+.theme-cyber .proj-search-group:hover {
+  background: rgba(255,42,56,.02) !important;
+}
+.theme-cyber .proj-search-group.focused {
+  border-left: 2px solid #ff2a38 !important;
+  background: rgba(255,42,56,.04) !important;
+}
+.theme-cyber .proj-search-file {
+  color: rgba(150,155,200,.55) !important;
+  font-size: 10px !important;
+  letter-spacing: .04em !important;
+}
+.theme-cyber .proj-search-line {
+  color: rgba(110,118,145,.65) !important;
+  font-size: 10px !important;
+}
+.theme-cyber .proj-search-line-num { color: rgba(80,85,120,.5) !important; }
+.theme-cyber .proj-search-match {
+  background: rgba(255,42,56,.2) !important;
+  color: #ff8090 !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   CONTEXT MENU (.ctx-menu, .ide-ctx-*)
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .ctx-menu,
+.theme-cyber .ide-ctx-menu {
+  background: rgba(1,1,14,.99) !important;
+  border: 1px solid rgba(255,42,56,.22) !important;
+  border-radius: 0 !important;
+  box-shadow: 0 12px 40px rgba(0,0,0,.98) !important;
+  min-width: 160px !important;
+}
+.theme-cyber .ctx-item,
+.theme-cyber .ide-ctx-item {
+  color: rgba(160,165,200,.65) !important;
+  font-size: 11px !important;
+  border-left: 2px solid transparent !important;
+}
+.theme-cyber .ctx-item:hover,
+.theme-cyber .ide-ctx-item:hover {
+  background: rgba(255,42,56,.07) !important;
+  color: #f0ece8 !important;
+  border-left-color: rgba(255,42,56,.5) !important;
+}
+.theme-cyber .ctx-item.danger,
+.theme-cyber .ide-ctx-item.danger {
+  color: rgba(255,42,56,.7) !important;
+}
+.theme-cyber .ctx-item.danger:hover,
+.theme-cyber .ide-ctx-item.danger:hover {
+  background: rgba(255,42,56,.12) !important;
+  color: #ff2a38 !important;
+}
+.theme-cyber .ctx-sep,
+.theme-cyber .ide-ctx-sep {
+  background: rgba(255,42,56,.08) !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   FILE EXPLORER: deeper + hover polish
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .fe-root {
+  background: #01010e !important;
+}
+.theme-cyber .fe-row {
+  border-left: 2px solid transparent !important;
+}
+.theme-cyber .fe-row:hover {
+  background: rgba(255,42,56,.04) !important;
+  border-left-color: rgba(255,42,56,.2) !important;
+}
+.theme-cyber .fe-row.selected {
+  background: rgba(255,42,56,.07) !important;
+  border-left-color: #ff2a38 !important;
+}
+.theme-cyber .fe-row.selected .fe-name { color: #d0d8e8 !important; }
+.theme-cyber .fe-name {
+  color: rgba(160,168,195,.7) !important;
+  font-size: 11px !important;
+}
+.theme-cyber .fe-icon { color: rgba(140,148,175,.4) !important; }
+.theme-cyber .fe-indent-guide {
+  border-left: 1px solid rgba(255,42,56,.07) !important;
+}
+.theme-cyber .fe-actions {
+  background: rgba(1,1,14,.92) !important;
+}
+.theme-cyber .fe-action-btn:hover {
+  background: rgba(255,42,56,.07) !important;
+  color: #ff2a38 !important;
+}
+
+/* Rename input */
+.theme-cyber .fe-rename-input {
+  background: rgba(255,255,255,.04) !important;
+  border: 1px solid rgba(255,42,56,.4) !important;
+  color: #d0d8e8 !important;
+  border-radius: 0 !important;
+  box-shadow: 0 0 12px rgba(255,42,56,.15) !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   CODE PANEL INFO (.code-panel-info)
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .code-panel-info {
+  background: rgba(1,1,12,.96) !important;
+  border-left: 1px solid rgba(255,42,56,.12) !important;
+}
+.theme-cyber .code-panel-info-hdr {
+  background: rgba(0,0,6,.9) !important;
+  border-bottom: 1px solid rgba(255,42,56,.12) !important;
+  color: rgba(140,140,180,.3) !important;
+  font-size: 8px !important;
+  letter-spacing: .2em !important;
+}
+.theme-cyber .code-panel-info-item {
+  border-bottom: 1px solid rgba(255,42,56,.05) !important;
+}
+.theme-cyber .code-panel-info-item:hover {
+  background: rgba(255,42,56,.04) !important;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   EDITOR STATUS STRIP
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .editor-status-strip {
+  background: rgba(0,0,6,.9) !important;
+  border-top: 1px solid rgba(255,42,56,.1) !important;
+  color: rgba(120,125,165,.5) !important;
+  font-size: 9px !important;
+  letter-spacing: .06em !important;
+  height: 20px !important;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   SIDEBAR: AI CHAT PANEL (.ac-*)
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .ac-root {
+  background: #02020e !important;
+}
+.theme-cyber .ac-header {
+  background: rgba(0,0,6,.85) !important;
+  border-bottom: 1px solid rgba(255,42,56,.1) !important;
+}
+.theme-cyber .ac-provider-badge {
+  border-radius: 0 !important;
+  font-size: 9px !important;
+  letter-spacing: .08em !important;
+}
+.theme-cyber .ac-bubble {
+  background: rgba(255,255,255,.025) !important;
+  border: 1px solid rgba(255,42,56,.1) !important;
+  border-radius: 0 !important;
+}
+.theme-cyber .ac-bubble.user {
+  background: rgba(255,42,56,.07) !important;
+  border-color: rgba(255,42,56,.18) !important;
+}
+.theme-cyber .ac-code-block {
+  background: rgba(0,0,8,.9) !important;
+  border: 1px solid rgba(255,42,56,.1) !important;
+  border-radius: 0 !important;
+}
+.theme-cyber .ac-copy-btn {
+  border-radius: 0 !important;
+  background: rgba(255,42,56,.08) !important;
+  border: 1px solid rgba(255,42,56,.2) !important;
+  color: rgba(255,42,56,.7) !important;
+}
+.theme-cyber .ac-copy-btn:hover {
+  background: rgba(255,42,56,.18) !important;
+  color: #ff2a38 !important;
+}
+.theme-cyber .ac-context-bar {
+  color: rgba(120,125,165,.45) !important;
+  border-top: 1px solid rgba(255,42,56,.07) !important;
+  font-size: 9px !important;
+}
+.theme-cyber .ac-textarea {
+  background: rgba(255,255,255,.02) !important;
+  border: 1px solid rgba(255,42,56,.14) !important;
+  color: #b0b8cc !important;
+  border-radius: 0 !important;
+}
+.theme-cyber .ac-textarea:focus {
+  border-color: rgba(255,42,56,.38) !important;
+}
+.theme-cyber .ac-send-btn {
+  border-radius: 0 !important;
+  font-size: 9px !important;
+  letter-spacing: .14em !important;
+}
+.theme-cyber .ac-no-key {
+  border-radius: 0 !important;
+  border: 1px solid rgba(255,42,56,.3) !important;
+  background: rgba(255,42,56,.07) !important;
+  color: rgba(255,120,130,.85) !important;
+  font-size: 10px !important;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   CONSOLE PANEL (.cp-*)
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .cp-root {
+  background: #01010c !important;
+  border-top: 1px solid rgba(255,42,56,.12) !important;
+}
+.theme-cyber .cp-toolbar {
+  background: rgba(0,0,6,.85) !important;
+  border-bottom: 1px solid rgba(255,42,56,.08) !important;
+}
+.theme-cyber .cp-toolbar-btn {
+  color: rgba(130,135,175,.35) !important;
+  border-radius: 0 !important;
+}
+.theme-cyber .cp-toolbar-btn:hover {
+  background: rgba(255,42,56,.06) !important;
+  color: #ff2a38 !important;
+}
+.theme-cyber .cp-toolbar-btn.active {
+  color: #ff2a38 !important;
+  background: rgba(255,42,56,.08) !important;
+}
+.theme-cyber .cp-row {
+  border-bottom: 1px solid rgba(255,42,56,.03) !important;
+}
+.theme-cyber .cp-row.err { color: #ff6070 !important; }
+.theme-cyber .cp-row.warn { color: #ffc410 !important; }
+.theme-cyber .cp-row.log { color: rgba(150,158,185,.7) !important; }
+.theme-cyber .cp-row.run-err { color: rgba(255,42,56,.75) !important; }
+.theme-cyber .cp-line-num {
+  color: rgba(70,75,110,.4) !important;
+  font-size: 9px !important;
+}
+.theme-cyber .cp-input-row {
+  border-top: 1px solid rgba(255,42,56,.1) !important;
+  background: rgba(0,0,6,.7) !important;
+}
+.theme-cyber .cp-input {
+  background: transparent !important;
+  border: none !important;
+  color: #b0b8cc !important;
+  caret-color: #ff2a38 !important;
+  font-size: 11px !important;
+}
+.theme-cyber .cp-prompt { color: rgba(255,42,56,.55) !important; }
+
