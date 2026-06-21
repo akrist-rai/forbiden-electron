@@ -186,7 +186,7 @@ func handlePtyWrite(w http.ResponseWriter, r *http.Request) {
 	jsonResp(w, map[string]any{"success": true})
 }
 
-// ── Run inject (PTY text injection only) ──────────────────────
+// ── Run inject (save to temp file, inject run command into PTY) ─
 
 func handleRun(w http.ResponseWriter, r *http.Request) {
 	var req struct {
@@ -203,11 +203,53 @@ func handleRun(w http.ResponseWriter, r *http.Request) {
 		jsonResp(w, map[string]any{"success": false, "error": "no active terminal"})
 		return
 	}
-	cmd := strings.TrimSpace(req.Code)
+
+	extMap := map[string]string{
+		"js": "js", "jsx": "jsx", "ts": "ts", "tsx": "tsx",
+		"py": "py", "go": "go", "c": "c", "cpp": "cpp",
+	}
+	ext := extMap[req.Lang]
+	if ext == "" {
+		// Unknown lang — fall back to pasting the code directly
+		sess.mu.Lock()
+		sess.ptmx.WriteString(strings.TrimSpace(req.Code) + "\n")
+		sess.mu.Unlock()
+		jsonResp(w, map[string]any{"success": true})
+		return
+	}
+
+	tmp, err := os.CreateTemp("", fmt.Sprintf("forbiden_run_*.%s", ext))
+	if err != nil {
+		jsonResp(w, map[string]any{"success": false, "error": err.Error()})
+		return
+	}
+	tmpPath := tmp.Name()
+	tmp.WriteString(req.Code)
+	tmp.Close()
+
+	cmdStr := buildRunCmd(req.Lang, tmpPath)
+	if cmdStr == "" {
+		os.Remove(tmpPath)
+		jsonResp(w, map[string]any{"success": false, "error": "unsupported language: " + req.Lang})
+		return
+	}
+
+	// Append cleanup so temp file is removed after execution
+	cleanup := fmt.Sprintf("; rm -f %s", tmpPath)
+	if req.Lang == "c" || req.Lang == "cpp" {
+		outFile := strings.TrimSuffix(tmpPath, filepath.Ext(tmpPath)) + ".out"
+		cleanup = fmt.Sprintf("; rm -f %s %s", tmpPath, outFile)
+	}
+
+	fullCmd := cmdStr + cleanup
+	if req.Cwd != "" {
+		fullCmd = fmt.Sprintf("cd %s && %s", filepath.Clean(req.Cwd), fullCmd)
+	}
+
 	sess.mu.Lock()
-	sess.ptmx.WriteString(cmd + "\n")
+	sess.ptmx.WriteString(fullCmd + "\n")
 	sess.mu.Unlock()
-	jsonResp(w, map[string]any{"success": true, "injected": true})
+	jsonResp(w, map[string]any{"success": true})
 }
 
 // ── File watcher WebSocket ─────────────────────────────────────
@@ -371,6 +413,9 @@ func main() {
 	mux.HandleFunc("/api/git/discard", handleGitDiscard)
 	mux.HandleFunc("/api/git/diff", handleGitDiff)
 	mux.HandleFunc("/api/git/blame", handleGitBlame)
+	mux.HandleFunc("/api/git/stash-list", handleGitStashList)
+	mux.HandleFunc("/api/git/create-branch", handleGitCreateBranch)
+	mux.HandleFunc("/api/git/delete-branch", handleGitDeleteBranch)
 
 	// Code execution
 	mux.HandleFunc("/api/code/run", handleCodeRun)

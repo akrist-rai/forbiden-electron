@@ -42,11 +42,14 @@ export interface DesktopAPI {
     checkout: (cwd: string, branch: string) => Promise<unknown>
     push:     (cwd: string) => Promise<unknown>
     pull:     (cwd: string) => Promise<unknown>
-    stash:    (cwd: string) => Promise<unknown>
-    stashPop: (cwd: string) => Promise<unknown>
-    init:     (cwd: string) => Promise<unknown>
-    discard:  (cwd: string, file: string) => Promise<unknown>
-    diff:     (cwd: string, file: string) => Promise<unknown>
+    stash:        (cwd: string) => Promise<unknown>
+    stashPop:     (cwd: string) => Promise<unknown>
+    stashList:    (cwd: string) => Promise<unknown>
+    init:         (cwd: string) => Promise<unknown>
+    discard:      (cwd: string, file: string) => Promise<unknown>
+    diff:         (cwd: string, file: string, staged?: boolean) => Promise<unknown>
+    createBranch: (cwd: string, branch: string) => Promise<unknown>
+    deleteBranch: (cwd: string, branch: string) => Promise<unknown>
   }
   gitEx: { blame: (cwd: string, file: string) => Promise<unknown> }
   fs: {

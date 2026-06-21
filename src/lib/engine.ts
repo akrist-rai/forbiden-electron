@@ -162,7 +162,7 @@ async function captureRun(lang: string, code: string, stdin = ''): Promise<RunRe
   }
 }
 
-// ── Terminal injection (run in attached terminal via PTY write) ──
+// ── Terminal injection (saves code to temp file, injects run cmd) ──
 export async function runInTerminal(
   ptyId: string | null,
   lang: Lang,
@@ -171,9 +171,8 @@ export async function runInTerminal(
 ): Promise<{ success: boolean; error?: string }> {
   if (!ptyId) return { success: false, error: 'No active terminal' }
   try {
-    // PTY injection still goes via Go engine (only remaining Go responsibility)
-    const result = await api?.pty?.write(ptyId, code + '\n')
-    return { success: true }
+    const result = await api?.runInTerminal(ptyId, lang, code, cwd)
+    return { success: !!(result as any)?.success, error: (result as any)?.error }
   } catch (e: any) {
     return { success: false, error: String(e?.message ?? e) }
   }

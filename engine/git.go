@@ -39,7 +39,7 @@ func handleGitStatus(w http.ResponseWriter, r *http.Request) {
 	for _, l := range strings.Split(porcelain, "\n") {
 		if len(l) > 2 {
 			files = append(files, map[string]any{
-				"state": strings.TrimSpace(l[:2]),
+				"state": l[:2],
 				"path":  strings.TrimSpace(l[3:]),
 			})
 		}
@@ -146,10 +146,6 @@ func handleGitCommit(w http.ResponseWriter, r *http.Request) {
 		Message string `json:"message"`
 	}
 	json.NewDecoder(r.Body).Decode(&req)
-	if _, err := runGit([]string{"add", "-A"}, req.Cwd); err != nil {
-		jsonResp(w, map[string]any{"success": false, "error": err.Error()})
-		return
-	}
 	out, err := runGit([]string{"commit", "-m", req.Message}, req.Cwd)
 	if err != nil {
 		jsonResp(w, map[string]any{"success": false, "error": err.Error()})
@@ -268,13 +264,20 @@ func handleGitDiscard(w http.ResponseWriter, r *http.Request) {
 
 func handleGitDiff(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Cwd  string `json:"cwd"`
-		File string `json:"file"`
+		Cwd    string `json:"cwd"`
+		File   string `json:"file"`
+		Staged bool   `json:"staged"`
 	}
 	json.NewDecoder(r.Body).Decode(&req)
 	var out string
 	var err error
-	if req.File == "" {
+	if req.Staged {
+		if req.File == "" {
+			out, err = runGit([]string{"diff", "--cached"}, req.Cwd)
+		} else {
+			out, err = runGit([]string{"diff", "--cached", "--", req.File}, req.Cwd)
+		}
+	} else if req.File == "" {
 		out, err = runGit([]string{"diff", "HEAD"}, req.Cwd)
 		if err != nil {
 			out, err = runGit([]string{"diff"}, req.Cwd)
@@ -304,4 +307,48 @@ func handleGitBlame(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	jsonResp(w, map[string]any{"success": true, "raw": out})
+}
+
+func handleGitStashList(w http.ResponseWriter, r *http.Request) {
+	var req struct{ Cwd string `json:"cwd"` }
+	json.NewDecoder(r.Body).Decode(&req)
+	out, _ := runGit([]string{"stash", "list", "--pretty=format:%gd|%s|%cr"}, req.Cwd)
+	stashes := []map[string]any{}
+	for _, l := range strings.Split(out, "\n") {
+		if l == "" {
+			continue
+		}
+		p := strings.SplitN(l, "|", 3)
+		for len(p) < 3 {
+			p = append(p, "")
+		}
+		stashes = append(stashes, map[string]any{"ref": p[0], "message": p[1], "date": p[2]})
+	}
+	jsonResp(w, map[string]any{"success": true, "stashes": stashes})
+}
+
+func handleGitCreateBranch(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Cwd    string `json:"cwd"`
+		Branch string `json:"branch"`
+	}
+	json.NewDecoder(r.Body).Decode(&req)
+	if _, err := runGit([]string{"checkout", "-b", req.Branch}, req.Cwd); err != nil {
+		jsonResp(w, map[string]any{"success": false, "error": err.Error()})
+		return
+	}
+	jsonResp(w, map[string]any{"success": true})
+}
+
+func handleGitDeleteBranch(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Cwd    string `json:"cwd"`
+		Branch string `json:"branch"`
+	}
+	json.NewDecoder(r.Body).Decode(&req)
+	if _, err := runGit([]string{"branch", "-d", req.Branch}, req.Cwd); err != nil {
+		jsonResp(w, map[string]any{"success": false, "error": err.Error()})
+		return
+	}
+	jsonResp(w, map[string]any{"success": true})
 }

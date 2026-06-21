@@ -2022,7 +2022,18 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
                 )}
               </>)}
               {sidebarMode==='note' && (
-                <textarea value={notesText} onChange={e=>setNotesText(e.target.value)} style={{background:'transparent',border:'none',outline:'none',resize:'none',padding:'12px',fontFamily:"'Share Tech Mono',monospace",fontSize:'12px',lineHeight:1.7,color:brutal?'#0f0f0f':'#c0c8d8',width:'100%',height:'100%',minHeight:300}} placeholder="// scratch notes…"/>
+                <div className="sb-notes-wrap">
+                  <div className="sb-notes-bar">
+                    <span className="sb-notes-bar-label">NOTES</span>
+                    <span className="sb-notes-bar-count">{notesText.split(/\s+/).filter(Boolean).length}w · {notesText.length}c</span>
+                  </div>
+                  <textarea
+                    className="sb-notes-textarea"
+                    value={notesText}
+                    onChange={e=>setNotesText(e.target.value)}
+                    placeholder="// scratch notes…"
+                  />
+                </div>
               )}
 
               {/* ── PROJECT-WIDE SEARCH ── */}
@@ -2107,41 +2118,48 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
 
               {/* ── FILE OUTLINE ── */}
               {sidebarMode==='outline' && (() => {
-                const code = activeTabNode?.code || ''
+                const code  = activeTabNode?.code || ''
                 const label = activeTabNode?.label || ''
-                const ext = (label.split('.').pop()||'').toLowerCase()
-                const symbols: {name:string,line:number,type:string}[] = []
-                const lines = code.split('\n')
-                const FUNC_RE = /^(?:export\s+)?(?:async\s+)?function\s+([a-zA-Z_$][\w$]*)/
-                const CLASS_RE = /^(?:export\s+)?(?:abstract\s+)?class\s+([a-zA-Z_$][\w$]*)/
-                const CONST_FN_RE = /^(?:export\s+)?(?:const|let|var)\s+([a-zA-Z_$][\w$]*)\s*=\s*(?:async\s+)?(?:\(|function)/
-                const PY_DEF_RE = /^(?:\s*)def\s+([a-zA-Z_][\w]*)/
-                const PY_CLS_RE = /^class\s+([a-zA-Z_][\w]*)/
-                const GO_FUNC_RE = /^func\s+(?:\([^)]*\)\s+)?([a-zA-Z_][\w]*)/
-                lines.forEach((l, i) => {
-                  if (['js','ts','jsx','tsx'].includes(ext)) {
-                    let m = FUNC_RE.exec(l)||CLASS_RE.exec(l)||CONST_FN_RE.exec(l)
-                    if (m) symbols.push({name:m[1],line:i+1,type:l.includes('class')?'class':'function'})
+                const ext   = (label.split('.').pop()||'').toLowerCase()
+                type Sym = {name:string;line:number;type:'class'|'function'|'interface'|'type'|'component'}
+                const symbols: Sym[] = []
+                const codeLines = code.split('\n')
+                const isJS = ['js','ts','jsx','tsx'].includes(ext)
+                codeLines.forEach((l, i) => {
+                  if (isJS) {
+                    let m: RegExpExecArray|null
+                    if ((m = /^(?:export\s+)?(?:abstract\s+)?class\s+([a-zA-Z_$][\w$]*)/.exec(l)))
+                      symbols.push({name:m[1],line:i+1,type:'class'})
+                    else if ((m = /^(?:export\s+)?interface\s+([a-zA-Z_$][\w$]*)/.exec(l)))
+                      symbols.push({name:m[1],line:i+1,type:'interface'})
+                    else if ((m = /^(?:export\s+)?type\s+([A-Z][a-zA-Z_$][\w$]*)\s*=/.exec(l)))
+                      symbols.push({name:m[1],line:i+1,type:'type'})
+                    else if ((m = /^(?:export\s+)?(?:async\s+)?function\s+([a-zA-Z_$][\w$]*)/.exec(l)))
+                      symbols.push({name:m[1],line:i+1,type:m[1][0]===m[1][0].toUpperCase()&&m[1][0]!==m[1][0].toLowerCase()?'component':'function'})
+                    else if ((m = /^(?:export\s+)?(?:const|let)\s+([a-zA-Z_$][\w$]*)\s*=\s*(?:async\s+)?(?:\(|function|\([^)]*\)\s*=>)/.exec(l)))
+                      symbols.push({name:m[1],line:i+1,type:m[1][0]===m[1][0].toUpperCase()&&m[1][0]!==m[1][0].toLowerCase()?'component':'function'})
                   } else if (ext==='py') {
-                    let m = PY_DEF_RE.exec(l)||PY_CLS_RE.exec(l)
-                    if (m) symbols.push({name:m[1],line:i+1,type:l.trim().startsWith('class')?'class':'function'})
+                    let m: RegExpExecArray|null
+                    if ((m = /^class\s+([a-zA-Z_][\w]*)/.exec(l))) symbols.push({name:m[1],line:i+1,type:'class'})
+                    else if ((m = /^(?:async\s+)?def\s+([a-zA-Z_][\w]*)/.exec(l))) symbols.push({name:m[1],line:i+1,type:'function'})
                   } else if (ext==='go') {
-                    let m = GO_FUNC_RE.exec(l)
-                    if (m) symbols.push({name:m[1],line:i+1,type:'function'})
+                    let m: RegExpExecArray|null
+                    if ((m = /^type\s+([A-Z][\w]*)\s+struct/.exec(l))) symbols.push({name:m[1],line:i+1,type:'class'})
+                    else if ((m = /^type\s+([A-Z][\w]*)\s+interface/.exec(l))) symbols.push({name:m[1],line:i+1,type:'interface'})
+                    else if ((m = /^func\s+(?:\([^)]*\)\s+)?([a-zA-Z_][\w]*)/.exec(l))) symbols.push({name:m[1],line:i+1,type:'function'})
                   }
                 })
+                const iconMap = {class:'◇',interface:'○',type:'◈',component:'⬡',function:'ƒ'} as const
+                const iconCls = {class:'cls',interface:'ifc',type:'typ',component:'cmp',function:'fn'} as const
                 return (
-                  <div style={{flex:1,overflowY:'auto',scrollbarWidth:'thin',scrollbarColor:'rgba(255,255,255,.07) transparent'}}>
-                    {!activeTabNode && <div style={{padding:'20px 10px',opacity:.25,textAlign:'center',fontFamily:"'Share Tech Mono',monospace",fontSize:'11px'}}>OPEN A FILE TO SEE ITS OUTLINE</div>}
-                    {activeTabNode && symbols.length===0 && <div style={{padding:'20px 10px',opacity:.25,textAlign:'center',fontFamily:"'Share Tech Mono',monospace",fontSize:'11px'}}>NO SYMBOLS FOUND</div>}
+                  <div className="sb-outline-wrap">
+                    {!activeTabNode && <div className="sb-outline-empty">OPEN A FILE<br/>TO SEE ITS OUTLINE</div>}
+                    {activeTabNode && symbols.length===0 && <div className="sb-outline-empty">NO SYMBOLS FOUND</div>}
                     {symbols.map((s,i)=>(
-                      <div key={i} onClick={()=>setJumpLineTarget(s.line)}
-                        style={{padding:'5px 10px 5px 14px',cursor:'pointer',display:'flex',gap:8,alignItems:'center',fontFamily:"'JetBrains Mono',monospace",fontSize:'11px'}}
-                        onMouseEnter={e=>(e.currentTarget.style.background='rgba(255,255,255,.05)')}
-                        onMouseLeave={e=>(e.currentTarget.style.background='transparent')}>
-                        <span style={{fontSize:'10px',color:s.type==='class'?'#4285f4':'#10b981',flexShrink:0}}>{s.type==='class'?'◇':'ƒ'}</span>
-                        <span style={{color:'#c0c8d8',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{s.name}</span>
-                        <span style={{color:'rgba(200,200,220,.3)',fontSize:'10px',flexShrink:0}}>{s.line}</span>
+                      <div key={i} className={`sb-outline-item type-${s.type}`} onClick={()=>setJumpLineTarget(s.line)}>
+                        <span className={`sb-outline-icon ${iconCls[s.type]}`}>{iconMap[s.type]}</span>
+                        <span className="sb-outline-name">{s.name}</span>
+                        <span className="sb-outline-line">{s.line}</span>
                       </div>
                     ))}
                   </div>
