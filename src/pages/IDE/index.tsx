@@ -1946,8 +1946,11 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
         {sidebarOpen && (<>
           <div className="ide-sidebar-pane" style={{width:sidebarW}}>
             <div className="ide-sidebar-header">
+              <div className="ide-sidebar-mode-icon">
+                {sideIconDefs.find(d=>d.key===sidebarMode)?.icon}
+              </div>
               <span className="ide-sidebar-title">
-                {({'files':'EXPLORER','git':'SOURCE CONTROL','search':'SEARCH','note':'NOTES','settings':'SETTINGS','project-search':'SEARCH FILES','outline':'OUTLINE','ai':'AI ASSISTANT'} as any)[sidebarMode]||'EXPLORER'}
+                {({'files':'EXPLORER','git':'GIT','search':'SEARCH','note':'NOTES','settings':'SETTINGS','project-search':'SEARCH','outline':'OUTLINE','ai':'AI'} as any)[sidebarMode]||'EXPLORER'}
               </span>
               <div style={{marginLeft:'auto',display:'flex',gap:4,alignItems:'center'}}>
                 {sidebarMode==='files'&&<button className="ide-btn ide-btn-sm" onClick={()=>setShowCreateNode(true)} title="New graph node">+N</button>}
@@ -2333,16 +2336,16 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
         >
           {/* Mode bar */}
           <div className="ide-mode-bar">
-            <div style={{fontFamily:"'Bangers',sans-serif",fontSize:'13px',letterSpacing:'.12em',opacity:.5}}>{brutal?'MANGA // BRUTAL':'MANGA // CYBER'}</div>
-            <div style={{flex:1}}/>
+            <div className="ide-mode-theme-label">{brutal?'BRUTAL':'CYBER'}</div>
+            <div className="ide-tab-spacer"/>
             <button className={`ide-mode-btn ${edgeMode==='join'?'m-join':''}`} onClick={()=>setEdgeMode(m=>m==='join'?null:'join')}>
-              {edgeMode==='join'&&<span className="v-pulse green"/>}J·JOIN
+              {edgeMode==='join'&&<span className="v-pulse green"/>}JOIN
             </button>
             <button className={`ide-mode-btn ${edgeMode==='cut'?'m-cut':''}`} onClick={()=>setEdgeMode(m=>m==='cut'?null:'cut')}>
-              {edgeMode==='cut'&&<span className="v-pulse red"/>}X·CUT
+              {edgeMode==='cut'&&<span className="v-pulse red"/>}CUT
             </button>
             <div className="ide-topbar-sep"/>
-            <button className="ide-mode-btn" onClick={()=>setTransform({x:300,y:220,scale:1})}>RESET VIEW</button>
+            <button className="ide-mode-btn" onClick={()=>setTransform({x:300,y:220,scale:1})}>RESET</button>
             {edgeMode==='join'&&joinFirstNode && (
               <div style={{fontFamily:"'Share Tech Mono',monospace",fontSize:'11px',color:'#10b981',marginLeft:6}}>
                 → {nodesRef.current.find(n=>n.id===joinFirstNode)?.label}
@@ -2554,7 +2557,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
                       onClick={()=>setActiveTabId(id)}
                       onDoubleClick={()=>togglePinTab(id)}
                       title={isPinned?'Pinned (double-click to unpin)':'Double-click to pin'}>
-                      {isPinned && <span style={{fontSize:'8px',marginRight:3,opacity:.6}}>📌</span>}
+                      {isPinned && <span className="ide-tab-pin"/>}
                       {n.label}
                       {n.modified&&<span className="modified-dot"/>}
                       {!isPinned && <span className="ide-tab-close" onClick={e=>{e.stopPropagation();closeTabLocal(id)}}><I.X/></span>}
@@ -2985,21 +2988,21 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
           {/* Tab bar */}
           <div className="ide-bottom-tabbar">
             {[
-              {key:'console',  label:'▶ CONSOLE'},
-              {key:'terminal', label:'$ TERMINAL'},
-              {key:'scripts',  label:'⚙ SCRIPTS'},
-              {key:'notebook', label:'◎ NOTEBOOK'},
-              {key:'timeline', label:'⎔ TIMELINE'},
+              {key:'console',  icon:<svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><polyline points="3,5 7,8 3,11"/><line x1="9" y1="11" x2="13" y2="11"/></svg>, label:'CONSOLE'},
+              {key:'terminal', icon:<svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><polyline points="2,4 6,8 2,12"/><line x1="8" y1="12" x2="14" y2="12"/></svg>, label:'TERMINAL'},
+              {key:'scripts',  icon:<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>, label:'SCRIPTS'},
+              {key:'notebook', icon:<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="1"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="3" x2="9" y2="21"/></svg>, label:'NOTEBOOK'},
+              {key:'timeline', icon:<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>, label:'TIMELINE'},
             ].map(t=>(
               <button key={t.key}
                 className={`ide-bottom-tab ${bottomTab===t.key?'active':''}`}
                 onClick={()=>setBottomTab(t.key)}>
+                {t.icon}
                 {t.label}
               </button>
             ))}
-            <div style={{flex:1}}/>
-            {/* resize hint */}
-            <span style={{fontSize:'9px',opacity:.2,fontFamily:"'Share Tech Mono',monospace",alignSelf:'center',marginRight:6,userSelect:'none'}}>drag to resize</span>
+            <div className="ide-tab-spacer"/>
+            <span className="ide-resize-hint">↕ resize</span>
             <button className="ide-bottom-close" onClick={()=>setBottomOpen(false)}>✕</button>
           </div>
           {/* Content */}
