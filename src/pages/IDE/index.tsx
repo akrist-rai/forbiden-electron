@@ -1594,7 +1594,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
     const lang = detectLang(node.label || '')
     if (lang === 'md' || lang === 'unknown') return
     setNodeRunState(s => ({...s, [nodeId]: {status:'running', ms:0}}))
-    addEvent('run-ok', `▶ ${node.label}`, {nodeId})
+    addEvent('run-ok', `RUN ${node.label}`, {nodeId})
 
     // Prefer running in the real terminal — output appears there naturally
     if (activePtyId) {
@@ -1603,32 +1603,38 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
       const t0 = Date.now()
       const res = await runInTerminal(activePtyId, lang, node.code || '', explorerRoot || termCwd)
       const ms = Date.now() - t0
-      setNodeRunState(s => ({...s, [nodeId]: {status: res.success ? 'ok' : 'error', ms}}))
-      if (!res.success) {
+      if (res.success) {
+        setNodeRunState(s => ({...s, [nodeId]: {status: 'ok', ms}}))
+        return
+      }
+      // Real terminal error (not stale session) — show and bail
+      if (res.error !== 'no active terminal') {
+        setNodeRunState(s => ({...s, [nodeId]: {status: 'error', ms}}))
         setBottomTab('console')
         setJsLogs(l => [...l,
-          {type:'header', val:`▶  ${node.label}`, ts:Date.now(), nodeId},
+          {type:'header', val:node.label, ts:Date.now(), nodeId},
           {type:'error',  val: res.error || 'Run failed', ts:Date.now(), nodeId},
         ])
+        return
       }
-      return
+      // Stale terminal session — fall through to capture mode
     }
 
     // Fallback: capture mode → show in console panel
     setBottomTab('console')
     setBottomOpen(true)
     setJsLogs(l => {
-      const header = [{type:'header', val:`▶  ${node.label}`, ts:Date.now(), nodeId}]
-      if (isCompiled(lang)) header.push({type:'info', val:`⌛ Compiling…`, ts:Date.now()})
+      const header = [{type:'header', val:node.label, ts:Date.now(), nodeId}]
+      if (isCompiled(lang)) header.push({type:'info', val:'Compiling...', ts:Date.now()})
       return [...l, ...header]
     })
     const result = await runByLang(lang, node.code || '', compileStdin)
     setNodeRunState(s => ({...s, [nodeId]: {status: result.error?'error':'ok', ms: result.ms}}))
-    addEvent(result.error?'run-err':'run-ok', `${result.error?'✗':'✓'} ${node.label} (${result.ms}ms)`, {nodeId})
+    addEvent(result.error?'run-err':'run-ok', `${result.error?'FAIL':'OK'} ${node.label} (${result.ms}ms)`, {nodeId})
     setJsLogs(l => [
       ...l,
       ...result.logs.map(e => ({...e, nodeId})),
-      {type: result.error?'error-footer':'footer', val: result.error ? `✗ Error · ${result.ms}ms` : `✓ Done · ${result.ms}ms`, ts:Date.now(), nodeId}
+      {type: result.error?'error-footer':'footer', val: result.error ? `Error · ${result.ms}ms` : `Done · ${result.ms}ms`, ts:Date.now(), nodeId}
     ])
   }
 

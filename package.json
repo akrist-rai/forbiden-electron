@@ -14,7 +14,10 @@
     "tauri": "tauri",
     "tauri:dev": "bun run engine:build && env -u LD_LIBRARY_PATH -u GTK_PATH -u GTK_EXE_PREFIX -u GTK_MODULES -u GDK_PIXBUF_MODULE_FILE LD_PRELOAD=/lib/x86_64-linux-gnu/libpthread.so.0 tauri dev",
     "tauri:build": "pkill -x forbiden-engine 2>/dev/null || true && bun run engine:build && env -u LD_LIBRARY_PATH -u GTK_PATH -u GTK_EXE_PREFIX -u GTK_MODULES -u GDK_PIXBUF_MODULE_FILE LD_PRELOAD=/lib/x86_64-linux-gnu/libpthread.so.0 tauri build",
-    "tauri:build:win": "bun run engine:build:win && env -u LD_LIBRARY_PATH -u GTK_PATH -u GTK_EXE_PREFIX -u GTK_MODULES -u GDK_PIXBUF_MODULE_FILE tauri build"
+    "tauri:build:win": "bun run engine:build:win && env -u LD_LIBRARY_PATH -u GTK_PATH -u GTK_EXE_PREFIX -u GTK_MODULES -u GDK_PIXBUF_MODULE_FILE tauri build",
+    "engine:build:android": "cd engine && bash ../scripts/build-engine-android.sh",
+    "tauri:android:dev": "bun run engine:build:android && tauri android dev",
+    "tauri:android:build": "bun run engine:build:android && tauri android build"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",

@@ -2,6 +2,7 @@
   "$schema": "../node_modules/@tauri-apps/cli/schema/acl/capability.json",
   "identifier": "default",
   "description": "Default FORBIDEN capabilities",
+  "platforms": ["linux", "windows", "macOS"],
   "windows": ["main"],
   "permissions": [
     "core:default",

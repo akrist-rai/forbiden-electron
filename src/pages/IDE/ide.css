@@ -8780,3 +8780,84 @@ body {
   filter: none !important;
 }
 
+
+/* ══════════════════════════════════════════════════════════════════
+   FORBIDEN v3 — RESTORE IMAGE EFFECTS + KILL IDE LINES
+   ══════════════════════════════════════════════════════════════════ */
+
+/* ─── KILL all scan/dither/noise lines on the IDE canvas ─── */
+
+/* Un-themed canvas dither dots */
+.theme-cyber .canvas-container::before {
+  display: none !important;
+}
+/* Un-themed + themed canvas horizontal scan lines */
+.theme-cyber .canvas-container::after {
+  display: none !important;
+}
+/* CRT scanlines on canvas wrap */
+.theme-cyber .ide-canvas-wrap::after {
+  display: none !important;
+}
+/* Animated noise overlay on canvas bg */
+.theme-cyber .canvas-bg::after {
+  display: none !important;
+  animation: none !important;
+}
+/* Dot/line grid on topbar ::before */
+.theme-cyber .ide-topbar::before {
+  display: none !important;
+}
+
+/* ─── RESTORE image filters and overlays ─── */
+
+/* Restore main workspace poster images */
+.theme-cyber .idw-mp > img {
+  filter: contrast(1.22) saturate(.42) brightness(.58) !important;
+}
+
+/* Restore dark veil over the whole workspace hero stage */
+.theme-cyber .idw-global-veil {
+  background: rgba(3,3,8,.5) !important;
+}
+
+/* Restore per-panel gradient overlay */
+.theme-cyber .idw-mp-overlay {
+  background: linear-gradient(135deg, rgba(3,3,8,.38) 0%, transparent 55%, rgba(3,3,8,.22) 100%) !important;
+}
+
+/* Restore manga hero cinema background image filter */
+.theme-cyber .manga-hero-cinema img {
+  filter: contrast(1.08) saturate(0.75) !important;
+}
+
+/* Restore poster cell filters */
+.theme-cyber .manga-hero-poster img {
+  filter: contrast(1.05) saturate(.8) !important;
+}
+
+/* Restore manga hero gradient overlays (left + bottom fade) */
+.theme-cyber .manga-hero-grad-l {
+  background: revert !important;
+}
+.theme-cyber .manga-hero-grad-b {
+  background: revert !important;
+}
+
+/* Restore chapter splash + thumb filters */
+.theme-cyber .ide-chapter-splash > img {
+  filter: contrast(1.2) saturate(.6) brightness(.78) !important;
+}
+.theme-cyber .ide-chapter-thumb > img {
+  filter: contrast(1.05) saturate(.5) !important;
+}
+.theme-cyber .ide-toc-thumb img {
+  filter: saturate(.55) contrast(1.05) !important;
+}
+.theme-cyber .manga-editor-art img {
+  filter: contrast(1.1) saturate(0.7) brightness(0.92) !important;
+}
+.theme-cyber .ide-welcome-left > img {
+  filter: contrast(1.15) saturate(.5) brightness(.75) !important;
+}
+

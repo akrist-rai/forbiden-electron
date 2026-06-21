@@ -40,6 +40,18 @@ fn resolve_engine_path(app: &tauri::App) -> PathBuf {
         "forbiden-engine"
     };
 
+    // On Android the engine binary is copied into the app's data directory
+    // on first launch (see setup below). Check there first.
+    #[cfg(target_os = "android")]
+    {
+        if let Ok(data_dir) = app.path().data_dir() {
+            let p = data_dir.join(bin_name);
+            if p.exists() {
+                return p;
+            }
+        }
+    }
+
     if cfg!(debug_assertions) {
         let exe = std::env::current_exe().unwrap_or_default();
         let mut dir = exe.parent().map(|p| p.to_path_buf()).unwrap_or_default();
@@ -79,6 +91,30 @@ fn resolve_engine_path(app: &tauri::App) -> PathBuf {
             return p;
         }
         exe_dir.join(bin_name)
+    }
+}
+
+// On Android, Tauri bundles the engine in the APK assets. We copy it to the
+// app's private data directory and make it executable before launching.
+#[cfg(target_os = "android")]
+fn install_engine_android(app: &tauri::App) {
+    use std::io::Read;
+    let bin_name = "forbiden-engine";
+    let Ok(data_dir) = app.path().data_dir() else { return };
+    let dest = data_dir.join(bin_name);
+    if dest.exists() {
+        return; // already installed from a previous launch
+    }
+    // The asset name matches the Tauri sidecar naming convention.
+    let asset_name = format!("{}-aarch64-linux-android", bin_name);
+    if let Ok(mut asset) = app.asset_resolver().get(&asset_name) {
+        let mut buf = Vec::new();
+        if asset.read_to_end(&mut buf).is_ok() {
+            if std::fs::write(&dest, &buf).is_ok() {
+                use std::os::unix::fs::PermissionsExt;
+                let _ = std::fs::set_permissions(&dest, std::fs::Permissions::from_mode(0o755));
+            }
+        }
     }
 }
 
@@ -127,14 +163,21 @@ pub fn run() {
     let engine_url: Arc<Mutex<Option<String>>> = Arc::new(Mutex::new(None));
     let engine_url_clone = engine_url.clone();
 
-    let app = tauri::Builder::default()
+    let builder = tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_os::init())
+        .plugin(tauri_plugin_os::init());
+
+    #[cfg(not(target_os = "android"))]
+    let builder = builder
         .plugin(tauri_plugin_window_state::Builder::default().build())
-        .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_opener::init());
+
+    let app = builder
         .manage(EngineState { url: engine_url })
         .setup(move |app| {
+            #[cfg(target_os = "android")]
+            install_engine_android(app);
             start_engine(engine_url_clone, resolve_engine_path(app));
             Ok(())
         })
