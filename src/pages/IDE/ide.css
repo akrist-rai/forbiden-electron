@@ -5103,3 +5103,498 @@ body {
 .fe-git-dot.both      { background: #89ddff; }
 .fe-git-dot.deleted   { background: #ff435a; }
 
+
+/* ══════════════════════════════════════════════════════════════════
+   FORBIDEN — v3 REDESIGN
+   Deeper void · bolder chrome · unified scrollbars · refined spacing
+   ══════════════════════════════════════════════════════════════════ */
+
+/* ── GLOBAL: deeper background base ── */
+.theme-cyber,
+.theme-cyber .ide-topbar,
+.theme-cyber .ide-icon-bar,
+.theme-cyber .ide-sidebar-pane,
+.theme-cyber .ide-editor-pane,
+.theme-cyber .ide-bottom-panel,
+.theme-cyber .ide-timeline-bottom {
+  --void: #000008;
+}
+
+/* ── GLOBAL: text selection ── */
+.theme-cyber ::selection {
+  background: rgba(255,42,56,.28);
+  color: #f4f0e8;
+}
+
+/* ── GLOBAL: focus rings ── */
+.theme-cyber input:focus-visible,
+.theme-cyber textarea:focus-visible,
+.theme-cyber button:focus-visible {
+  outline: 1px solid rgba(255,42,56,.6) !important;
+  outline-offset: 1px !important;
+}
+
+/* ── GLOBAL: scrollbars (thin red-tinted, zero-radius) ── */
+.theme-cyber * {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,42,56,.22) transparent;
+}
+.theme-cyber *::-webkit-scrollbar { width: 3px; height: 3px; }
+.theme-cyber *::-webkit-scrollbar-track { background: transparent; }
+.theme-cyber *::-webkit-scrollbar-thumb {
+  background: rgba(255,42,56,.22);
+  border-radius: 0;
+}
+.theme-cyber *::-webkit-scrollbar-thumb:hover {
+  background: rgba(255,42,56,.55);
+}
+
+/* ── TOPBAR: deeper + bottom glow ── */
+.theme-cyber .ide-topbar {
+  background: #000008 !important;
+  border-bottom: 1px solid rgba(255,42,56,.3) !important;
+  box-shadow:
+    0 1px 0 rgba(255,42,56,.10),
+    0 4px 24px rgba(0,0,0,.8) !important;
+}
+
+/* Topbar micro-dot texture (replaces plain texture) */
+.theme-cyber .ide-topbar::before {
+  background-image:
+    radial-gradient(circle, rgba(255,42,56,.035) 1px, transparent 1px),
+    linear-gradient(rgba(255,255,255,.008) 1px, transparent 1px) !important;
+  background-size: 6px 6px, 6px 6px !important;
+}
+
+/* Logo: stronger presence */
+.theme-cyber .ide-logo {
+  text-shadow:
+    0 0 18px rgba(255,42,56,.25),
+    0 0 40px rgba(255,42,56,.1) !important;
+  letter-spacing: .14em !important;
+}
+
+/* Topbar buttons: sharper */
+.theme-cyber .ide-topbar-btn {
+  color: rgba(180,180,210,.32) !important;
+  border: 1px solid rgba(255,255,255,.06) !important;
+  letter-spacing: .13em !important;
+}
+.theme-cyber .ide-topbar-btn:hover {
+  color: #ff2a38 !important;
+  border-color: rgba(255,42,56,.45) !important;
+  background: rgba(255,42,56,.06) !important;
+  text-shadow: 0 0 12px rgba(255,42,56,.4) !important;
+}
+.theme-cyber .ide-topbar-btn.primary {
+  background: #ff2a38 !important;
+  color: #fff !important;
+  box-shadow: 0 0 16px rgba(255,42,56,.35), inset 0 1px 0 rgba(255,255,255,.12) !important;
+}
+.theme-cyber .ide-topbar-btn.primary:hover {
+  background: #ff3f4c !important;
+  box-shadow: 0 0 24px rgba(255,42,56,.55), inset 0 1px 0 rgba(255,255,255,.2) !important;
+}
+
+/* ── ICON BAR: bolder active states ── */
+.theme-cyber .ide-icon-bar {
+  background: #000005 !important;
+  border-right: 1px solid rgba(255,42,56,.2) !important;
+  gap: 2px !important;
+}
+
+.theme-cyber .ide-icon-btn {
+  color: rgba(160,160,200,.22) !important;
+  width: 44px !important;
+  height: 40px !important;
+  border-left: 2px solid transparent !important;
+  transition: color .12s, background .12s, border-color .12s, box-shadow .12s !important;
+}
+.theme-cyber .ide-icon-btn:hover {
+  color: rgba(255,42,56,.75) !important;
+  background: rgba(255,42,56,.06) !important;
+}
+.theme-cyber .ide-icon-btn.active {
+  color: #ff2a38 !important;
+  border-left-color: #ff2a38 !important;
+  background: rgba(255,42,56,.1) !important;
+  box-shadow: inset 2px 0 10px rgba(255,42,56,.12) !important;
+}
+
+/* ── SIDEBAR PANE: deeper, tighter ── */
+.theme-cyber .ide-sidebar-pane {
+  background: #01010e !important;
+  border-right: 1px solid rgba(255,42,56,.14) !important;
+}
+
+.ide-sidebar-header {
+  height: 36px !important;
+}
+.theme-cyber .ide-sidebar-header {
+  background: rgba(0,0,8,.96) !important;
+  border-bottom: 1px solid rgba(255,42,56,.14) !important;
+}
+.theme-cyber .ide-sidebar-header::before {
+  background: rgba(255,42,56,.7) !important;
+}
+
+.ide-sidebar-title {
+  font-size: 10px !important;
+  letter-spacing: .2em !important;
+}
+.theme-cyber .ide-sidebar-title {
+  color: rgba(200,200,220,.42) !important;
+}
+
+.theme-cyber .ide-sidebar-mode-icon {
+  color: rgba(255,42,56,.5) !important;
+}
+
+.theme-cyber .ide-sidebar-close {
+  color: rgba(160,160,200,.2) !important;
+}
+.theme-cyber .ide-sidebar-close:hover {
+  color: #ff2a38 !important;
+}
+
+/* ── FILE TABS: top + bottom indicator on active ── */
+.theme-cyber .ide-file-tabs {
+  background: rgba(0,0,8,.92) !important;
+  border-bottom: 1px solid rgba(255,42,56,.12) !important;
+}
+
+.ide-file-tab {
+  font-size: 12px !important;
+  padding: 0 14px !important;
+  height: 32px !important;
+  border-top: 2px solid transparent !important;
+  border-bottom: 2px solid transparent !important;
+  border-right: 1px solid transparent !important;
+  gap: 6px !important;
+}
+.theme-cyber .ide-file-tab {
+  color: rgba(160,160,200,.3) !important;
+  border-right-color: rgba(255,42,56,.08) !important;
+}
+.theme-cyber .ide-file-tab:hover {
+  color: rgba(200,200,220,.7) !important;
+  background: rgba(255,42,56,.04) !important;
+}
+.theme-cyber .ide-file-tab.active {
+  color: #f0ece0 !important;
+  background: rgba(255,42,56,.06) !important;
+  border-bottom-color: #ff2a38 !important;
+  border-top-color: rgba(255,42,56,.35) !important;
+}
+
+.ide-tab-close {
+  width: 16px !important;
+  height: 16px !important;
+  border-radius: 0 !important;
+  font-size: 11px !important;
+}
+
+/* ── EDITOR PANE ── */
+.theme-cyber .ide-editor-pane {
+  background: rgba(2,2,14,.98) !important;
+  border-left: 1px solid rgba(255,42,56,.1) !important;
+}
+
+/* ── SPLIT DIVIDER: more visible on hover ── */
+.theme-cyber .ide-split-divider {
+  background: rgba(255,42,56,.06) !important;
+}
+.theme-cyber .ide-split-divider:hover {
+  background: rgba(255,42,56,.25) !important;
+}
+
+/* ── BOTTOM PANEL ── */
+.theme-cyber .ide-bottom-panel {
+  background: #03030f !important;
+  border-top: 1px solid rgba(255,42,56,.22) !important;
+}
+
+.theme-cyber .ide-bottom-tabbar {
+  background: rgba(0,0,0,.6) !important;
+  border-bottom: 1px solid rgba(255,42,56,.08) !important;
+}
+
+.ide-bottom-tabbar { height: 32px !important; }
+
+.theme-cyber .ide-bottom-tab {
+  color: rgba(160,160,200,.28) !important;
+  font-size: 10px !important;
+  letter-spacing: .15em !important;
+}
+.theme-cyber .ide-bottom-tab:hover { color: rgba(200,200,220,.65) !important; }
+.theme-cyber .ide-bottom-tab.active {
+  color: #ff2a38 !important;
+  border-bottom-color: #ff2a38 !important;
+  background: rgba(255,42,56,.06) !important;
+}
+
+/* ── STATUS BAR: taller + more presence ── */
+.theme-cyber .status-bar,
+.status-bar {
+  height: 28px !important;
+  border-top: 1px solid rgba(255,42,56,.22) !important;
+  background: #000008 !important;
+  font-size: 10px !important;
+  letter-spacing: .06em !important;
+  padding: 0 14px !important;
+}
+.status-dot {
+  width: 7px !important;
+  height: 7px !important;
+  box-shadow: 0 0 6px currentColor !important;
+}
+
+/* ── TOC SECTION LABELS ── */
+.theme-cyber .ide-toc-sec {
+  color: rgba(160,160,200,.22) !important;
+  font-size: 9px !important;
+  letter-spacing: .2em !important;
+  padding-top: 10px !important;
+  padding-bottom: 5px !important;
+}
+
+/* TOC items: cleaner hover */
+.theme-cyber .ide-toc-item:hover {
+  background: rgba(255,42,56,.06) !important;
+}
+.theme-cyber .ide-toc-item.active {
+  border-left-color: #ff2a38 !important;
+  background: rgba(255,42,56,.08) !important;
+  color: #ff2a38 !important;
+}
+
+/* ── FLOATING PANELS: glassmorphism ── */
+.theme-cyber .floating-panel {
+  background: rgba(2,2,12,.97) !important;
+  border: 1px solid rgba(255,42,56,.22) !important;
+  box-shadow:
+    0 12px 60px rgba(0,0,0,.92),
+    0 0 0 1px rgba(255,255,255,.025),
+    inset 0 1px 0 rgba(255,255,255,.03) !important;
+  backdrop-filter: blur(24px) saturate(1.15) !important;
+}
+
+/* ── MODALS: consistent with panel style ── */
+.theme-cyber .create-modal-box,
+.theme-cyber .grp-editor-shell,
+.theme-cyber .card-detail-box {
+  background: #01010c !important;
+  border: 1px solid rgba(255,42,56,.28) !important;
+  box-shadow:
+    0 32px 120px rgba(0,0,0,.98),
+    inset 0 1px 0 rgba(255,255,255,.04) !important;
+}
+
+/* ── NODE CIRCLES: subtle inner glow ── */
+.theme-cyber .node-circle {
+  box-shadow:
+    0 0 10px var(--node-color, #ff2a38),
+    inset 0 0 12px rgba(0,0,0,.7) !important;
+}
+.theme-cyber .node-circle:hover,
+.theme-cyber .obs-node-wrapper:hover .node-circle {
+  box-shadow:
+    0 0 20px var(--node-color, #ff2a38),
+    0 0 40px rgba(255,42,56,.15),
+    inset 0 0 12px rgba(0,0,0,.7) !important;
+}
+
+/* ── CONSOLE PANEL: deeper bg ── */
+.theme-cyber .cp-root {
+  background: #02020e !important;
+}
+
+/* ── AI PANEL: deeper bg ── */
+.theme-cyber .ac-root {
+  background: #02020e !important;
+}
+
+/* ── GRAPH NODES: sharper edges ── */
+.theme-cyber .node-label {
+  font-size: 11px !important;
+  letter-spacing: .04em !important;
+  padding: 2px 8px !important;
+}
+
+/* ── GRAPH MODE BAR: tighter ── */
+.theme-cyber .graph-mode-bar {
+  border-radius: 0 !important;
+  padding: 5px 8px !important;
+}
+
+/* ── TOC SEARCH INPUT ── */
+.theme-cyber .ide-toc-search {
+  font-size: 11px !important;
+  letter-spacing: .04em !important;
+}
+
+/* ── ICON BADGE ── */
+.theme-cyber .ide-icon-badge {
+  width: 12px !important;
+  height: 12px !important;
+  font-size: 8px !important;
+  box-shadow: 0 0 8px rgba(255,42,56,.6) !important;
+  border-radius: 0 !important;
+}
+
+/* ── GRAPH TOOLTIP ── */
+.theme-cyber .graph-tooltip {
+  background: rgba(1,1,14,.96) !important;
+  border: 1px solid rgba(255,42,56,.28) !important;
+  letter-spacing: .04em !important;
+}
+
+/* ── TOAST ── */
+.theme-cyber .ide-toast {
+  border-radius: 0 !important;
+  border: 1px solid rgba(255,42,56,.35) !important;
+  background: rgba(1,1,18,.97) !important;
+  box-shadow: 0 4px 24px rgba(0,0,0,.8), 0 0 1px rgba(255,42,56,.3) !important;
+}
+
+/* ── CP-ROW (console): better line hover ── */
+.theme-cyber .cp-row:hover {
+  background: rgba(255,42,56,.04) !important;
+}
+
+/* ── FILE EXPLORER: tighter rows ── */
+.theme-cyber .fe-row {
+  height: 22px !important;
+}
+
+/* ── EDITOR TOOLBAR: sharper buttons ── */
+.theme-cyber .editor-toolbar-btn.active {
+  color: #ff2a38 !important;
+  border-color: rgba(255,42,56,.4) !important;
+  background: rgba(255,42,56,.07) !important;
+}
+
+/* ── IDE-BTN: consistent styling ── */
+.theme-cyber .ide-btn {
+  border-radius: 0 !important;
+  font-family: 'Oswald', sans-serif !important;
+  font-weight: 700 !important;
+  letter-spacing: .12em !important;
+  font-size: 10px !important;
+}
+
+/* ── IDE BOTTOM CLOSE BUTTON ── */
+.theme-cyber .ide-bottom-close {
+  letter-spacing: .1em !important;
+  font-family: 'Oswald', sans-serif !important;
+  font-size: 9px !important;
+}
+
+/* ── CANVAS BG: refined dot grid ── */
+.theme-cyber .canvas-bg {
+  background-color: #000008 !important;
+  background-image:
+    radial-gradient(circle, rgba(255,42,56,.07) 1px, transparent 1px),
+    radial-gradient(ellipse at 50% 0%, rgba(255,42,56,.06) 0%, transparent 60%) !important;
+  background-size: 24px 24px, auto !important;
+}
+
+/* ── CANVAS GRID LINES: more visible ── */
+.theme-cyber .ide-canvas-input-layer {
+  background-image:
+    linear-gradient(rgba(255,42,56,.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,42,56,.025) 1px, transparent 1px),
+    radial-gradient(ellipse at 50% 0%, rgba(255,42,56,.05) 0%, transparent 50%) !important;
+  background-size: 32px 32px, 32px 32px, auto !important;
+}
+
+/* ── PALETTE DROPDOWN ── */
+.theme-cyber .palette-dropdown {
+  border-radius: 0 !important;
+  border: 1px solid rgba(255,42,56,.25) !important;
+  background: #01010d !important;
+}
+
+/* ── SCANLINE OVERLAY on icon bar ── */
+.theme-cyber .ide-icon-bar::after {
+  content: '';
+  position: absolute; inset: 0; pointer-events: none; z-index: 1;
+  background: repeating-linear-gradient(
+    0deg, transparent, transparent 3px, rgba(0,0,0,.08) 3px, rgba(0,0,0,.08) 4px
+  );
+}
+
+/* ── RED GLOW LINE under topbar (full-width accent) ── */
+.theme-cyber .ide-topbar::after {
+  content: '';
+  position: absolute; bottom: -1px; left: 0; right: 0;
+  height: 1px; pointer-events: none;
+  background: linear-gradient(to right, transparent 0%, rgba(255,42,56,.6) 20%, rgba(255,42,56,.8) 50%, rgba(255,42,56,.6) 80%, transparent 100%);
+}
+
+/* ── TOPBAR RIGHT SIDE: avatar border glow ── */
+.theme-cyber .ide-topbar [style*="border"] {
+  transition: border-color .15s, box-shadow .15s !important;
+}
+
+/* ── BOTTOM TRAY (when visible) ── */
+.theme-cyber .ide-bottom-tray {
+  background: rgba(1,1,12,.98) !important;
+  border-top: 1px solid rgba(255,42,56,.18) !important;
+}
+
+/* ── RESIZE HANDLES: consistent red tint ── */
+.theme-cyber .ide-bottom-resize {
+  background: rgba(255,42,56,.06) !important;
+  color: #ff2a38 !important;
+}
+.theme-cyber .ide-bottom-resize:hover {
+  background: rgba(255,42,56,.2) !important;
+}
+
+/* ── TIMELINE RESIZE ── */
+.theme-cyber .ide-timeline-resize-handle {
+  background: rgba(255,42,56,.06) !important;
+}
+.theme-cyber .ide-timeline-resize-handle:hover {
+  background: rgba(255,42,56,.28) !important;
+}
+
+/* ── EDITOR ACTIVE LINE: red left indicator ── */
+.active-line-highlight {
+  border-left-color: rgba(255,42,56,.5) !important;
+  background: rgba(255,42,56,.025) !important;
+}
+
+/* ── CARET: match accent ── */
+.theme-cyber .code-area {
+  caret-color: #ff2a38 !important;
+}
+
+/* ── GROUP DOCK: sharper corners ── */
+.theme-cyber .group-dock-card {
+  border-radius: 0 !important;
+  border: 1px solid rgba(255,42,56,.18) !important;
+}
+.theme-cyber .group-dock-card:hover {
+  border-color: rgba(255,42,56,.35) !important;
+}
+
+/* ── EDITOR-TOOLBAR-BTN: match accent on hover ── */
+.theme-cyber .editor-toolbar-btn:hover {
+  border-color: rgba(255,42,56,.3) !important;
+  background: rgba(255,42,56,.05) !important;
+  color: rgba(200,200,220,.9) !important;
+}
+
+/* ── MANGA NODE WELCOME SCREEN: sharper ── */
+.theme-cyber .ide-splash-chapter {
+  letter-spacing: .2em !important;
+}
+
+/* ── SHORTCUT PANEL: style polish ── */
+.theme-cyber .ide-shortcut-panel {
+  background: rgba(1,1,14,.98) !important;
+  border: 1px solid rgba(255,42,56,.25) !important;
+}
+
