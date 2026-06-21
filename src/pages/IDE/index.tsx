@@ -2759,15 +2759,15 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
               {/* ── 3-panel manga stage (full-bleed background) ── */}
               <div className="idw-manga-stage">
                 <div className="idw-mp idw-mp-a">
-                  <img src={getPanelImg(2)} alt="" loading="lazy"/>
+                  <img src={`${import.meta.env.BASE_URL}${encodeURIComponent('Sanji .jpeg')}`} alt="" loading="lazy"/>
                   <div className="idw-mp-overlay"/>
                 </div>
                 <div className="idw-mp idw-mp-b">
-                  <img src={getPanelImg(6)} alt="" loading="lazy"/>
+                  <img src={`${import.meta.env.BASE_URL}${encodeURIComponent('Roronoa Zoro.jpeg')}`} alt="" loading="lazy"/>
                   <div className="idw-mp-overlay"/>
                 </div>
                 <div className="idw-mp idw-mp-c">
-                  <img src={getPanelImg(11)} alt="" loading="lazy"/>
+                  <img src={`${import.meta.env.BASE_URL}${encodeURIComponent('choujin x.jpeg')}`} alt="" loading="lazy"/>
                   <div className="idw-mp-overlay"/>
                 </div>
                 <div className="idw-global-veil"/>

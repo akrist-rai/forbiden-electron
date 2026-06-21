@@ -11,12 +11,12 @@
 
 set -euo pipefail
 
-if [[ -z "${ANDROID_NDK_HOME:-}" ]]; then
-  echo "Error: ANDROID_NDK_HOME is not set." >&2
-  echo "Set it to your NDK root, e.g.:" >&2
-  echo "  export ANDROID_NDK_HOME=\$HOME/Android/Sdk/ndk/<version>" >&2
-  exit 1
-fi
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+
+# Default to the installed NDK if the env var isn't set (bun doesn't load ~/.bashrc)
+: "${ANDROID_HOME:="$HOME/Android/Sdk"}"
+: "${ANDROID_NDK_HOME:="$ANDROID_HOME/ndk/30.0.14904198"}"
 
 NDK_BIN="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin"
 
@@ -27,10 +27,21 @@ if [[ ! -d "$NDK_BIN" ]]; then
 fi
 
 CLANG="$NDK_BIN/aarch64-linux-android33-clang"
-OUT="../src-tauri/binaries/forbiden-engine-aarch64-linux-android"
+# Intermediate output in binaries/ (keeps the sidecar path for reference)
+SIDECAR="$PROJECT_ROOT/src-tauri/binaries/forbiden-engine-aarch64-linux-android"
+# Final destination: Vite public/ so it lands in dist/ and Tauri bundles it
+# as an asset accessible via app.asset_resolver() on Android.
+ASSET_DIR="$PROJECT_ROOT/public/native"
+ASSET_OUT="$ASSET_DIR/forbiden-engine"
 
 echo "[android-engine] Building Go engine for android/arm64..."
+cd "$PROJECT_ROOT/engine"
 CC="$CLANG" CGO_ENABLED=1 GOOS=android GOARCH=arm64 \
-  go build -o "$OUT" .
+  go build -o "$SIDECAR" .
 
-echo "[android-engine] Done → $OUT"
+mkdir -p "$ASSET_DIR"
+cp "$SIDECAR" "$ASSET_OUT"
+
+echo "[android-engine] Done"
+echo "  sidecar → $SIDECAR"
+echo "  asset   → $ASSET_OUT  (bundled in APK via Vite dist/)"

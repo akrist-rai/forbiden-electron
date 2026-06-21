@@ -77,7 +77,6 @@ body {
 .canvas-container::after {
   content: '';
   position: absolute; inset: 0; pointer-events: none; z-index: 2;
-  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,.04) 2px, rgba(0,0,0,.04) 4px);
 }
 
 /* ── APP WRAPPER ── */
@@ -587,7 +586,6 @@ body {
     }
     .grp-banner-scanlines {
       position: absolute; inset: 0; pointer-events: none;
-      background: repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.1) 2px,rgba(0,0,0,.1) 4px);
     }
     .grp-banner-overlay { position: absolute; inset: 0; pointer-events: none; }
     .grp-banner-content {
@@ -824,7 +822,6 @@ body {
     .nle-body { flex: 1; display: flex; overflow: auto; position: relative; }
     .nle-track-headers { width: 130px; flex-shrink: 0; border-right: var(--inner-w) solid var(--border); position: sticky; left: 0; background: var(--bg); z-index: 20; display: flex; flex-direction: column; }
     .nle-track-header { height: 44px; display: flex; align-items: center; padding: 0 10px; font-size: 9px; font-weight: bold; border-bottom: 1px solid rgba(128,128,128,0.15); justify-content: space-between; opacity: 0.7; }
-    .nle-tracks { flex: 1; display: flex; flex-direction: column; position: relative; min-width: 1200px; background: repeating-linear-gradient(90deg, transparent, transparent 49px, rgba(128,128,128,0.04) 49px, rgba(128,128,128,0.04) 50px); }
     .nle-track-lane { height: 44px; border-bottom: 1px solid rgba(128,128,128,0.12); position: relative; display: flex; align-items: center; }
     .nle-clip { position: absolute; height: 28px; border-radius: 3px; border: 1px solid var(--border); display: flex; align-items: center; padding: 0 8px; font-size: 9px; cursor: pointer; overflow: hidden; white-space: nowrap; transition: filter 0.15s; }
     .theme-brutal .nle-clip { border-width: 2px; border-radius: 0; box-shadow: 3px 3px 0 var(--border); font-weight: 900; }
@@ -1090,7 +1087,6 @@ body {
 /* CRT scanlines */
 .theme-cyber .ide-canvas-wrap::after {
   content:''; position:absolute; inset:0; pointer-events:none; z-index:1;
-  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.025) 2px,rgba(0,0,0,.025) 4px);
 }
 /* Speed lines brutal */
 .theme-brutal .ide-canvas-wrap::before {
@@ -1280,7 +1276,6 @@ body {
 }
 .ide-chapter-splash::before {
   content:''; position:absolute; inset:0; pointer-events:none; z-index:1;
-  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.09) 2px,rgba(0,0,0,.09) 4px);
 }
 .ide-splash-overlay {
   position:absolute; inset:0; pointer-events:none; z-index:2;
@@ -1397,7 +1392,6 @@ body {
 /* Scanlines */
 .idw-scanlines {
   position:absolute; inset:0; pointer-events:none;
-  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.065) 2px,rgba(0,0,0,.065) 4px);
 }
 
 /* SVG speed lines */
@@ -1523,7 +1517,6 @@ body {
 }
 .ide-welcome-hero-scanlines {
   position:absolute; inset:0; pointer-events:none;
-  background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,.11) 3px,rgba(0,0,0,.11) 6px);
 }
 .ide-welcome-hero-text {
   position:absolute; bottom:0; left:0; right:0;
@@ -3176,7 +3169,6 @@ body {
 .manga-hero-grad-b  { position:absolute; inset:0; pointer-events:none; }
 .manga-hero-scan    {
   position:absolute; inset:0; pointer-events:none;
-  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,.028) 2px, rgba(0,0,0,.028) 4px);
 }
 .manga-hero-tone {
   position:absolute; inset:0; pointer-events:none;
@@ -3454,7 +3446,6 @@ body {
 }
 
 .boot-bg-scan {
-  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,.22) 2px, rgba(0,0,0,.22) 4px);
   mix-blend-mode: multiply;
 }
 
@@ -4190,7 +4181,6 @@ body {
 .theme-cyber .canvas-container::after {
   content: '';
   position: absolute; inset: 0; pointer-events: none; z-index: 0;
-  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,.025) 2px, rgba(0,0,0,.025) 4px);
 }
 
 /* ══════════════════════════════════════════════════════
@@ -5535,9 +5525,6 @@ body {
 .theme-cyber .ide-icon-bar::after {
   content: '';
   position: absolute; inset: 0; pointer-events: none; z-index: 1;
-  background: repeating-linear-gradient(
-    0deg, transparent, transparent 3px, rgba(0,0,0,.08) 3px, rgba(0,0,0,.08) 4px
-  );
 }
 
 /* ── RED GLOW LINE under topbar (full-width accent) ── */
@@ -7649,19 +7636,6 @@ body {
 
 /* Scan overlay */
 .theme-cyber .manga-hero-scan {
-  background: repeating-linear-gradient(
-    0deg, transparent, transparent 2px, rgba(0,0,0,.18) 2px, rgba(0,0,0,.18) 4px
-  ) !important;
-}
-
-
-/* ─────────────────────────────────────────────────────────────────
-   STAGGERED LIST ANIMATIONS
-   File explorer rows, git file rows, commit list
-   ───────────────────────────────────────────────────────────────── */
-
-@keyframes row-enter {
-  from { opacity: 0; transform: translateX(-4px); }
   to   { opacity: 1; transform: translateX(0); }
 }
 

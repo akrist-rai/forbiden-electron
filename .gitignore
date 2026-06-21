@@ -52,3 +52,7 @@ dist-electron/
 coverage/
 .parcel-cache/
 /src-tauri/target/debug
+# Android engine binary (built by scripts/build-engine-android.sh)
+/public/native/
+/src-tauri/binaries/forbiden-engine-aarch64-linux-android
+/src-tauri/target

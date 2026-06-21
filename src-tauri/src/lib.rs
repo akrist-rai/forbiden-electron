@@ -40,14 +40,26 @@ fn resolve_engine_path(app: &tauri::App) -> PathBuf {
         "forbiden-engine"
     };
 
-    // On Android the engine binary is copied into the app's data directory
-    // on first launch (see setup below). Check there first.
+    // On Android the engine binary is pushed into the app's data directory
+    // by scripts/push-engine-android.sh for dev mode, or extracted from APK
+    // assets by install_engine_android() for production builds.
+    // Check several candidate paths since Tauri's data_dir() on Android may
+    // or may not include the /files subdirectory depending on the version.
     #[cfg(target_os = "android")]
     {
-        if let Ok(data_dir) = app.path().data_dir() {
-            let p = data_dir.join(bin_name);
-            if p.exists() {
-                return p;
+        let candidates: &[&dyn Fn() -> Option<std::path::PathBuf>] = &[
+            &|| app.path().data_dir().ok(),
+            &|| app.path().data_dir().ok().map(|p| p.join("files")),
+            &|| app.path().app_data_dir().ok(),
+            &|| app.path().app_local_data_dir().ok(),
+        ];
+        for candidate_fn in candidates {
+            if let Some(dir) = candidate_fn() {
+                let p = dir.join(bin_name);
+                eprintln!("[engine] checking android path: {:?} exists={}", p, p.exists());
+                if p.exists() {
+                    return p;
+                }
             }
         }
     }
@@ -98,22 +110,19 @@ fn resolve_engine_path(app: &tauri::App) -> PathBuf {
 // app's private data directory and make it executable before launching.
 #[cfg(target_os = "android")]
 fn install_engine_android(app: &tauri::App) {
-    use std::io::Read;
     let bin_name = "forbiden-engine";
     let Ok(data_dir) = app.path().data_dir() else { return };
     let dest = data_dir.join(bin_name);
     if dest.exists() {
         return; // already installed from a previous launch
     }
-    // The asset name matches the Tauri sidecar naming convention.
-    let asset_name = format!("{}-aarch64-linux-android", bin_name);
-    if let Ok(mut asset) = app.asset_resolver().get(&asset_name) {
-        let mut buf = Vec::new();
-        if asset.read_to_end(&mut buf).is_ok() {
-            if std::fs::write(&dest, &buf).is_ok() {
-                use std::os::unix::fs::PermissionsExt;
-                let _ = std::fs::set_permissions(&dest, std::fs::Permissions::from_mode(0o755));
-            }
+    // The engine binary is in dist/native/ (copied there from public/native/ by Vite).
+    // asset_resolver serves from the app's dist/, so the path is "native/forbiden-engine".
+    let asset_name = format!("native/{}", bin_name);
+    if let Some(asset) = app.asset_resolver().get(asset_name) {
+        if std::fs::write(&dest, &*asset.bytes).is_ok() {
+            use std::os::unix::fs::PermissionsExt;
+            let _ = std::fs::set_permissions(&dest, std::fs::Permissions::from_mode(0o755));
         }
     }
 }
