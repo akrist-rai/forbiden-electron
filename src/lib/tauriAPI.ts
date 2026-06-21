@@ -216,6 +216,8 @@ export async function initTauriAPI(): Promise<void> {
       deleteBranch:  (cwd: string, branch: string)  => api('/api/git/delete-branch',  { cwd, branch }),
       fetch:         (cwd: string)                   => api('/api/git/fetch',          { cwd }),
       remoteList:    (cwd: string)                   => api('/api/git/remote-list',    { cwd }),
+      resetSoft:     (cwd: string)                   => api('/api/git/reset-soft',     { cwd }),
+      aheadBehind:   (cwd: string)                   => api('/api/git/ahead-behind',   { cwd }),
     },
 
     gitEx: {

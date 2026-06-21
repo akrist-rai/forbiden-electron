@@ -448,6 +448,8 @@ func main() {
 	mux.HandleFunc("/api/git/delete-branch", handleGitDeleteBranch)
 	mux.HandleFunc("/api/git/fetch", handleGitFetch)
 	mux.HandleFunc("/api/git/remote-list", handleGitRemoteList)
+	mux.HandleFunc("/api/git/reset-soft", handleGitResetSoft)
+	mux.HandleFunc("/api/git/ahead-behind", handleGitAheadBehind)
 
 	// Code execution
 	mux.HandleFunc("/api/code/run", handleCodeRun)

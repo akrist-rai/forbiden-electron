@@ -133,9 +133,11 @@ func handleGitBranches(w http.ResponseWriter, r *http.Request) {
 	for _, l := range strings.Split(out, "\n") {
 		b := strings.TrimSpace(strings.TrimPrefix(l, "*"))
 		b = strings.TrimSpace(b)
-		if b != "" {
-			branches = append(branches, b)
+		// Skip empty and HEAD pointer entries like "remotes/origin/HEAD -> ..."
+		if b == "" || strings.Contains(b, " -> ") {
+			continue
 		}
+		branches = append(branches, b)
 	}
 	jsonResp(w, branches)
 }
@@ -208,8 +210,15 @@ func handleGitPush(w http.ResponseWriter, r *http.Request) {
 	json.NewDecoder(r.Body).Decode(&req)
 	out, err := runGit([]string{"push"}, req.Cwd)
 	if err != nil {
-		jsonResp(w, map[string]any{"success": false, "error": err.Error()})
-		return
+		// No upstream set — try setting it now
+		branch, berr := runGit([]string{"branch", "--show-current"}, req.Cwd)
+		if berr == nil && strings.TrimSpace(branch) != "" {
+			out, err = runGit([]string{"push", "--set-upstream", "origin", strings.TrimSpace(branch)}, req.Cwd)
+		}
+		if err != nil {
+			jsonResp(w, map[string]any{"success": false, "error": err.Error()})
+			return
+		}
 	}
 	jsonResp(w, map[string]any{"success": true, "output": out})
 }
@@ -261,10 +270,20 @@ func handleGitDiscard(w http.ResponseWriter, r *http.Request) {
 		File string `json:"file"`
 	}
 	json.NewDecoder(r.Body).Decode(&req)
-	if _, err := runGit([]string{"restore", "--", req.File}, req.Cwd); err != nil {
-		if _, err2 := runGit([]string{"checkout", "--", req.File}, req.Cwd); err2 != nil {
-			jsonResp(w, map[string]any{"success": false, "error": err2.Error()})
+	// Check if file is untracked — git restore won't delete it, need clean
+	st, _ := runGit([]string{"status", "--porcelain", "--", req.File}, req.Cwd)
+	st = strings.TrimSpace(st)
+	if strings.HasPrefix(st, "??") || strings.HasPrefix(st, "!!") {
+		if _, err := runGit([]string{"clean", "-f", "--", req.File}, req.Cwd); err != nil {
+			jsonResp(w, map[string]any{"success": false, "error": err.Error()})
 			return
+		}
+	} else {
+		if _, err := runGit([]string{"restore", "--", req.File}, req.Cwd); err != nil {
+			if _, err2 := runGit([]string{"checkout", "--", req.File}, req.Cwd); err2 != nil {
+				jsonResp(w, map[string]any{"success": false, "error": err2.Error()})
+				return
+			}
 		}
 	}
 	jsonResp(w, map[string]any{"success": true})
@@ -370,6 +389,32 @@ func handleGitFetch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	jsonResp(w, map[string]any{"success": true, "output": out})
+}
+
+func handleGitResetSoft(w http.ResponseWriter, r *http.Request) {
+	var req struct{ Cwd string `json:"cwd"` }
+	json.NewDecoder(r.Body).Decode(&req)
+	out, err := runGit([]string{"reset", "--soft", "HEAD~1"}, req.Cwd)
+	if err != nil {
+		jsonResp(w, map[string]any{"success": false, "error": err.Error()})
+		return
+	}
+	jsonResp(w, map[string]any{"success": true, "output": out})
+}
+
+func handleGitAheadBehind(w http.ResponseWriter, r *http.Request) {
+	var req struct{ Cwd string `json:"cwd"` }
+	json.NewDecoder(r.Body).Decode(&req)
+	ahead, err := runGit([]string{"rev-list", "--count", "@{u}..HEAD"}, req.Cwd)
+	if err != nil {
+		jsonResp(w, map[string]any{"success": true, "ahead": 0, "behind": 0, "noUpstream": true})
+		return
+	}
+	behind, _ := runGit([]string{"rev-list", "--count", "HEAD..@{u}"}, req.Cwd)
+	var aheadN, behindN int
+	fmt.Sscan(strings.TrimSpace(ahead), &aheadN)
+	fmt.Sscan(strings.TrimSpace(behind), &behindN)
+	jsonResp(w, map[string]any{"success": true, "ahead": aheadN, "behind": behindN, "noUpstream": false})
 }
 
 func handleGitRemoteList(w http.ResponseWriter, r *http.Request) {

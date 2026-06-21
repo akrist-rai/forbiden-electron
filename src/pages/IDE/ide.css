@@ -6438,3 +6438,1014 @@ body {
 }
 .theme-cyber .cp-prompt { color: rgba(255,42,56,.55) !important; }
 
+
+/* ══════════════════════════════════════════════════════════════════
+   FORBIDEN v3 — EFFECTS & MOTION
+   Glitch · Chromatic · Shimmer · Micro-interactions · Animations
+   ══════════════════════════════════════════════════════════════════ */
+
+/* ─────────────────────────────────────────────────────────────────
+   NEW KEYFRAMES
+   ───────────────────────────────────────────────────────────────── */
+
+@keyframes logo-flicker {
+  0%,89%,91%,93%,95%,100% { opacity: 1; }
+  90%  { opacity: 0.88; }
+  92%  { opacity: 0.95; }
+  94%  { opacity: 0.82; }
+}
+
+@keyframes glow-pulse {
+  from { text-shadow: 0 0 10px rgba(255,42,56,.18), 0 0 22px rgba(255,42,56,.07); }
+  to   { text-shadow: 0 0 16px rgba(255,42,56,.32), 0 0 38px rgba(255,42,56,.14), 0 0 60px rgba(255,42,56,.06); }
+}
+
+@keyframes glitch-shift {
+  0%   { transform: translate(0); clip-path: inset(0 0 100% 0); }
+  20%  { transform: translate(-3px, 1px) skewX(-2deg); clip-path: inset(20% 0 60% 0); filter: hue-rotate(90deg); }
+  40%  { transform: translate(3px, -1px) skewX(2deg);  clip-path: inset(55% 0 20% 0); filter: hue-rotate(-60deg); }
+  60%  { transform: translate(-2px, 0) skewX(-1deg);  clip-path: inset(10% 0 75% 0); }
+  80%  { transform: translate(2px, 2px) skewX(1deg);  clip-path: inset(70% 0 5% 0); filter: hue-rotate(180deg); }
+  100% { transform: translate(0); clip-path: inset(0 0 100% 0); }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes border-pulse {
+  0%,100% { box-shadow: 0 0 0 0 rgba(255,42,56,.0),  inset 0 0 0 0 rgba(255,42,56,.0); }
+  50%      { box-shadow: 0 0 0 3px rgba(255,42,56,.18), inset 0 0 8px rgba(255,42,56,.06); }
+}
+
+@keyframes tab-enter {
+  from { opacity: 0; transform: translateX(10px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes panel-enter {
+  from { opacity: 0; transform: translateX(-8px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes modal-enter {
+  from { opacity: 0; transform: scale(0.95) translateY(4px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes btn-press {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(0.96); }
+  70%  { transform: scale(1.02); }
+  100% { transform: scale(1); }
+}
+
+@keyframes sweep-line {
+  0%   { top: 0; opacity: 0; }
+  2%   { opacity: 1; }
+  98%  { opacity: 1; }
+  100% { top: 100%; opacity: 0; }
+}
+
+@keyframes noise-drift {
+  0%   { background-position: 0 0; }
+  25%  { background-position: 3px -2px; }
+  50%  { background-position: -2px 3px; }
+  75%  { background-position: 2px 1px; }
+  100% { background-position: 0 0; }
+}
+
+@keyframes icon-breathe {
+  from { box-shadow: inset 2px 0 10px rgba(255,42,56,.08); }
+  to   { box-shadow: inset 2px 0 18px rgba(255,42,56,.2), 0 0 12px rgba(255,42,56,.08); }
+}
+
+@keyframes status-ring {
+  0%   { box-shadow: 0 0 0 0 currentColor; }
+  60%  { box-shadow: 0 0 0 4px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+@keyframes red-sweep {
+  0%   { background-position: -100% 0; }
+  100% { background-position: 200% 0; }
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   LOGO — GLITCH + GLOW
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .ide-logo {
+  animation: logo-flicker 9s step-end infinite, glow-pulse 4.5s ease-in-out infinite alternate !important;
+  cursor: default;
+  position: relative !important;
+}
+
+/* Chromatic glitch layers on logo hover */
+.theme-cyber .ide-logo::before,
+.theme-cyber .ide-logo::after {
+  content: attr(data-text);
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0s;
+}
+.theme-cyber .ide-logo::before {
+  color: #0ff;
+  animation: none;
+  clip-path: inset(20% 0 60% 0);
+}
+.theme-cyber .ide-logo::after {
+  color: #f0a;
+  animation: none;
+  clip-path: inset(60% 0 20% 0);
+}
+.theme-cyber .ide-logo:hover::before {
+  opacity: .55;
+  animation: glitch-shift 0.3s steps(4) 1;
+  transform: translateX(-3px);
+}
+.theme-cyber .ide-logo:hover::after {
+  opacity: .45;
+  animation: glitch-shift 0.3s steps(4) 1 0.04s;
+  transform: translateX(3px);
+}
+.theme-cyber .ide-logo:hover {
+  animation: none !important;
+  text-shadow: -3px 0 rgba(0,255,255,.4), 3px 0 rgba(255,0,170,.4), 0 0 20px rgba(255,42,56,.5) !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   TOPBAR — SWEEP LINE
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .ide-topbar {
+  position: relative !important;
+  overflow: hidden !important;
+}
+/* Animated sweep line inside topbar */
+.theme-cyber .ide-topbar::before {
+  content: '' !important;
+  position: absolute !important;
+  left: 0 !important; right: 0 !important;
+  height: 1px !important;
+  background: linear-gradient(to right, transparent 0%, rgba(255,42,56,.55) 50%, transparent 100%) !important;
+  animation: sweep-line 14s linear infinite !important;
+  pointer-events: none !important;
+  z-index: 999 !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   FILE TABS — SLIDE-IN ANIMATION
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .ide-file-tab {
+  animation: tab-enter 0.14s cubic-bezier(0.25,1,0.5,1) both !important;
+}
+.theme-cyber .ide-file-tab.active {
+  animation: none !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   SIDEBAR PANEL — SLIDE-IN ANIMATION
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .ide-sidebar-pane {
+  animation: panel-enter 0.18s cubic-bezier(0.25,1,0.5,1) both !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   MODALS & FLOATING PANELS — SPRING POP-IN
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .floating-panel,
+.theme-cyber .create-modal-box,
+.theme-cyber .grp-editor-shell,
+.theme-cyber .card-detail-box,
+.theme-cyber .board-card-detail-box,
+.theme-cyber .gp-branch-dd,
+.theme-cyber .ide-cmd-box,
+.theme-cyber .ide-color-picker,
+.theme-cyber .palette-dropdown {
+  animation: modal-enter 0.16s cubic-bezier(0.34,1.56,0.64,1) both !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   BUTTONS — PRESS FEEDBACK
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .ide-topbar-btn:active,
+.theme-cyber .ide-icon-btn:active,
+.theme-cyber .gp-commit-btn.ready:active,
+.theme-cyber .ide-btn:active,
+.theme-cyber .gp-header-btn:active,
+.theme-cyber .ac-send-btn:active {
+  animation: btn-press 0.14s ease both !important;
+}
+
+/* Primary RUN button — always subtly glowing */
+.theme-cyber .ide-topbar-btn.primary {
+  position: relative !important;
+  overflow: hidden !important;
+}
+.theme-cyber .ide-topbar-btn.primary::before {
+  content: '' !important;
+  position: absolute !important;
+  inset: 0 !important;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,.18) 50%, transparent 100%) !important;
+  background-size: 200% 100% !important;
+  animation: red-sweep 2.5s linear infinite !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   INPUTS — PULSING BORDER ON FOCUS
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber input:focus,
+.theme-cyber textarea:focus {
+  animation: border-pulse 2.2s ease-in-out infinite !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   STATUS DOT — EXPANDING RING PULSE
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .status-dot {
+  animation: status-ring 2.4s ease-out infinite !important;
+  position: relative !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   ICON BAR ACTIVE — BREATHING GLOW
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .ide-icon-btn.active {
+  animation: icon-breathe 3s ease-in-out infinite alternate !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   SHIMMER — LOADING STATES
+   ───────────────────────────────────────────────────────────────── */
+
+.shimmer-base {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255,42,56,.08) 40%,
+    rgba(255,42,56,.14) 50%,
+    rgba(255,42,56,.08) 60%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.8s linear infinite;
+}
+
+.theme-cyber .gp-graph-loading,
+.theme-cyber .gp-loading-label,
+.theme-cyber .gp-branch-dd-loading {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255,42,56,.07) 40%,
+    rgba(255,42,56,.12) 50%,
+    rgba(255,42,56,.07) 60%,
+    transparent 100%
+  ) !important;
+  background-size: 300% 100% !important;
+  animation: shimmer 2s linear infinite !important;
+  color: rgba(120,125,165,.5) !important;
+}
+
+.theme-cyber .ac-thinking {
+  background: linear-gradient(
+    90deg,
+    rgba(255,42,56,.04) 0%,
+    rgba(255,42,56,.1) 30%,
+    rgba(255,42,56,.04) 60%
+  ) !important;
+  background-size: 200% 100% !important;
+  animation: shimmer 1.5s linear infinite !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   GRAPH EDGE FLOW
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .edge-path {
+  animation: edge-flow 2.5s linear infinite !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   TOAST — GLOW ON ENTRY
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .ide-toast {
+  animation: toastIn 0.22s cubic-bezier(0.34,1.4,0.64,1) both !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   CANVAS — SUBTLE NOISE STATIC
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .canvas-bg::after {
+  content: '' !important;
+  position: absolute !important;
+  inset: 0 !important;
+  pointer-events: none !important;
+  z-index: 0 !important;
+  opacity: .025 !important;
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E") !important;
+  background-size: 200px 200px !important;
+  animation: noise-drift 0.12s steps(1) infinite !important;
+  mix-blend-mode: overlay !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   SCROLLBAR — GLOW ON HOVER (fast transition)
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber *::-webkit-scrollbar-thumb {
+  transition: background 0.18s !important;
+}
+.theme-cyber *::-webkit-scrollbar-thumb:active {
+  background: rgba(255,42,56,.75) !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   CMD ITEM — LEFT BORDER SLIDE (micro-anim on hover)
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .ide-cmd-item {
+  transition: background .1s, color .1s, border-color .12s !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   FILE EXPLORER ROW — HOVER SLIDE EFFECT
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .fe-row {
+  transition: background .08s, border-color .08s, color .08s !important;
+  will-change: background !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   GP SECTION HDR — SMOOTH REVEAL
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .gp-section-hdr {
+  transition: background .1s !important;
+}
+.theme-cyber .gp-file-row {
+  transition: background .07s !important;
+}
+.theme-cyber .gp-commit-row {
+  transition: background .07s !important;
+}
+.theme-cyber .gp-graph-row {
+  transition: background .08s, border-color .1s !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   NODE CIRCLES — SPRING SCALE ON HOVER
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .node-circle {
+  transition: transform 0.22s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s ease !important;
+}
+.theme-cyber .obs-node-wrapper:hover .node-circle {
+  transform: scale(1.08) !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   BOARD CARDS — LIFT ON HOVER
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .board-card {
+  transition: transform .14s cubic-bezier(0.25,1,0.5,1), box-shadow .14s, border-color .1s, background .1s !important;
+}
+.theme-cyber .board-card:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 6px 20px rgba(0,0,0,.7), 0 0 12px rgba(255,42,56,.08) !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   TOPBAR BUTTONS — SMOOTH ALL PROPERTIES
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .ide-topbar-btn {
+  transition: color .12s, background .12s, border-color .12s, box-shadow .15s, transform .1s !important;
+}
+.theme-cyber .ide-topbar-btn:hover {
+  transform: translateY(-1px) !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   ICON BAR BUTTONS — SMOOTH TRANSITIONS
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .ide-icon-btn {
+  transition: color .12s, background .12s, border-color .12s, box-shadow .15s !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   GP COMMIT BUTTON — GLOW TRANSITION
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .gp-commit-btn {
+  transition: background .15s, color .15s, box-shadow .2s !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   AC SEND BUTTON — SMOOTH
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .ac-send-btn {
+  transition: background .12s, color .12s, box-shadow .15s, transform .1s !important;
+}
+.theme-cyber .ac-send-btn:hover {
+  transform: translateY(-1px) !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   SIDEBAR HEADER — GRADIENT SHIMMER ON HOVER
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .ide-sidebar-header {
+  transition: background .15s !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+.theme-cyber .ide-sidebar-header::after {
+  content: '' !important;
+  position: absolute !important;
+  inset: 0 !important;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,42,56,.07) 50%, transparent 100%) !important;
+  background-size: 200% 100% !important;
+  opacity: 0 !important;
+  transition: opacity .3s !important;
+}
+.theme-cyber .ide-sidebar-header:hover::after {
+  opacity: 1 !important;
+  animation: red-sweep 1.5s linear !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   BOTTOM TABS — SMOOTH INDICATOR
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .ide-bottom-tab {
+  transition: color .12s, background .12s, border-color .12s !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   WILL-CHANGE: layout-critical panels (GPU-promote)
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .ide-sidebar-pane { will-change: transform !important; }
+.theme-cyber .floating-panel   { will-change: transform, opacity !important; }
+.theme-cyber .ide-file-tab     { will-change: opacity, transform !important; }
+
+
+/* ══════════════════════════════════════════════════════════════════
+   FORBIDEN v3 — PASS 4
+   Dashboard red rebrand · Modified tabs · Settings · Workspace polish
+   ══════════════════════════════════════════════════════════════════ */
+
+/* ─────────────────────────────────────────────────────────────────
+   WORKSPACE / DASHBOARD — Override green → red accent (index.css)
+   ───────────────────────────────────────────────────────────────── */
+
+/* Hero section */
+.theme-cyber .dash-hero {
+  border-bottom: 1px solid rgba(255,42,56,.2) !important;
+}
+.theme-cyber .dash-hero-bg {
+  background-image: radial-gradient(circle, rgba(255,42,56,.055) 1px, transparent 1px) !important;
+  background-size: 28px 28px !important;
+}
+.theme-cyber .dash-hero-glow {
+  background: radial-gradient(circle, rgba(255,42,56,.09) 0%, transparent 70%) !important;
+}
+.theme-cyber .dash-eyebrow {
+  color: #ff2a38 !important;
+  text-shadow: 0 0 20px rgba(255,42,56,.4) !important;
+}
+.theme-cyber .dash-title .g {
+  color: #ff2a38 !important;
+  text-shadow: 0 0 30px rgba(255,42,56,.3) !important;
+}
+.theme-cyber .dash-stat-n {
+  color: #ff2a38 !important;
+  text-shadow: 0 0 20px rgba(255,42,56,.3) !important;
+}
+
+/* Workspace cards */
+.theme-cyber .ws-grid {
+  background: rgba(255,42,56,.07) !important;
+  border-color: rgba(255,42,56,.1) !important;
+}
+.theme-cyber .ws-card {
+  background: rgba(2,2,12,.98) !important;
+  transition: background .12s, box-shadow .15s !important;
+}
+.theme-cyber .ws-card:hover {
+  background: rgba(4,4,18,.98) !important;
+  box-shadow: inset 0 0 40px rgba(255,42,56,.04) !important;
+}
+.theme-cyber .ws-card::after {
+  background: #ff2a38 !important;
+}
+.theme-cyber .ws-card-idx {
+  color: rgba(255,42,56,.08) !important;
+  font-family: 'Bebas Neue', 'Outfit', sans-serif !important;
+  font-size: 42px !important;
+}
+.theme-cyber .ws-card:hover .ws-card-idx {
+  color: rgba(255,42,56,.18) !important;
+}
+.theme-cyber .ws-card-name {
+  font-family: 'Oswald', sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  letter-spacing: .12em !important;
+  color: rgba(200,208,230,.75) !important;
+}
+.theme-cyber .ws-card-meta {
+  font-family: 'Share Tech Mono', monospace !important;
+  font-size: 8px !important;
+  color: rgba(100,105,140,.55) !important;
+  letter-spacing: .06em !important;
+}
+.theme-cyber .ws-card-arrow {
+  color: #ff2a38 !important;
+  font-size: 14px !important;
+}
+.theme-cyber .ws-card-new {
+  background: rgba(0,0,8,.98) !important;
+  border: 1px dashed rgba(255,42,56,.15) !important;
+  color: rgba(130,135,175,.35) !important;
+  font-family: 'Oswald', sans-serif !important;
+  font-size: 10px !important;
+  letter-spacing: .18em !important;
+}
+.theme-cyber .ws-card-new:hover {
+  border-color: rgba(255,42,56,.5) !important;
+  color: #ff2a38 !important;
+  background: rgba(255,42,56,.04) !important;
+}
+
+/* Buttons in workspace context */
+.theme-cyber .btn:hover {
+  border-color: rgba(255,42,56,.5) !important;
+  color: #ff2a38 !important;
+  background: rgba(255,42,56,.07) !important;
+  box-shadow: 0 0 14px rgba(255,42,56,.15) !important;
+}
+.theme-cyber .btn-primary {
+  background: #ff2a38 !important;
+  color: #fff !important;
+  border-color: #ff2a38 !important;
+  box-shadow: 0 0 16px rgba(255,42,56,.3) !important;
+}
+.theme-cyber .btn-primary:hover {
+  background: #ff3f4c !important;
+  border-color: #ff3f4c !important;
+  box-shadow: 0 0 24px rgba(255,42,56,.5) !important;
+}
+
+/* Input focus in workspace */
+.theme-cyber .input:focus {
+  border-color: rgba(255,42,56,.5) !important;
+  box-shadow: 0 0 0 1px rgba(255,42,56,.18) !important;
+}
+
+/* Sidebar items in workspace */
+.theme-cyber .sidebar-item.active {
+  border-left-color: #ff2a38 !important;
+  background: rgba(255,42,56,.08) !important;
+  color: #ff2a38 !important;
+}
+.theme-cyber .sidebar-item:hover {
+  color: rgba(200,205,225,.75) !important;
+  background: rgba(255,42,56,.04) !important;
+}
+.theme-cyber .sidebar-logo .g {
+  color: #ff2a38 !important;
+  text-shadow: 0 0 16px rgba(255,42,56,.4) !important;
+}
+
+/* Tabs in workspace */
+.theme-cyber .tab.active {
+  color: #ff2a38 !important;
+  border-bottom-color: #ff2a38 !important;
+  background: rgba(255,42,56,.07) !important;
+}
+
+/* Topbar brand */
+.theme-cyber .topbar-brand .g {
+  color: #ff2a38 !important;
+}
+
+/* Tags */
+.theme-cyber .tag.green {
+  border-color: rgba(255,42,56,.4) !important;
+  color: #ff2a38 !important;
+  background: rgba(255,42,56,.08) !important;
+}
+
+/* Status strip */
+.theme-cyber .status-strip {
+  background: #000008 !important;
+  border-bottom: 1px solid rgba(255,42,56,.12) !important;
+}
+.theme-cyber .status-dot.ok {
+  background: #28f1c3 !important;
+  box-shadow: 0 0 6px #28f1c3 !important;
+}
+.theme-cyber .dash-content {
+  background: #000008 !important;
+}
+
+/* Section labels */
+.theme-cyber .sect-label {
+  color: rgba(120,125,165,.4) !important;
+  letter-spacing: .22em !important;
+  font-size: 8px !important;
+}
+
+/* Banner */
+.theme-cyber .banner {
+  border-color: rgba(255,42,56,.15) !important;
+  background: rgba(255,42,56,.05) !important;
+  border-left-color: #ff2a38 !important;
+  border-radius: 0 !important;
+}
+.theme-cyber .banner-title {
+  color: #ff2a38 !important;
+}
+
+/* Empty state */
+.theme-cyber .empty-title {
+  color: rgba(100,105,140,.45) !important;
+}
+.theme-cyber .empty-sub {
+  color: rgba(80,85,120,.4) !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   MODIFIED DOT — Animated pulsing amber glow
+   ───────────────────────────────────────────────────────────────── */
+
+@keyframes modified-pulse {
+  0%, 100% { opacity: .7; box-shadow: 0 0 0 0 rgba(255,196,16,.3); }
+  50%       { opacity: 1;  box-shadow: 0 0 0 3px rgba(255,196,16,.0); }
+}
+
+.theme-cyber .modified-dot {
+  background: #ffc410 !important;
+  border-radius: 0 !important;
+  width: 4px !important;
+  height: 4px !important;
+  animation: modified-pulse 2.4s ease-in-out infinite !important;
+  box-shadow: 0 0 4px rgba(255,196,16,.6) !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   SETTINGS PANEL (uses ide-toc-* + ide-sidebar-pane)
+   ───────────────────────────────────────────────────────────────── */
+
+/* Settings section separators */
+.theme-cyber .ide-toc-sec {
+  border-top: 1px solid rgba(255,42,56,.06) !important;
+  margin-top: 4px !important;
+  padding-top: 12px !important;
+  padding-bottom: 6px !important;
+  color: rgba(160,165,200,.22) !important;
+  font-size: 8px !important;
+  letter-spacing: .25em !important;
+}
+
+/* Settings theme option tiles */
+.theme-cyber .ide-toc-item {
+  border-left: 2px solid transparent !important;
+  transition: background .1s, border-color .1s, color .1s !important;
+}
+.theme-cyber .ide-toc-item:hover {
+  background: rgba(255,42,56,.05) !important;
+  border-left-color: rgba(255,42,56,.3) !important;
+}
+.theme-cyber .ide-toc-item.active {
+  background: rgba(255,42,56,.08) !important;
+  border-left-color: #ff2a38 !important;
+  color: #ff2a38 !important;
+}
+
+/* Settings button row */
+.theme-cyber .ide-btn-sm {
+  border-radius: 0 !important;
+  font-size: 8px !important;
+  letter-spacing: .14em !important;
+  font-family: 'Oswald', sans-serif !important;
+  font-weight: 700 !important;
+  border: 1px solid rgba(255,42,56,.18) !important;
+  color: rgba(200,200,220,.5) !important;
+  background: transparent !important;
+  transition: background .1s, border-color .1s, color .1s !important;
+}
+.theme-cyber .ide-btn-sm:hover {
+  border-color: rgba(255,42,56,.45) !important;
+  color: #ff2a38 !important;
+  background: rgba(255,42,56,.07) !important;
+}
+.theme-cyber .ide-btn-sm.active {
+  border-color: #ff2a38 !important;
+  color: #ff2a38 !important;
+  background: rgba(255,42,56,.1) !important;
+  box-shadow: 0 0 8px rgba(255,42,56,.2) !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   BOOT / SPLASH SCREEN — polish
+   ───────────────────────────────────────────────────────────────── */
+
+.boot-home {
+  background: #02020a !important;
+}
+.boot-bg {
+  background: #02020a !important;
+}
+.boot-bg-grid {
+  background-image:
+    linear-gradient(rgba(255,42,56,.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,42,56,.025) 1px, transparent 1px),
+    radial-gradient(circle, rgba(255,255,255,.055) 1px, transparent 1px) !important;
+  background-size: 54px 54px, 54px 54px, 7px 7px !important;
+  opacity: .85 !important;
+}
+.boot-top {
+  border-bottom: 1px solid rgba(255,42,56,.18) !important;
+  background: rgba(2,2,10,.9) !important;
+}
+.boot-brand {
+  text-shadow: 0 0 24px rgba(255,42,56,.2) !important;
+  letter-spacing: .04em !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   EDITOR TOOLBAR — enhanced contrast
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .editor-toolbar {
+  background: rgba(0,0,6,.88) !important;
+  border-bottom: 1px solid rgba(255,42,56,.1) !important;
+}
+.theme-cyber .editor-toolbar-btn {
+  color: rgba(130,135,175,.3) !important;
+  border-radius: 0 !important;
+  transition: background .1s, color .1s, border-color .1s !important;
+}
+.theme-cyber .editor-toolbar-btn:hover {
+  background: rgba(255,42,56,.06) !important;
+  color: rgba(200,205,225,.8) !important;
+}
+.theme-cyber .editor-toolbar-btn.active {
+  color: #ff2a38 !important;
+  background: rgba(255,42,56,.09) !important;
+  border: 1px solid rgba(255,42,56,.3) !important;
+  box-shadow: 0 0 8px rgba(255,42,56,.15) !important;
+}
+
+/* Separator */
+.theme-cyber .editor-toolbar-sep {
+  background: rgba(255,42,56,.08) !important;
+}
+
+/* Language badge */
+.theme-cyber .ide-tb-lang-badge {
+  border-radius: 0 !important;
+  font-size: 8px !important;
+  letter-spacing: .1em !important;
+  border: 1px solid rgba(255,42,56,.2) !important;
+  color: rgba(255,42,56,.7) !important;
+  background: rgba(255,42,56,.06) !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   GLOBAL: dot-grid class (used in workspace pages)
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .dot-grid {
+  background-image: radial-gradient(circle, rgba(255,42,56,.04) 1px, transparent 1px) !important;
+  background-size: 28px 28px !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   CURSOR BLINK (editor code area)
+   ───────────────────────────────────────────────────────────────── */
+
+@keyframes cursor-blink {
+  0%,100% { opacity: 1; }
+  50%     { opacity: 0; }
+}
+
+.theme-cyber .code-cursor {
+  background: #ff2a38 !important;
+  width: 2px !important;
+  animation: cursor-blink 1.1s step-end infinite !important;
+  box-shadow: 0 0 6px rgba(255,42,56,.7) !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   FILE TAB — CLOSE BUTTON hover polish
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .ide-tab-close {
+  color: rgba(130,135,175,.3) !important;
+  transition: color .1s, background .1s !important;
+  border-radius: 0 !important;
+}
+.theme-cyber .ide-file-tab:hover .ide-tab-close {
+  color: rgba(180,185,210,.55) !important;
+}
+.theme-cyber .ide-file-tab .ide-tab-close:hover {
+  color: #ff2a38 !important;
+  background: rgba(255,42,56,.12) !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   LINE NUMBERS (code area)
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .line-numbers {
+  background: rgba(0,0,4,.7) !important;
+  border-right: 1px solid rgba(255,42,56,.07) !important;
+  color: rgba(70,75,110,.45) !important;
+  font-size: 11px !important;
+  user-select: none !important;
+}
+.theme-cyber .line-number.current {
+  color: rgba(255,42,56,.6) !important;
+  background: rgba(255,42,56,.03) !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   GRAPH MODE BUTTONS — cyber style
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .graph-mode-btn {
+  border-radius: 0 !important;
+  font-size: 9px !important;
+  letter-spacing: .1em !important;
+  color: rgba(140,145,180,.35) !important;
+  border-color: rgba(255,42,56,.12) !important;
+  transition: background .1s, color .1s, border-color .1s, box-shadow .12s !important;
+}
+.theme-cyber .graph-mode-btn:hover {
+  color: rgba(200,205,225,.7) !important;
+  background: rgba(255,42,56,.05) !important;
+  border-color: rgba(255,42,56,.3) !important;
+}
+.theme-cyber .graph-mode-btn.active {
+  color: #ff2a38 !important;
+  background: rgba(255,42,56,.1) !important;
+  border-color: rgba(255,42,56,.45) !important;
+  box-shadow: 0 0 10px rgba(255,42,56,.18) !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   TIMELINE panel (.ide-timeline-*)
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .ide-timeline-bottom {
+  background: rgba(1,1,10,.98) !important;
+  border-top: 1px solid rgba(255,42,56,.14) !important;
+}
+.theme-cyber .ide-timeline-hdr {
+  background: rgba(0,0,6,.9) !important;
+  border-bottom: 1px solid rgba(255,42,56,.08) !important;
+  font-size: 8px !important;
+  letter-spacing: .2em !important;
+  color: rgba(140,145,180,.3) !important;
+}
+.theme-cyber .ide-timeline-item {
+  border-bottom: 1px solid rgba(255,42,56,.05) !important;
+}
+.theme-cyber .ide-timeline-item:hover {
+  background: rgba(255,42,56,.04) !important;
+}
+.theme-cyber .ide-timeline-item.active {
+  border-left: 2px solid #ff2a38 !important;
+  background: rgba(255,42,56,.07) !important;
+}
+.theme-cyber .ide-timeline-dot {
+  background: rgba(255,42,56,.6) !important;
+  box-shadow: 0 0 4px rgba(255,42,56,.4) !important;
+}
+.theme-cyber .ide-timeline-label {
+  color: rgba(150,155,195,.65) !important;
+  font-size: 10px !important;
+}
+.theme-cyber .ide-timeline-time {
+  color: rgba(90,95,130,.5) !important;
+  font-size: 8px !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   OBS GRAPH canvas bg — deeper dot grid
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .obs-canvas-bg {
+  background-color: #000008 !important;
+  background-image:
+    radial-gradient(circle, rgba(255,42,56,.06) 1px, transparent 1px),
+    radial-gradient(ellipse at 50% 0%, rgba(255,42,56,.04) 0%, transparent 55%) !important;
+  background-size: 24px 24px, auto !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   LINTER / INLINE ERROR SQUIGGLES
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber .lint-error-underline {
+  text-decoration: underline !important;
+  text-decoration-style: wavy !important;
+  text-decoration-color: rgba(255,42,56,.7) !important;
+  text-underline-offset: 2px !important;
+}
+.theme-cyber .lint-warn-underline {
+  text-decoration: underline !important;
+  text-decoration-style: wavy !important;
+  text-decoration-color: rgba(255,196,16,.6) !important;
+  text-underline-offset: 2px !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   GLOBAL SMOOTH PAGE TRANSITIONS
+   ───────────────────────────────────────────────────────────────── */
+
+@keyframes page-enter {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.theme-cyber .ide-root,
+.theme-cyber .boot-home,
+.theme-cyber .dash-shell {
+  animation: page-enter 0.2s cubic-bezier(0.25,1,0.5,1) both !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   SCROLLBAR — global 2px in workspace area (index.css override)
+   ───────────────────────────────────────────────────────────────── */
+
+.theme-cyber ::-webkit-scrollbar { width: 2px !important; height: 2px !important; }
+.theme-cyber ::-webkit-scrollbar-thumb {
+  background: rgba(255,42,56,.2) !important;
+  border-radius: 0 !important;
+}
+.theme-cyber ::-webkit-scrollbar-track { background: transparent !important; }
+

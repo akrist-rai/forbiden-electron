@@ -52,6 +52,8 @@ export interface DesktopAPI {
     deleteBranch: (cwd: string, branch: string) => Promise<unknown>
     fetch:        (cwd: string) => Promise<unknown>
     remoteList:   (cwd: string) => Promise<unknown>
+    resetSoft:    (cwd: string) => Promise<unknown>
+    aheadBehind:  (cwd: string) => Promise<unknown>
   }
   gitEx: { blame: (cwd: string, file: string) => Promise<unknown> }
   fs: {
