@@ -57,7 +57,7 @@ function emitMenuEvent(channel: MenuChannel, ...args: unknown[]) {
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 
-async function waitForEngine(url: string, maxMs = 10_000): Promise<void> {
+async function waitForEngine(url: string, maxMs = 30_000): Promise<void> {
   const deadline = Date.now() + maxMs
   while (Date.now() < deadline) {
     try {
@@ -214,6 +214,8 @@ export async function initTauriAPI(): Promise<void> {
       diff:          (cwd: string, file: string, staged?: boolean) => api('/api/git/diff', { cwd, file, staged: staged ?? false }),
       createBranch:  (cwd: string, branch: string)  => api('/api/git/create-branch',  { cwd, branch }),
       deleteBranch:  (cwd: string, branch: string)  => api('/api/git/delete-branch',  { cwd, branch }),
+      fetch:         (cwd: string)                   => api('/api/git/fetch',          { cwd }),
+      remoteList:    (cwd: string)                   => api('/api/git/remote-list',    { cwd }),
     },
 
     gitEx: {
@@ -239,7 +241,7 @@ export async function initTauriAPI(): Promise<void> {
       getRecentWorkspaces:    ()                                                    => api('/api/workspace/recent-get'),
       addRecentWorkspace:     (workspacePath: string)                               => api('/api/workspace/recent-add',  { workspacePath }),
       listAllFiles:           (rootPath: string, maxFiles?: number)                 => api('/api/fs/list-all',    { rootPath, maxFiles }),
-      searchInFiles:          (rootPath: string, query: string, maxResults?: number)=> api('/api/fs/search',      { rootPath, query, maxResults }),
+      searchInFiles:          (rootPath: string, query: string, maxResults?: number, caseSensitive?: boolean)=> api('/api/fs/search', { rootPath, query, maxResults, caseSensitive }),
     },
 
     // ── AI (Go engine proxy) ──────────────────────────────────────────────

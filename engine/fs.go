@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -9,8 +10,28 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 	"unicode/utf8"
 )
+
+// ── Filesystem helpers ─────────────────────────────────────────
+
+// cleanPath resolves any ../ segments and symlinks so callers
+// can't escape the workspace with a crafted path like
+// /project/../../../etc/passwd.
+func cleanPath(root, target string) (string, error) {
+	abs, err := filepath.Abs(target)
+	if err != nil {
+		return "", err
+	}
+	if root != "" {
+		rootAbs, _ := filepath.Abs(root)
+		if !strings.HasPrefix(abs+string(filepath.Separator), rootAbs+string(filepath.Separator)) {
+			return "", fmt.Errorf("path escapes workspace")
+		}
+	}
+	return abs, nil
+}
 
 // ── Filesystem handlers ────────────────────────────────────────
 
@@ -60,6 +81,12 @@ func handleFsTree(w http.ResponseWriter, r *http.Request) {
 		MaxDepth *int   `json:"maxDepth"`
 	}
 	json.NewDecoder(r.Body).Decode(&req)
+	root, err := cleanPath("", req.RootPath)
+	if err != nil {
+		jsonResp(w, map[string]any{"success": false, "error": err.Error()})
+		return
+	}
+	req.RootPath = root
 	maxDepth := 6
 	if req.MaxDepth != nil {
 		maxDepth = *req.MaxDepth
@@ -73,6 +100,21 @@ func handleFsRead(w http.ResponseWriter, r *http.Request) {
 		FilePath string `json:"filePath"`
 	}
 	json.NewDecoder(r.Body).Decode(&req)
+	fp, err := cleanPath("", req.FilePath)
+	if err != nil {
+		jsonResp(w, map[string]any{"success": false, "error": err.Error()})
+		return
+	}
+	req.FilePath = fp
+	info, err := os.Stat(req.FilePath)
+	if err != nil {
+		jsonResp(w, map[string]any{"success": false, "error": err.Error()})
+		return
+	}
+	if info.Size() > 50*1024*1024 {
+		jsonResp(w, map[string]any{"success": false, "error": "file too large (>50 MB)", "tooLarge": true})
+		return
+	}
 	content, err := os.ReadFile(req.FilePath)
 	if err != nil {
 		jsonResp(w, map[string]any{"success": false, "error": err.Error()})
@@ -90,7 +132,15 @@ func handleFsWrite(w http.ResponseWriter, r *http.Request) {
 		FilePath string `json:"filePath"`
 		Content  string `json:"content"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	fp, err := cleanPath("", req.FilePath)
+	if err != nil {
+		jsonResp(w, map[string]any{"success": false, "error": err.Error()})
+		return
+	}
+	req.FilePath = fp
 	if dir := filepath.Dir(req.FilePath); dir != "" {
 		os.MkdirAll(dir, 0755)
 	}
@@ -106,6 +156,12 @@ func handleFsCreateFile(w http.ResponseWriter, r *http.Request) {
 		FilePath string `json:"filePath"`
 	}
 	json.NewDecoder(r.Body).Decode(&req)
+	fp, err := cleanPath("", req.FilePath)
+	if err != nil {
+		jsonResp(w, map[string]any{"success": false, "error": err.Error()})
+		return
+	}
+	req.FilePath = fp
 	if _, err := os.Stat(req.FilePath); err == nil {
 		jsonResp(w, map[string]any{"success": false, "error": "File already exists"})
 		return
@@ -125,6 +181,12 @@ func handleFsCreateDir(w http.ResponseWriter, r *http.Request) {
 		FolderPath string `json:"folderPath"`
 	}
 	json.NewDecoder(r.Body).Decode(&req)
+	fp, err := cleanPath("", req.FolderPath)
+	if err != nil {
+		jsonResp(w, map[string]any{"success": false, "error": err.Error()})
+		return
+	}
+	req.FolderPath = fp
 	if err := os.MkdirAll(req.FolderPath, 0755); err != nil {
 		jsonResp(w, map[string]any{"success": false, "error": err.Error()})
 		return
@@ -137,6 +199,12 @@ func handleFsDelete(w http.ResponseWriter, r *http.Request) {
 		ItemPath string `json:"itemPath"`
 	}
 	json.NewDecoder(r.Body).Decode(&req)
+	ip, err := cleanPath("", req.ItemPath)
+	if err != nil {
+		jsonResp(w, map[string]any{"success": false, "error": err.Error()})
+		return
+	}
+	req.ItemPath = ip
 	info, err := os.Stat(req.ItemPath)
 	var rerr error
 	if err == nil && info.IsDir() {
@@ -157,6 +225,17 @@ func handleFsRename(w http.ResponseWriter, r *http.Request) {
 		NewPath string `json:"newPath"`
 	}
 	json.NewDecoder(r.Body).Decode(&req)
+	op, err := cleanPath("", req.OldPath)
+	if err != nil {
+		jsonResp(w, map[string]any{"success": false, "error": err.Error()})
+		return
+	}
+	np, err := cleanPath("", req.NewPath)
+	if err != nil {
+		jsonResp(w, map[string]any{"success": false, "error": err.Error()})
+		return
+	}
+	req.OldPath, req.NewPath = op, np
 	if err := os.Rename(req.OldPath, req.NewPath); err != nil {
 		jsonResp(w, map[string]any{"success": false, "error": err.Error()})
 		return
@@ -170,6 +249,17 @@ func handleFsCopyFile(w http.ResponseWriter, r *http.Request) {
 		DestPath string `json:"destPath"`
 	}
 	json.NewDecoder(r.Body).Decode(&req)
+	sp, err := cleanPath("", req.SrcPath)
+	if err != nil {
+		jsonResp(w, map[string]any{"success": false, "error": err.Error()})
+		return
+	}
+	dp, err := cleanPath("", req.DestPath)
+	if err != nil {
+		jsonResp(w, map[string]any{"success": false, "error": err.Error()})
+		return
+	}
+	req.SrcPath, req.DestPath = sp, dp
 	data, err := os.ReadFile(req.SrcPath)
 	if err != nil {
 		jsonResp(w, map[string]any{"success": false, "error": err.Error()})
@@ -188,6 +278,17 @@ func handleFsCopyFolder(w http.ResponseWriter, r *http.Request) {
 		DestPath string `json:"destPath"`
 	}
 	json.NewDecoder(r.Body).Decode(&req)
+	sp, err := cleanPath("", req.SrcPath)
+	if err != nil {
+		jsonResp(w, map[string]any{"success": false, "error": err.Error()})
+		return
+	}
+	dp, err := cleanPath("", req.DestPath)
+	if err != nil {
+		jsonResp(w, map[string]any{"success": false, "error": err.Error()})
+		return
+	}
+	req.SrcPath, req.DestPath = sp, dp
 	var copyDir func(src, dst string) error
 	copyDir = func(src, dst string) error {
 		if err := os.MkdirAll(dst, 0755); err != nil {
@@ -266,11 +367,18 @@ func handleFsListAll(w http.ResponseWriter, r *http.Request) {
 
 func handleFsSearch(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		RootPath   string `json:"rootPath"`
-		Query      string `json:"query"`
-		MaxResults *int   `json:"maxResults"`
+		RootPath      string `json:"rootPath"`
+		Query         string `json:"query"`
+		MaxResults    *int   `json:"maxResults"`
+		CaseSensitive bool   `json:"caseSensitive"`
 	}
 	json.NewDecoder(r.Body).Decode(&req)
+	sr, err := cleanPath("", req.RootPath)
+	if err != nil {
+		jsonResp(w, map[string]any{"error": err.Error()})
+		return
+	}
+	req.RootPath = sr
 	if len(req.Query) < 2 {
 		jsonResp(w, []any{})
 		return
@@ -287,11 +395,19 @@ func handleFsSearch(w http.ResponseWriter, r *http.Request) {
 		".html": true, ".txt": true, ".yaml": true, ".yml": true,
 		".toml": true, ".rs": true, ".sh": true,
 	}
+	ctx, cancel := context.WithTimeout(r.Context(), 8*time.Second)
+	defer cancel()
+
 	results := []map[string]any{}
 	var walk func(dir, rel string)
 	walk = func(dir, rel string) {
 		if len(results) >= limit {
 			return
+		}
+		select {
+		case <-ctx.Done():
+			return
+		default:
 		}
 		entries, err := os.ReadDir(dir)
 		if err != nil {
@@ -319,8 +435,12 @@ func handleFsSearch(w http.ResponseWriter, r *http.Request) {
 					continue
 				}
 				for i, line := range strings.Split(string(data), "\n") {
-					ll := strings.ToLower(line)
-					col := strings.Index(ll, lower)
+					var col int
+					if req.CaseSensitive {
+						col = strings.Index(line, req.Query)
+					} else {
+						col = strings.Index(strings.ToLower(line), lower)
+					}
 					if col >= 0 {
 						text := strings.TrimSpace(line)
 						if len(text) > 200 {

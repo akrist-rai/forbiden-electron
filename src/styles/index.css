@@ -50,7 +50,7 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); font
 .tag.gold  { border-color: var(--gold);  color: var(--gold);  background: var(--gold-d); }
 
 /* ── BUTTONS ─────────────────────────────────────────────────────── */
-.btn { cursor: pointer; border: 1px solid var(--border2); background: rgba(255,255,255,0.03); color: var(--text); padding: 6px 14px; font-family: var(--font); font-size: 10px; font-weight: 600; letter-spacing: 0.5px; border-radius: var(--radius); transition: all 0.15s; outline: none; }
+.btn { cursor: pointer; border: 1px solid var(--border2); background: rgba(255,255,255,0.03); color: var(--text); padding: 6px 14px; font-family: var(--font); font-size: 10px; font-weight: 600; letter-spacing: 0.5px; border-radius: var(--radius); transition: background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s; outline: none; }
 .btn:hover { border-color: var(--green); color: var(--green); background: var(--green-d); box-shadow: 0 0 14px rgba(16,185,129,0.15); }
 .btn-primary { background: var(--green); color: #050e09; border-color: var(--green); }
 .btn-primary:hover { background: var(--green2); border-color: var(--green2); color: #050e09; box-shadow: 0 0 20px rgba(16,185,129,0.35); }
@@ -69,7 +69,7 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); font
 .sidebar-logo { padding: 12px 14px; border-bottom: 1px solid var(--border); font-size: 11px; font-weight: 800; letter-spacing: 2px; color: var(--white); }
 .sidebar-logo .g { color: var(--green); }
 .sidebar-sect { font-size: 8px; color: var(--text3); letter-spacing: 2px; padding: 10px 14px 4px; }
-.sidebar-item { display: flex; align-items: center; gap: 8px; padding: 7px 14px; color: var(--text); font-size: 10px; cursor: pointer; border-left: 2px solid transparent; transition: all 0.12s; }
+.sidebar-item { display: flex; align-items: center; gap: 8px; padding: 7px 14px; color: var(--text); font-size: 10px; cursor: pointer; border-left: 2px solid transparent; transition: background 0.12s, color 0.12s, border-color 0.12s; }
 .sidebar-item:hover { background: rgba(255,255,255,0.03); color: var(--text2); }
 .sidebar-item.active { border-left-color: var(--green); background: var(--green-d); color: var(--green); }
 .sidebar-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; opacity: 0.5; flex-shrink: 0; }
@@ -82,7 +82,7 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); font
 
 /* ── TABS ────────────────────────────────────────────────────────── */
 .tabs { display: flex; border-bottom: 1px solid var(--border); background: rgba(0,0,0,0.3); flex-shrink: 0; overflow-x: auto; }
-.tab { padding: 8px 14px; font-size: 9px; letter-spacing: 1px; color: var(--text3); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all 0.12s; white-space: nowrap; }
+.tab { padding: 8px 14px; font-size: 9px; letter-spacing: 1px; color: var(--text3); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color 0.12s, border-color 0.12s, background 0.12s; white-space: nowrap; }
 .tab:hover { color: var(--text2); }
 .tab.active { color: var(--green); border-bottom-color: var(--green); background: var(--green-d); }
 
@@ -133,7 +133,7 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); font
 .ws-card-meta { font-size: 8px; color: var(--text3); letter-spacing: 1px; position: relative; z-index: 1; display: flex; justify-content: space-between; }
 .ws-card-arrow { position: absolute; bottom: 14px; right: 14px; color: var(--green); opacity: 0; font-size: 16px; transition: opacity 0.15s; }
 .ws-card:hover .ws-card-arrow { opacity: 1; }
-.ws-card-new { background: var(--bg); border: 1px dashed var(--border2); display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 6px; cursor: pointer; min-height: 110px; color: var(--text3); font-size: 9px; letter-spacing: 2px; transition: all 0.15s; }
+.ws-card-new { background: var(--bg); border: 1px dashed var(--border2); display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 6px; cursor: pointer; min-height: 110px; color: var(--text3); font-size: 9px; letter-spacing: 2px; transition: border-color 0.15s, color 0.15s, background 0.15s; }
 .ws-card-new:hover { border-color: var(--green); color: var(--green); background: var(--green-d); }
 
 /* Banner */

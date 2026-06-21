@@ -145,7 +145,15 @@ func handleGitCommit(w http.ResponseWriter, r *http.Request) {
 		Cwd     string `json:"cwd"`
 		Message string `json:"message"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	// Guard: refuse if nothing is staged
+	staged, _ := runGit([]string{"diff", "--cached", "--name-only"}, req.Cwd)
+	if strings.TrimSpace(staged) == "" {
+		jsonResp(w, map[string]any{"success": false, "error": "nothing staged to commit"})
+		return
+	}
 	out, err := runGit([]string{"commit", "-m", req.Message}, req.Cwd)
 	if err != nil {
 		jsonResp(w, map[string]any{"success": false, "error": err.Error()})
@@ -351,4 +359,41 @@ func handleGitDeleteBranch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	jsonResp(w, map[string]any{"success": true})
+}
+
+func handleGitFetch(w http.ResponseWriter, r *http.Request) {
+	var req struct{ Cwd string `json:"cwd"` }
+	json.NewDecoder(r.Body).Decode(&req)
+	out, err := runGit([]string{"fetch", "--prune", "origin"}, req.Cwd)
+	if err != nil {
+		jsonResp(w, map[string]any{"success": false, "error": err.Error()})
+		return
+	}
+	jsonResp(w, map[string]any{"success": true, "output": out})
+}
+
+func handleGitRemoteList(w http.ResponseWriter, r *http.Request) {
+	var req struct{ Cwd string `json:"cwd"` }
+	json.NewDecoder(r.Body).Decode(&req)
+	out, err := runGit([]string{"remote", "-v"}, req.Cwd)
+	if err != nil {
+		jsonResp(w, map[string]any{"success": false, "remotes": []any{}, "error": err.Error()})
+		return
+	}
+	seen := map[string]bool{}
+	remotes := []map[string]any{}
+	for _, l := range strings.Split(out, "\n") {
+		parts := strings.Fields(l)
+		if len(parts) < 3 {
+			continue
+		}
+		name := parts[0]
+		if seen[name] {
+			continue
+		}
+		seen[name] = true
+		remoteType := strings.Trim(parts[2], "()")
+		remotes = append(remotes, map[string]any{"name": name, "url": parts[1], "type": remoteType})
+	}
+	jsonResp(w, map[string]any{"success": true, "remotes": remotes})
 }

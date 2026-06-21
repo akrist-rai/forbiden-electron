@@ -215,11 +215,24 @@ function RenameInput({ item, onCommit, onCancel }) {
   )
 }
 
+// ── Git dot class from XY porcelain code ──────────────────
+function gitDotClass(state: string): string | null {
+  if (!state || state.length < 2) return null
+  if (state === '??' || state[0] === '?') return 'untracked'
+  const idx = state[0]; const wt = state[1]
+  if (idx === 'D' || wt === 'D') return 'deleted'
+  if (idx !== ' ' && wt !== ' ') return 'both'
+  if (idx !== ' ') return 'staged'
+  if (wt !== ' ') return 'modified'
+  return null
+}
+
 // ── Flat row (non-recursive, used by virtual list) ────────
-function FlatRow({ node, depth, isOpen, isSelected, isRenaming, onToggle, onSelect, onCtxMenu, onRenameCommit, onRenameCancel }) {
+function FlatRow({ node, depth, isOpen, isSelected, isRenaming, gitStatusByPath, onToggle, onSelect, onCtxMenu, onRenameCommit, onRenameCancel }) {
   const isDir = node.type === 'dir'
   const extColor = EXT_COLOR[node.ext ?? ''] ?? '#8888aa'
   const indent = depth * 14 + 6
+  const dotClass = !isDir && gitStatusByPath ? gitDotClass(gitStatusByPath[node.path] ?? '') : null
 
   return (
     <div
@@ -277,6 +290,7 @@ function FlatRow({ node, depth, isOpen, isSelected, isRenaming, onToggle, onSele
           {node.name}
         </span>
       )}
+      {dotClass && <span className={`fe-git-dot ${dotClass}`}/>}
     </div>
   )
 }
@@ -290,9 +304,10 @@ interface Props {
   onScanImports: (rootPath: string) => void
   onTerminalCd: (cwd: string) => void
   refreshKey?: number
+  gitStatus?: Record<string, string>
 }
 
-function FileExplorer({ rootPath, brutal, onOpenFile, onOpenFolder, onScanImports, onTerminalCd, refreshKey }: Props) {
+function FileExplorer({ rootPath, brutal, onOpenFile, onOpenFolder, onScanImports, onTerminalCd, refreshKey, gitStatus }: Props) {
   const [tree,         setTree]         = useState<any>(null)
   const [openPaths,    setOpenPaths]    = useState<Set<string>>(new Set())
   const [selectedPath, setSelectedPath] = useState<string | null>(null)
@@ -314,6 +329,14 @@ function FileExplorer({ rootPath, brutal, onOpenFile, onOpenFolder, onScanImport
     () => tree ? flattenTree(tree.children || [], 0, openPaths, newItemState?.parentPath ?? null) : [],
     [tree, openPaths, newItemState?.parentPath]
   )
+
+  // Build full-path → XY-status map from relative-path gitStatus prop
+  const gitStatusByPath = useMemo<Record<string, string>>(() => {
+    if (!gitStatus || !rootPath) return {}
+    return Object.fromEntries(
+      Object.entries(gitStatus).map(([rel, state]) => [rootPath + '/' + rel, state])
+    )
+  }, [gitStatus, rootPath])
 
   useEffect(() => {
     const el = scrollRef.current
@@ -531,6 +554,7 @@ function FileExplorer({ rootPath, brutal, onOpenFile, onOpenFolder, onScanImport
                       isOpen={item.node.type === 'dir' && openPaths.has(item.node.path)}
                       isSelected={selectedPath === item.node.path}
                       isRenaming={renamingPath === item.node.path}
+                      gitStatusByPath={gitStatusByPath}
                       onToggle={toggle}
                       onSelect={handleSelect}
                       onCtxMenu={handleCtxMenu}

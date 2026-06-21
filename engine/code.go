@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -65,7 +64,9 @@ func handleCodeRun(w http.ResponseWriter, r *http.Request) {
 		Stdin string `json:"stdin"`
 		Cwd   string `json:"cwd"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	if !decodeJSON(w, r, &req) {
+		return
+	}
 
 	extMap := map[string]string{
 		"js": "js", "jsx": "jsx", "ts": "ts", "tsx": "tsx",

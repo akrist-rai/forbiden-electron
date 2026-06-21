@@ -50,6 +50,8 @@ export interface DesktopAPI {
     diff:         (cwd: string, file: string, staged?: boolean) => Promise<unknown>
     createBranch: (cwd: string, branch: string) => Promise<unknown>
     deleteBranch: (cwd: string, branch: string) => Promise<unknown>
+    fetch:        (cwd: string) => Promise<unknown>
+    remoteList:   (cwd: string) => Promise<unknown>
   }
   gitEx: { blame: (cwd: string, file: string) => Promise<unknown> }
   fs: {
@@ -70,7 +72,7 @@ export interface DesktopAPI {
     getRecentWorkspaces:    () => Promise<string[]>
     addRecentWorkspace:     (p: string) => Promise<unknown>
     listAllFiles:           (rootPath: string, maxFiles?: number) => Promise<unknown>
-    searchInFiles:          (rootPath: string, query: string, maxResults?: number) => Promise<unknown>
+    searchInFiles:          (rootPath: string, query: string, maxResults?: number, caseSensitive?: boolean) => Promise<unknown>
   }
   ai: {
     chat: (messages: unknown[], apiKey: string, model: string, system: string, provider: string) => Promise<unknown>

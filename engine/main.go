@@ -33,11 +33,21 @@ func jsonResp(w http.ResponseWriter, data any) {
 	json.NewEncoder(w).Encode(data)
 }
 
+// decodeJSON decodes r.Body into v; writes a 400 and returns false on error.
+func decodeJSON(w http.ResponseWriter, r *http.Request, v any) bool {
+	if err := json.NewDecoder(r.Body).Decode(v); err != nil {
+		http.Error(w, "bad request: "+err.Error(), http.StatusBadRequest)
+		return false
+	}
+	return true
+}
+
 // ── PTY session registry ───────────────────────────────────────
 
 type PTYSession struct {
-	ptmx ptyHandle
-	mu   sync.Mutex
+	ptmx     ptyHandle
+	mu       sync.Mutex
+	lastUsed time.Time
 }
 
 var (
@@ -50,6 +60,24 @@ var (
 		CheckOrigin:     func(_ *http.Request) bool { return true },
 	}
 )
+
+// startPTYIdleReaper periodically evicts PTY sessions idle for >30 minutes.
+func startPTYIdleReaper() {
+	go func() {
+		ticker := time.NewTicker(5 * time.Minute)
+		defer ticker.Stop()
+		for range ticker.C {
+			cutoff := time.Now().Add(-30 * time.Minute)
+			ptyMu.Lock()
+			for id, sess := range ptys {
+				if sess.lastUsed.Before(cutoff) {
+					delete(ptys, id)
+				}
+			}
+			ptyMu.Unlock()
+		}
+	}()
+}
 
 func extendedPath() string {
 	home, _ := os.UserHomeDir()
@@ -182,6 +210,7 @@ func handlePtyWrite(w http.ResponseWriter, r *http.Request) {
 	}
 	sess.mu.Lock()
 	sess.ptmx.WriteString(req.Text)
+	sess.lastUsed = time.Now()
 	sess.mu.Unlock()
 	jsonResp(w, map[string]any{"success": true})
 }
@@ -364,6 +393,7 @@ func findPort(start int) int {
 
 func main() {
 	os.Setenv("PATH", extendedPath())
+	startPTYIdleReaper()
 	port := findPort(49373)
 
 	mux := http.NewServeMux()
@@ -416,6 +446,8 @@ func main() {
 	mux.HandleFunc("/api/git/stash-list", handleGitStashList)
 	mux.HandleFunc("/api/git/create-branch", handleGitCreateBranch)
 	mux.HandleFunc("/api/git/delete-branch", handleGitDeleteBranch)
+	mux.HandleFunc("/api/git/fetch", handleGitFetch)
+	mux.HandleFunc("/api/git/remote-list", handleGitRemoteList)
 
 	// Code execution
 	mux.HandleFunc("/api/code/run", handleCodeRun)

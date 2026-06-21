@@ -691,6 +691,8 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
   const saveTimerRef = useRef(null)
   const [_rt, _setRt] = useState(0)
   const forceRender = useCallback(() => _setRt(t => t+1), [])
+  const [searchCaseSensitive, setSearchCaseSensitive] = useState(false)
+  const [searchResultIdx, setSearchResultIdx] = useState(-1)
 
   useEffect(() => {
     if (_rt === 0) return
@@ -1685,19 +1687,27 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
       projectSearchResults.forEach(r => { byPath[r.fullPath] = r.fullPath })
       let totalReplaced = 0
       const query = projectSearchQuery.trim()
+      const applyReplace = (content: string): string => {
+        if (searchCaseSensitive) {
+          return content.split(query).join(replaceQuery)
+        }
+        return content.replace(
+          new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'),
+          replaceQuery
+        )
+      }
       for (const fullPath of Object.values(byPath)) {
         const readRes = await api.fs.readFile(fullPath)
         if (!readRes?.content) continue
-        const count = readRes.content.split(query).length - 1
-        if (count > 0) {
-          await api.fs.writeFile(fullPath, readRes.content.split(query).join(replaceQuery))
+        const replaced = applyReplace(readRes.content)
+        if (replaced !== readRes.content) {
+          const count = searchCaseSensitive
+            ? readRes.content.split(query).length - 1
+            : (readRes.content.match(new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi')) ?? []).length
+          await api.fs.writeFile(fullPath, replaced)
           totalReplaced += count
-          // Update open tabs that match this file
           const openNode = nodesRef.current.find(n => n.filepath === fullPath)
-          if (openNode) {
-            openNode.code = readRes.content.split(query).join(replaceQuery)
-            openNode.modified = true
-          }
+          if (openNode) { openNode.code = replaced; openNode.modified = true }
         }
       }
       addEvent('info', `Replaced ${totalReplaced} occurrence${totalReplaced !== 1 ? 's' : ''} of "${query}" → "${replaceQuery}"`)
@@ -1709,20 +1719,28 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
     setReplaceLoading(false)
   }
 
+  // Scroll focused search group into view on keyboard nav
+  useEffect(() => {
+    if (searchResultIdx < 0) return
+    const el = document.querySelector(`[data-search-group="${searchResultIdx}"]`)
+    el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }, [searchResultIdx])
+
   // Project-wide search debounced effect
   useEffect(() => {
     clearTimeout(projectSearchDebounce.current)
-    if (!projectSearchQuery.trim() || !explorerRoot) { setProjectSearchResults([]); return }
+    if (!projectSearchQuery.trim() || !explorerRoot) { setProjectSearchResults([]); setSearchResultIdx(-1); return }
     setProjectSearchLoading(true)
+    setSearchResultIdx(-1)
     projectSearchDebounce.current = setTimeout(async () => {
       try {
-        const results = await api?.fs?.searchInFiles?.(explorerRoot, projectSearchQuery.trim(), 300) || []
+        const results = await api?.fs?.searchInFiles?.(explorerRoot, projectSearchQuery.trim(), 300, searchCaseSensitive) || []
         setProjectSearchResults(results)
       } catch { setProjectSearchResults([]) }
       setProjectSearchLoading(false)
     }, 350)
     return () => clearTimeout(projectSearchDebounce.current)
-  }, [projectSearchQuery, explorerRoot])
+  }, [projectSearchQuery, explorerRoot, searchCaseSensitive])
 
   // Open a workspace file in the editor
   const handleOpenWorkspaceFile = useCallback(async (fileInfo: any) => {
@@ -1973,6 +1991,9 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
                   onOpenFile={handleExplorerOpenFile}
                   onOpenFolder={handleOpenFolderForExplorer}
                   onScanImports={handleScanImports}
+                  gitStatus={Object.fromEntries(
+                    ((gitStatus as any)?.files ?? []).map((f: any) => [f.path, f.state])
+                  )}
                   onTerminalCd={(cwd)=>{
                     setTermCwd(cwd)
                     setBottomTab('terminal')
@@ -2041,18 +2062,36 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
                 <div style={{display:'flex',flexDirection:'column',height:'100%',overflow:'hidden'}}>
                   <div style={{padding:'6px 8px',flexShrink:0,display:'flex',flexDirection:'column',gap:4}}>
                     {/* Search input */}
-                    <div style={{position:'relative'}}>
-                      <span style={{position:'absolute',left:8,top:'50%',transform:'translateY(-50%)',fontSize:'11px',opacity:.4,pointerEvents:'none'}}>⌕</span>
-                      <input
-                        value={projectSearchQuery}
-                        onChange={e=>setProjectSearchQuery(e.target.value)}
-                        placeholder="Search in all files…"
-                        autoFocus
-                        style={{width:'100%',boxSizing:'border-box',background:'rgba(255,255,255,.05)',border:'1px solid rgba(255,255,255,.08)',outline:'none',color:'#c0c8d8',fontFamily:"'JetBrains Mono',monospace",fontSize:'11px',padding:'5px 8px 5px 26px'}}
-                        onFocus={e=>(e.target.style.borderColor='rgba(255,42,56,.4)')}
-                        onBlur={e=>(e.target.style.borderColor='rgba(255,255,255,.08)')}
-                      />
-                      {projectSearchQuery&&<button onClick={()=>setProjectSearchQuery('')} style={{position:'absolute',right:6,top:'50%',transform:'translateY(-50%)',background:'transparent',border:'none',cursor:'pointer',color:'rgba(200,200,220,.3)',fontSize:'13px'}}>×</button>}
+                    <div style={{position:'relative',display:'flex',gap:4,alignItems:'center'}}>
+                      <div style={{position:'relative',flex:1}}>
+                        <span style={{position:'absolute',left:8,top:'50%',transform:'translateY(-50%)',fontSize:'11px',opacity:.4,pointerEvents:'none'}}>⌕</span>
+                        <input
+                          value={projectSearchQuery}
+                          onChange={e=>setProjectSearchQuery(e.target.value)}
+                          placeholder="Search in all files…"
+                          autoFocus
+                          style={{width:'100%',boxSizing:'border-box',background:'rgba(255,255,255,.05)',border:'1px solid rgba(255,255,255,.08)',outline:'none',color:'#c0c8d8',fontFamily:"'JetBrains Mono',monospace",fontSize:'11px',padding:'5px 26px 5px 26px'}}
+                          onFocus={e=>(e.target.style.borderColor='rgba(255,42,56,.4)')}
+                          onBlur={e=>(e.target.style.borderColor='rgba(255,255,255,.08)')}
+                          onKeyDown={e=>{
+                            if (e.altKey && (e.key==='ArrowDown'||e.key==='ArrowUp')) {
+                              e.preventDefault()
+                              const files = Array.from(new Set(projectSearchResults.map(r=>r.file)))
+                              if (!files.length) return
+                              setSearchResultIdx(i => {
+                                const next = e.key==='ArrowDown' ? Math.min(i+1,files.length-1) : Math.max(i-1,0)
+                                return next
+                              })
+                            }
+                          }}
+                        />
+                        {projectSearchQuery&&<button onClick={()=>setProjectSearchQuery('')} style={{position:'absolute',right:6,top:'50%',transform:'translateY(-50%)',background:'transparent',border:'none',cursor:'pointer',color:'rgba(200,200,220,.3)',fontSize:'13px'}}>×</button>}
+                      </div>
+                      <button
+                        onClick={()=>setSearchCaseSensitive(v=>!v)}
+                        title="Case sensitive"
+                        style={{flexShrink:0,padding:'3px 6px',background:searchCaseSensitive?'rgba(255,42,56,.18)':'rgba(255,255,255,.04)',border:`1px solid ${searchCaseSensitive?'rgba(255,42,56,.4)':'rgba(255,255,255,.1)'}`,color:searchCaseSensitive?'#ff2a38':'rgba(200,200,220,.45)',fontFamily:"'JetBrains Mono',monospace",fontSize:'10px',cursor:'pointer',borderRadius:2,lineHeight:'1.4'}}
+                      >Aa</button>
                     </div>
                     {/* Replace input */}
                     <div style={{display:'flex',gap:4}}>
@@ -2080,32 +2119,44 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
                     </div>
                   </div>
                   {projectSearchLoading && <div style={{padding:'8px 10px',fontFamily:"'Share Tech Mono',monospace",fontSize:'10px',color:'#ffc410',opacity:.7,flexShrink:0}}>SEARCHING…</div>}
-                  {!projectSearchLoading && projectSearchQuery && <div className="ide-toc-sec" style={{flexShrink:0}}>{projectSearchResults.length} MATCHES{explorerRoot?'':" · no folder open"}</div>}
+                  {!projectSearchLoading && projectSearchQuery && (
+                    <div className="ide-toc-sec" style={{flexShrink:0}}>
+                      {explorerRoot
+                        ? `${projectSearchResults.length} RESULTS IN ${new Set(projectSearchResults.map(r=>r.file)).size} FILES`
+                        : 'NO FOLDER OPEN'}
+                    </div>
+                  )}
                   <div style={{flex:1,overflowY:'auto',scrollbarWidth:'thin',scrollbarColor:'rgba(255,255,255,.07) transparent'}}>
                     {(() => {
                       const grouped: Record<string, any[]> = {}
                       projectSearchResults.forEach(r => { ;(grouped[r.file] ??= []).push(r) })
-                      return Object.entries(grouped).map(([file, hits]) => (
-                        <div key={file}>
-                          <div style={{padding:'4px 8px',fontFamily:"'Oswald',sans-serif",fontWeight:700,fontSize:'9px',letterSpacing:'.1em',color:'rgba(200,200,220,.4)',background:'rgba(0,0,0,.2)',borderBottom:'1px solid rgba(255,255,255,.04)',display:'flex',gap:6,alignItems:'center'}}>
-                            <span style={{color:getFileColor(file.split('/').pop()||''),fontSize:'10px'}}>{getFileIcon(file.split('/').pop()||'')}</span>
-                            <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1}}>{file}</span>
-                            <span style={{opacity:.4,flexShrink:0}}>{hits.length}</span>
-                          </div>
-                          {hits.map((r, i) => (
-                            <div key={i} onClick={async()=>{
-                              await handleOpenWorkspaceFile({path:r.fullPath,name:file.split('/').pop(),rel:file})
-                              setTimeout(()=>setJumpLineTarget(r.line),200)
-                            }}
-                              style={{padding:'3px 12px 3px 18px',cursor:'pointer',fontFamily:"'JetBrains Mono',monospace",fontSize:'10px',color:'rgba(200,200,220,.7)',display:'flex',gap:6,alignItems:'center'}}
-                              onMouseEnter={e=>(e.currentTarget.style.background='rgba(255,255,255,.05)')}
-                              onMouseLeave={e=>(e.currentTarget.style.background='transparent')}>
-                              <span style={{color:'rgba(200,200,220,.3)',flexShrink:0,minWidth:28,textAlign:'right'}}>{r.line}</span>
-                              <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1}}>{r.text}</span>
+                      const files = Object.keys(grouped)
+                      return files.map((file, fi) => {
+                        const hits = grouped[file]
+                        const focused = fi === searchResultIdx
+                        return (
+                          <div key={file} data-search-group={fi} style={{borderLeft:focused?'2px solid rgba(255,42,56,.5)':'2px solid transparent'}}>
+                            <div style={{padding:'4px 8px',fontFamily:"'Oswald',sans-serif",fontWeight:700,fontSize:'9px',letterSpacing:'.1em',color:focused?'rgba(200,200,220,.7)':'rgba(200,200,220,.4)',background:focused?'rgba(255,42,56,.07)':'rgba(0,0,0,.2)',borderBottom:'1px solid rgba(255,255,255,.04)',display:'flex',gap:6,alignItems:'center'}}>
+                              <span style={{color:getFileColor(file.split('/').pop()||''),fontSize:'10px'}}>{getFileIcon(file.split('/').pop()||'')}</span>
+                              <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1}}>{file}</span>
+                              <span style={{opacity:.4,flexShrink:0}}>{hits.length}</span>
                             </div>
-                          ))}
-                        </div>
-                      ))
+                            {hits.map((r, i) => (
+                              <div key={i} onClick={async()=>{
+                                setSearchResultIdx(fi)
+                                await handleOpenWorkspaceFile({path:r.fullPath,name:file.split('/').pop(),rel:file})
+                                setTimeout(()=>setJumpLineTarget(r.line),200)
+                              }}
+                                style={{padding:'3px 12px 3px 18px',cursor:'pointer',fontFamily:"'JetBrains Mono',monospace",fontSize:'10px',color:'rgba(200,200,220,.7)',display:'flex',gap:6,alignItems:'center'}}
+                                onMouseEnter={e=>(e.currentTarget.style.background='rgba(255,255,255,.05)')}
+                                onMouseLeave={e=>(e.currentTarget.style.background='transparent')}>
+                                <span style={{color:'rgba(200,200,220,.3)',flexShrink:0,minWidth:28,textAlign:'right'}}>{r.line}</span>
+                                <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1}}>{r.text}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )
+                      })
                     })()}
                     {!projectSearchLoading && projectSearchQuery && projectSearchResults.length===0 && (
                       <div style={{padding:'20px 10px',opacity:.3,textAlign:'center',fontFamily:"'Share Tech Mono',monospace",fontSize:'11px'}}>
