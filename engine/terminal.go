@@ -2,10 +2,12 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"os"
 	"os/exec"
+	"time"
 )
 
 // ── Terminal shell exec ────────────────────────────────────────
@@ -22,8 +24,11 @@ func handleTerminalExec(w http.ResponseWriter, r *http.Request) {
 		cwd, _ = os.Getwd()
 	}
 
+	ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
+	defer cancel()
+
 	var stdout, stderr bytes.Buffer
-	cmd := exec.Command("sh", "-c", req.Cmd)
+	cmd := exec.CommandContext(ctx, "sh", "-c", req.Cmd)
 	cmd.Dir = cwd
 	cmd.Env = append(os.Environ(), "PATH="+extendedPath())
 	cmd.Stdout = &stdout

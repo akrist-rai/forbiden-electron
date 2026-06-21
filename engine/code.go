@@ -2,7 +2,9 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -99,7 +101,9 @@ func handleCodeRun(w http.ResponseWriter, r *http.Request) {
 	}
 
 	t0 := time.Now()
-	cmd := exec.Command("sh", "-c", cmdStr)
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "sh", "-c", cmdStr)
 	// Build clean env: extend PATH, but strip PYTHONHOME/PYTHONPATH so the
 	// system Python can always find its own stdlib (AppImage sets them to
 	// the squashfs mount, which doesn't contain Python → "Failed to import encodings").
@@ -128,8 +132,17 @@ func handleCodeRun(w http.ResponseWriter, r *http.Request) {
 		cmd.Stdin = strings.NewReader(req.Stdin)
 	}
 
-	cmd.Run()
+	runErr := cmd.Run()
 	ms := time.Since(t0).Milliseconds()
+
+	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		jsonResp(w, map[string]any{
+			"logs":  []any{map[string]any{"type": "run-err", "val": "execution timed out after 30s", "ts": 0}},
+			"error": "timeout", "ms": ms,
+		})
+		return
+	}
+	_ = runErr
 
 	logs := []map[string]any{}
 	for _, l := range strings.Split(stdout.String(), "\n") {
