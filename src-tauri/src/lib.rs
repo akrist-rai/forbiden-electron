@@ -12,7 +12,7 @@ struct EngineState {
 
 static ENGINE_CHILD: Mutex<Option<std::process::Child>> = Mutex::new(None);
 
-// ── Tauri commands (window management + engine URL only) ───────
+// ── Tauri commands ─────────────────────────────────────────────
 
 #[tauri::command]
 fn get_engine_url(state: State<EngineState>) -> String {
@@ -31,101 +31,40 @@ fn get_platform() -> String {
     std::env::consts::OS.to_string()
 }
 
-// ── Engine launcher ────────────────────────────────────────────
+// ── Engine path resolution (desktop only) ─────────────────────
 
 fn resolve_engine_path(app: &tauri::App) -> PathBuf {
-    let bin_name = if cfg!(target_os = "windows") {
-        "forbiden-engine.exe"
-    } else {
-        "forbiden-engine"
-    };
-
-    // On Android the engine binary is pushed into the app's data directory
-    // by scripts/push-engine-android.sh for dev mode, or extracted from APK
-    // assets by install_engine_android() for production builds.
-    // Check several candidate paths since Tauri's data_dir() on Android may
-    // or may not include the /files subdirectory depending on the version.
-    #[cfg(target_os = "android")]
-    {
-        let candidates: &[&dyn Fn() -> Option<std::path::PathBuf>] = &[
-            &|| app.path().data_dir().ok(),
-            &|| app.path().data_dir().ok().map(|p| p.join("files")),
-            &|| app.path().app_data_dir().ok(),
-            &|| app.path().app_local_data_dir().ok(),
-        ];
-        for candidate_fn in candidates {
-            if let Some(dir) = candidate_fn() {
-                let p = dir.join(bin_name);
-                eprintln!("[engine] checking android path: {:?} exists={}", p, p.exists());
-                if p.exists() {
-                    return p;
-                }
-            }
-        }
-    }
+    let bin_name = if cfg!(target_os = "windows") { "forbiden-engine.exe" } else { "forbiden-engine" };
 
     if cfg!(debug_assertions) {
         let exe = std::env::current_exe().unwrap_or_default();
         let mut dir = exe.parent().map(|p| p.to_path_buf()).unwrap_or_default();
         for _ in 0..6 {
             let candidate = dir.join("engine").join(bin_name);
-            if candidate.exists() {
-                return candidate;
-            }
-            if let Some(p) = dir.parent() {
-                dir = p.to_path_buf();
-            } else {
-                break;
-            }
+            if candidate.exists() { return candidate; }
+            if let Some(p) = dir.parent() { dir = p.to_path_buf(); } else { break; }
         }
-        PathBuf::from("engine").join(bin_name)
-    } else {
-        let target = std::env::var("TAURI_ENV_TARGET_TRIPLE").unwrap_or_else(|_| {
-            format!("{}-{}-{}", std::env::consts::ARCH, "unknown", std::env::consts::OS)
-        });
-        let sidecar = format!("{}-{}", bin_name, target);
-        if let Ok(res) = app.path().resource_dir() {
-            let p = res.join(&sidecar);
-            if p.exists() {
-                return p;
-            }
-            let p2 = res.join(bin_name);
-            if p2.exists() {
-                return p2;
-            }
-        }
-        let exe_dir = std::env::current_exe()
-            .ok()
-            .and_then(|e| e.parent().map(|p| p.to_path_buf()))
-            .unwrap_or_default();
-        let p = exe_dir.join(&sidecar);
-        if p.exists() {
-            return p;
-        }
-        exe_dir.join(bin_name)
+        return PathBuf::from("engine").join(bin_name);
     }
+
+    let target = std::env::var("TAURI_ENV_TARGET_TRIPLE").unwrap_or_else(|_| {
+        format!("{}-{}-{}", std::env::consts::ARCH, "unknown", std::env::consts::OS)
+    });
+    let sidecar = format!("{}-{}", bin_name, target);
+    if let Ok(res) = app.path().resource_dir() {
+        let p = res.join(&sidecar);
+        if p.exists() { return p; }
+        let p2 = res.join(bin_name);
+        if p2.exists() { return p2; }
+    }
+    let exe_dir = std::env::current_exe()
+        .ok().and_then(|e| e.parent().map(|p| p.to_path_buf())).unwrap_or_default();
+    let p = exe_dir.join(&sidecar);
+    if p.exists() { return p; }
+    exe_dir.join(bin_name)
 }
 
-// On Android, Tauri bundles the engine in the APK assets. We copy it to the
-// app's private data directory and make it executable before launching.
-#[cfg(target_os = "android")]
-fn install_engine_android(app: &tauri::App) {
-    let bin_name = "forbiden-engine";
-    let Ok(data_dir) = app.path().data_dir() else { return };
-    let dest = data_dir.join(bin_name);
-    if dest.exists() {
-        return; // already installed from a previous launch
-    }
-    // The engine binary is in dist/native/ (copied there from public/native/ by Vite).
-    // asset_resolver serves from the app's dist/, so the path is "native/forbiden-engine".
-    let asset_name = format!("native/{}", bin_name);
-    if let Some(asset) = app.asset_resolver().get(asset_name) {
-        if std::fs::write(&dest, &*asset.bytes).is_ok() {
-            use std::os::unix::fs::PermissionsExt;
-            let _ = std::fs::set_permissions(&dest, std::fs::Permissions::from_mode(0o755));
-        }
-    }
-}
+// ── Start engine process ───────────────────────────────────────
 
 fn start_engine(engine_url: Arc<Mutex<Option<String>>>, bin_path: PathBuf) {
     std::thread::spawn(move || {
@@ -140,18 +79,10 @@ fn start_engine(engine_url: Arc<Mutex<Option<String>>>, bin_path: PathBuf) {
             .spawn()
         {
             Ok(c) => c,
-            Err(e) => {
-                eprintln!("[engine] spawn error: {e}");
-                return;
-            }
+            Err(e) => { eprintln!("[engine] spawn error: {e}"); return; }
         };
         let stdout = child.stdout.take();
-        // Store child then immediately release the lock — never hold it while waiting.
-        // The exit handler locks this to kill the process.
-        if let Ok(mut guard) = ENGINE_CHILD.lock() {
-            *guard = Some(child);
-        }
-        // Read stdout for the READY port line; thread exits after that.
+        if let Ok(mut g) = ENGINE_CHILD.lock() { *g = Some(child); }
         if let Some(stdout) = stdout {
             for line in std::io::BufReader::new(stdout).lines().flatten() {
                 if let Some(port) = line.strip_prefix("READY:") {
@@ -167,26 +98,18 @@ fn start_engine(engine_url: Arc<Mutex<Option<String>>>, bin_path: PathBuf) {
 
 // ── Entry point ────────────────────────────────────────────────
 
-#[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let engine_url: Arc<Mutex<Option<String>>> = Arc::new(Mutex::new(None));
     let engine_url_clone = engine_url.clone();
 
-    let builder = tauri::Builder::default()
+    tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_os::init());
-
-    #[cfg(not(target_os = "android"))]
-    let builder = builder
+        .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_window_state::Builder::default().build())
-        .plugin(tauri_plugin_opener::init());
-
-    let app = builder
+        .plugin(tauri_plugin_opener::init())
         .manage(EngineState { url: engine_url })
         .setup(move |app| {
-            #[cfg(target_os = "android")]
-            install_engine_android(app);
             start_engine(engine_url_clone, resolve_engine_path(app));
             Ok(())
         })
@@ -196,20 +119,19 @@ pub fn run() {
             get_platform,
         ])
         .build(tauri::generate_context!())
-        .expect("error while building tauri application");
-
-    app.run(move |_app_handle, event| {
-        match event {
-            tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit => {
-                if let Ok(mut guard) = ENGINE_CHILD.lock() {
-                    if let Some(mut child) = guard.take() {
-                        println!("[engine] shutting down...");
-                        let _ = child.kill();
-                        let _ = child.wait(); // reap zombie; lock already released after take()
+        .expect("error while building tauri application")
+        .run(move |_app_handle, event| {
+            match event {
+                tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit => {
+                    if let Ok(mut g) = ENGINE_CHILD.lock() {
+                        if let Some(mut child) = g.take() {
+                            println!("[engine] shutting down");
+                            let _ = child.kill();
+                            let _ = child.wait();
+                        }
                     }
                 }
+                _ => {}
             }
-            _ => {}
-        }
-    });
+        });
 }
