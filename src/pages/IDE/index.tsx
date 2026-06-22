@@ -1233,6 +1233,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
   const openNodeInEditor = id => {
     openTab(id)  // openTab = editorStore.openTab (sets openTabs + activeTabId atomically)
     setEditorCursorPos(null)
+    if (!editorOpen) setEditorOpen(true)  // auto-show editor panel if hidden
   }
   const closeTabLocal = id => {
     if (pinnedTabs.has(id)) return // pinned tabs cannot be closed
@@ -1828,24 +1829,71 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
     >
 
       {/* ── ZEN MODE EDITOR OVERLAY ── */}
-      {zenMode && activeTabNode && (
+      {zenMode && activeTabNode && (()=>{
+        const zenRunStatus = nodeRunState[activeTabId]
+        const zenHasOutput = jsLogs.length > 0
+        const zenConsoleOpen = zenHasOutput || zenRunStatus?.status === 'running'
+        return (
         <div style={{position:'fixed',inset:0,zIndex:90000,background:'#06060d',display:'flex',flexDirection:'column',overflow:'hidden'}}>
-          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'6px 16px',flexShrink:0,borderBottom:'1px solid rgba(255,42,56,.1)'}}>
-            <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:'11px',color:'rgba(200,200,220,.5)',letterSpacing:'.04em'}}>{activeTabNode.label}</span>
-            <div style={{display:'flex',gap:'8px',alignItems:'center'}}>
+          {/* Header */}
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'6px 16px',flexShrink:0,borderBottom:'1px solid rgba(255,42,56,.08)',background:'rgba(0,0,0,.4)',backdropFilter:'blur(8px)'}}>
+            <div style={{display:'flex',alignItems:'center',gap:10}}>
+              <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:'11px',color:'rgba(200,200,220,.5)',letterSpacing:'.04em'}}>{activeTabNode.label}</span>
+              {activeTabNode.modified && <span style={{width:5,height:5,borderRadius:'50%',background:'#ffc410',display:'inline-block'}}/>}
+            </div>
+            <div style={{display:'flex',gap:'6px',alignItems:'center'}}>
               {canRun && (
-                <button onClick={()=>handleRunNode(activeTabId)} style={{background:'rgba(255,42,56,.1)',border:'1px solid rgba(255,42,56,.35)',color:'#ff2a38',fontFamily:"'Share Tech Mono',monospace",fontSize:'10px',padding:'3px 12px',cursor:'pointer',letterSpacing:'.1em',fontWeight:700}}>▶ RUN</button>
+                <button
+                  type="button"
+                  onClick={()=>{ handleRunNode(activeTabId); setBottomOpen(true); setBottomTab('console') }}
+                  style={{
+                    background: zenRunStatus?.status==='ok'?'rgba(16,185,129,.15)':zenRunStatus?.status==='error'?'rgba(255,67,90,.15)':'rgba(255,42,56,.1)',
+                    border: `1px solid ${zenRunStatus?.status==='ok'?'rgba(16,185,129,.4)':zenRunStatus?.status==='error'?'rgba(255,67,90,.4)':'rgba(255,42,56,.35)'}`,
+                    color: zenRunStatus?.status==='ok'?'#10b981':zenRunStatus?.status==='error'?'#ff435a':'#ff2a38',
+                    fontFamily:"'Share Tech Mono',monospace",fontSize:'10px',padding:'3px 12px',cursor:'pointer',letterSpacing:'.1em',fontWeight:700,
+                    transition:'all .15s',
+                  }}
+                >
+                  {zenRunStatus?.status==='running'?'⋯ RUNNING':zenRunStatus?.status==='ok'?`✓ ${zenRunStatus.ms}ms`:zenRunStatus?.status==='error'?'✗ ERROR':'▶ RUN'}
+                </button>
               )}
-              <button onClick={()=>setZenMode(false)} style={{background:'transparent',border:'1px solid rgba(255,255,255,.1)',color:'rgba(200,200,220,.35)',fontFamily:"'Share Tech Mono',monospace",fontSize:'10px',padding:'2px 8px',cursor:'pointer',letterSpacing:'.06em'}}>ESC · EXIT ZEN</button>
+              <button type="button" onClick={()=>setZenMode(false)} style={{background:'transparent',border:'1px solid rgba(255,255,255,.1)',color:'rgba(200,200,220,.3)',fontFamily:"'Share Tech Mono',monospace",fontSize:'10px',padding:'2px 8px',cursor:'pointer',letterSpacing:'.06em',transition:'color .12s'}}
+                onMouseEnter={e=>(e.currentTarget.style.color='rgba(200,200,220,.7)')}
+                onMouseLeave={e=>(e.currentTarget.style.color='rgba(200,200,220,.3)')}>ESC · EXIT ZEN</button>
             </div>
           </div>
+          {/* Editor */}
           <div style={{flex:1,minHeight:0,overflow:'hidden',display:'flex',justifyContent:'center'}}>
-            <div style={{width:'min(800px,100%)',display:'flex',flexDirection:'column',minHeight:0}}>
+            <div style={{width:'min(860px,100%)',display:'flex',flexDirection:'column',minHeight:0}}>
               <CodeMirrorEditor key={activeTabId+'_zen'} node={activeTabNode} onChange={code=>updateNodeCode(activeTabId,code)} onSave={()=>saveNodeToDisk(activeTabId)} externalPalette={globalEditorPalette} onPaletteChange={p=>setGlobalEditorPalette(p)} jumpToLine={jumpLineTarget??undefined} onCursorChange={(line,col)=>setEditorCursorPos({line,col})} aiProvider={aiProvider} aiKey={aiProvider==='ollama'?(aiKeys['ollama']||'http://localhost:11434'):aiKeys[aiProvider]||''} aiModel={aiModels[aiProvider]||DEFAULT_MODELS[aiProvider]||''}/>
             </div>
           </div>
+          {/* Zen console — pops up after run */}
+          {zenConsoleOpen && (
+            <div style={{flexShrink:0,height:220,borderTop:'1px solid rgba(255,42,56,.15)',display:'flex',flexDirection:'column',background:'rgba(3,3,10,.95)',backdropFilter:'blur(8px)'}}>
+              <div style={{display:'flex',alignItems:'center',padding:'4px 12px',borderBottom:'1px solid rgba(255,255,255,.05)',gap:8,flexShrink:0}}>
+                <span style={{fontFamily:"'Oswald',sans-serif",fontWeight:700,fontSize:'9px',letterSpacing:'.14em',color:'rgba(200,200,220,.4)'}}>CONSOLE OUTPUT</span>
+                <div style={{flex:1}}/>
+                <button type="button" onClick={()=>setJsLogs([])} style={{background:'transparent',border:'1px solid rgba(255,255,255,.08)',color:'rgba(200,200,220,.3)',fontFamily:"'Share Tech Mono',monospace",fontSize:'9px',padding:'1px 8px',cursor:'pointer',letterSpacing:'.06em'}}
+                  onMouseEnter={e=>(e.currentTarget.style.color='#ff435a')}
+                  onMouseLeave={e=>(e.currentTarget.style.color='rgba(200,200,220,.3)')}>CLEAR</button>
+              </div>
+              <ConsolePanel
+                logs={jsLogs}
+                onClear={()=>setJsLogs([])}
+                compileStdin={compileStdin}
+                setCompileStdin={setCompileStdin}
+                replInput={replInput}
+                setReplInput={setReplInput}
+                handleReplKey={handleReplKey}
+                showStdin={isCompiled(detectLang(activeTabNode?.label||''))}
+                activeLang={detectLang(activeTabNode?.label||'')}
+              />
+            </div>
+          )}
         </div>
-      )}
+        )
+      })()}
 
       {/* ═══════ TITLE BAR (custom window controls, drag region) ═══════ */}
       <TitleBar brutal={brutal} activeFile={activeTabNode?.label}/>

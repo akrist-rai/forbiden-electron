@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter, Decoration, WidgetType } from '@codemirror/view'
 import { EditorState, StateEffect, StateField, Compartment } from '@codemirror/state'
-import { defaultKeymap, indentWithTab, toggleComment } from '@codemirror/commands'
+import { defaultKeymap, indentWithTab, toggleComment, history, historyKeymap } from '@codemirror/commands'
 import { searchKeymap, openSearchPanel, closeSearchPanel, search } from '@codemirror/search'
 import { completionKeymap, autocompletion, closeBrackets } from '@codemirror/autocomplete'
 import { foldGutter, indentOnInput, bracketMatching, syntaxHighlighting, HighlightStyle } from '@codemirror/language'
@@ -16,6 +16,7 @@ import { json } from '@codemirror/lang-json'
 import { css } from '@codemirror/lang-css'
 import { html } from '@codemirror/lang-html'
 import { api } from '../lib/api'
+import { PALETTES as GLOBAL_PALETTES, PALETTE_LIGHT_IDS } from '../constants/palettes'
 
 // ══════════════════════════════════════════════════════════════
 //  TYPES
@@ -104,25 +105,11 @@ const ghostTextField = StateField.define<{ pos: number; text: string } | null>({
 })
 
 // ══════════════════════════════════════════════════════════════
-//  PALETTES
+//  PALETTES  (unified with constants/palettes.ts)
 // ══════════════════════════════════════════════════════════════
 
-const PALETTES: Palette[] = [
-  { id:'forbinden',  name:'FORBINDEN',    bg:'#0b0b0f', base:'#e2d8d0', lineNum:'#2e2838', activeLine:'rgba(255,42,56,0.06)',   kw:'#ff2a38', str:'#ff7060', cmt:'#6a5878', num:'#ff3d6e', fn:'#ffb0a0', bi:'#ff9080', op:'#7a7090', swatches:['#ff2a38','#ff7060','#ffb0a0','#e2d8d0'] },
-  { id:'dracula',    name:'DRACULA',       bg:'#282a36', base:'#f8f8f2', lineNum:'#44475a', activeLine:'rgba(68,71,90,0.4)',     kw:'#ff79c6', str:'#f1fa8c', cmt:'#6272a4', num:'#bd93f9', fn:'#50fa7b', bi:'#8be9fd', op:'#ff79c6', swatches:['#ff79c6','#f1fa8c','#50fa7b','#8be9fd'] },
-  { id:'monokai',    name:'MONOKAI',       bg:'#272822', base:'#f8f8f2', lineNum:'#3e3d32', activeLine:'rgba(73,72,62,0.4)',     kw:'#f92672', str:'#e6db74', cmt:'#75715e', num:'#ae81ff', fn:'#a6e22e', bi:'#66d9e8', op:'#f92672', swatches:['#f92672','#e6db74','#a6e22e','#ae81ff'] },
-  { id:'nord',       name:'NORD',          bg:'#2e3440', base:'#d8dee9', lineNum:'#3b4252', activeLine:'rgba(67,76,94,0.4)',     kw:'#81a1c1', str:'#a3be8c', cmt:'#4c566a', num:'#b48ead', fn:'#88c0d0', bi:'#8fbcbb', op:'#81a1c1', swatches:['#81a1c1','#a3be8c','#88c0d0','#b48ead'] },
-  { id:'tokyo',      name:'TOKYO NIGHT',   bg:'#1a1b2e', base:'#a9b1d6', lineNum:'#2a2b3d', activeLine:'rgba(42,43,61,0.5)',     kw:'#bb9af7', str:'#9ece6a', cmt:'#3b4261', num:'#ff9e64', fn:'#7dcfff', bi:'#2ac3de', op:'#c0caf5', swatches:['#bb9af7','#9ece6a','#7dcfff','#ff9e64'] },
-  { id:'gruvbox',    name:'GRUVBOX',       bg:'#282828', base:'#ebdbb2', lineNum:'#3c3836', activeLine:'rgba(60,56,54,0.5)',     kw:'#fb4934', str:'#b8bb26', cmt:'#665c54', num:'#d3869b', fn:'#fabd2f', bi:'#8ec07c', op:'#fe8019', swatches:['#fb4934','#b8bb26','#fabd2f','#8ec07c'] },
-  { id:'onedark',    name:'ONE DARK',      bg:'#282c34', base:'#abb2bf', lineNum:'#3b4048', activeLine:'rgba(40,44,52,0.6)',     kw:'#c678dd', str:'#98c379', cmt:'#5c6370', num:'#d19a66', fn:'#61afef', bi:'#56b6c2', op:'#e06c75', swatches:['#c678dd','#98c379','#61afef','#d19a66'] },
-  { id:'catppuccin', name:'CATPPUCCIN',    bg:'#1e1e2e', base:'#cdd6f4', lineNum:'#313244', activeLine:'rgba(49,50,68,0.5)',     kw:'#cba6f7', str:'#a6e3a1', cmt:'#585b70', num:'#fab387', fn:'#89b4fa', bi:'#94e2d5', op:'#f38ba8', swatches:['#cba6f7','#a6e3a1','#89b4fa','#fab387'] },
-  { id:'tokyo_night_storm', name:'TOKYO STORM', bg:'#24283b', base:'#c0caf5', lineNum:'#3b4261', activeLine:'rgba(59,66,97,0.5)', kw:'#bb9af7', str:'#9ece6a', cmt:'#565f89', num:'#ff9e64', fn:'#7aa2f7', bi:'#2ac3de', op:'#89ddff', swatches:['#bb9af7','#9ece6a','#7aa2f7','#ff9e64'] },
-  { id:'vesper',     name:'VESPER',        bg:'#101010', base:'#c2c2c2', lineNum:'#1e1e1e', activeLine:'rgba(30,30,30,0.6)',     kw:'#ff8080', str:'#99ffe4', cmt:'#404040', num:'#ffbd5e', fn:'#b8a4ff', bi:'#5ef1ff', op:'#ff6e6e', swatches:['#ff8080','#99ffe4','#b8a4ff','#ffbd5e'] },
-  { id:'rosepine',   name:'ROSÉ PINE',     bg:'#191724', base:'#e0def4', lineNum:'#26233a', activeLine:'rgba(38,35,58,0.5)',     kw:'#c4a7e7', str:'#f6c177', cmt:'#6e6a86', num:'#ebbcba', fn:'#9ccfd8', bi:'#31748f', op:'#eb6f92', swatches:['#c4a7e7','#f6c177','#9ccfd8','#eb6f92'] },
-  { id:'github',     name:'GITHUB LIGHT',  bg:'#ffffff', base:'#24292e', lineNum:'#e1e4e8', activeLine:'rgba(225,228,232,0.5)', kw:'#d73a49', str:'#032f62', cmt:'#6a737d', num:'#005cc5', fn:'#6f42c1', bi:'#e36209', op:'#d73a49', swatches:['#d73a49','#032f62','#6f42c1','#005cc5'] },
-]
-
-const LIGHT_IDS = ['github']
+const PALETTES: Palette[] = GLOBAL_PALETTES
+const LIGHT_IDS = [...PALETTE_LIGHT_IDS]
 
 // ══════════════════════════════════════════════════════════════
 //  ICONS
@@ -239,7 +226,7 @@ function buildTheme(palette: Palette) {
     },
     '.cm-scroller': {
       fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
-      fontSize: '13px',
+      fontSize: '15px',
       lineHeight: '1.65',
       overflow: 'auto',
     },
@@ -262,15 +249,68 @@ function buildTheme(palette: Palette) {
     },
     '.cm-tooltip': {
       backgroundColor: palette.bg,
-      border: `1px solid ${palette.lineNum}88`,
+      border: `1px solid ${palette.kw}44`,
       color: palette.base,
+      borderRadius: '6px',
+      boxShadow: `0 8px 32px rgba(0,0,0,.6), 0 0 0 1px ${palette.kw}18`,
+      overflow: 'hidden',
     },
     '.cm-tooltip-autocomplete': {
-      backgroundColor: palette.bg,
+      backgroundColor: palette.bg + 'f0',
+      backdropFilter: 'blur(12px)',
+      padding: '4px 0',
+      minWidth: '260px',
+      maxWidth: '420px',
+    },
+    '.cm-tooltip-autocomplete ul': {
+      fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+      fontSize: '13px',
+    },
+    '.cm-tooltip-autocomplete ul li': {
+      padding: '4px 12px 4px 8px',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px',
+      lineHeight: '1.4',
+      color: palette.base,
     },
     '.cm-tooltip-autocomplete ul li[aria-selected]': {
-      backgroundColor: palette.kw + '28',
+      backgroundColor: palette.kw + '22',
       color: palette.kw,
+    },
+    '.cm-tooltip-autocomplete ul li:hover': {
+      backgroundColor: palette.kw + '16',
+    },
+    '.cm-completionIcon': {
+      fontSize: '10px',
+      width: '16px',
+      opacity: '.75',
+      flexShrink: '0',
+    },
+    '.cm-completionIcon-function, .cm-completionIcon-method': { color: palette.fn },
+    '.cm-completionIcon-keyword': { color: palette.kw },
+    '.cm-completionIcon-variable': { color: palette.base },
+    '.cm-completionIcon-class, .cm-completionIcon-type, .cm-completionIcon-interface': { color: palette.bi },
+    '.cm-completionIcon-constant': { color: palette.num },
+    '.cm-completionIcon-property': { color: palette.str },
+    '.cm-completionIcon-text': { color: palette.cmt },
+    '.cm-completionLabel': {
+      flex: '1',
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      whiteSpace: 'nowrap',
+    },
+    '.cm-completionMatchedText': {
+      color: palette.kw,
+      fontWeight: '700',
+      textDecoration: 'none',
+    },
+    '.cm-completionDetail': {
+      color: palette.cmt,
+      fontSize: '11px',
+      marginLeft: 'auto',
+      paddingLeft: '8px',
+      flexShrink: '0',
     },
     '.cm-foldGutter': {
       color: palette.lineNum,
@@ -288,30 +328,79 @@ function buildTheme(palette: Palette) {
 
 function buildHighlight(palette: Palette) {
   return syntaxHighlighting(HighlightStyle.define([
-    { tag: t.keyword,                               color: palette.kw,  fontWeight: '500' },
-    { tag: [t.string, t.special(t.string)],          color: palette.str },
-    { tag: t.comment,                               color: palette.cmt, fontStyle: 'italic' },
-    { tag: [t.number, t.bool],                       color: palette.num },
-    { tag: [t.function(t.name), t.function(t.variableName), t.definition(t.function(t.name))],
-                                                    color: palette.fn },
-    { tag: t.variableName,                          color: palette.base },
-    { tag: t.definition(t.variableName),            color: palette.base },
-    { tag: t.operator,                              color: palette.op },
-    { tag: [t.typeName, t.className, t.namespace],  color: palette.bi },
-    { tag: t.propertyName,                          color: palette.base },
-    { tag: [t.punctuation, t.bracket],              color: palette.op },
-    { tag: t.tagName,                               color: palette.kw },
-    { tag: t.attributeName,                         color: palette.bi },
-    { tag: t.attributeValue,                        color: palette.str },
-    { tag: t.heading,                               color: palette.kw, fontWeight: 'bold' },
-    { tag: t.emphasis,                              fontStyle: 'italic' },
-    { tag: t.strong,                                fontWeight: 'bold' },
-    { tag: [t.link, t.url],                         color: palette.bi, textDecoration: 'underline' },
-    { tag: t.meta,                                  color: palette.cmt },
-    { tag: t.self,                                  color: palette.kw },
-    { tag: t.constant(t.name),                      color: palette.num },
-    { tag: t.inserted,                              color: palette.fn },
-    { tag: t.deleted,                               color: palette.kw },
+    // Keywords — control flow, declarations
+    { tag: t.keyword,                                          color: palette.kw, fontWeight: '600' },
+    { tag: [t.controlKeyword, t.moduleKeyword],                color: palette.kw, fontWeight: '600' },
+    { tag: t.definitionKeyword,                               color: palette.kw, fontStyle: 'italic' },
+    // Strings & template literals
+    { tag: [t.string, t.special(t.string), t.regexp],         color: palette.str },
+    { tag: t.escape,                                          color: palette.bi },
+    // Comments
+    { tag: t.comment,                                         color: palette.cmt, fontStyle: 'italic' },
+    { tag: t.lineComment,                                     color: palette.cmt, fontStyle: 'italic' },
+    { tag: t.blockComment,                                    color: palette.cmt, fontStyle: 'italic' },
+    { tag: t.docComment,                                      color: palette.cmt, fontStyle: 'italic', fontWeight: '500' },
+    // Numbers, booleans, null
+    { tag: [t.number, t.float, t.integer],                    color: palette.num },
+    { tag: t.bool,                                            color: palette.num, fontWeight: '600' },
+    { tag: t.null,                                            color: palette.num, fontWeight: '600' },
+    // Functions & methods
+    { tag: [t.function(t.name), t.function(t.variableName)],  color: palette.fn, fontWeight: '500' },
+    { tag: [t.definition(t.function(t.name)), t.definition(t.function(t.variableName))], color: palette.fn, fontWeight: '600' },
+    { tag: t.function(t.propertyName),                        color: palette.fn },
+    // Variables
+    { tag: t.variableName,                                    color: palette.base },
+    { tag: t.definition(t.variableName),                      color: palette.base, fontWeight: '500' },
+    { tag: t.local(t.variableName),                           color: palette.base },
+    { tag: t.special(t.variableName),                         color: palette.bi },
+    // Types & classes
+    { tag: [t.typeName, t.className],                         color: palette.bi, fontWeight: '500' },
+    { tag: t.namespace,                                       color: palette.bi },
+    { tag: t.typeOperator,                                    color: palette.kw },
+    { tag: t.definition(t.typeName),                          color: palette.bi, fontWeight: '600' },
+    // Properties
+    { tag: t.propertyName,                                    color: palette.str },
+    { tag: t.definition(t.propertyName),                      color: palette.str, fontWeight: '500' },
+    // Operators & punctuation
+    { tag: t.operator,                                        color: palette.op },
+    { tag: t.arithmeticOperator,                              color: palette.op },
+    { tag: t.logicOperator,                                   color: palette.kw },
+    { tag: t.compareOperator,                                 color: palette.op },
+    { tag: [t.punctuation, t.bracket],                        color: palette.op + 'bb' },
+    { tag: t.derefOperator,                                   color: palette.op },
+    { tag: t.separator,                                       color: palette.op + '88' },
+    // HTML / JSX tags
+    { tag: t.tagName,                                         color: palette.kw },
+    { tag: t.angleBracket,                                    color: palette.op },
+    { tag: t.attributeName,                                   color: palette.bi },
+    { tag: t.attributeValue,                                  color: palette.str },
+    // Markdown
+    { tag: t.heading,                                         color: palette.kw, fontWeight: 'bold' },
+    { tag: t.heading1,                                        color: palette.kw, fontWeight: 'bold', fontSize: '1.15em' },
+    { tag: t.heading2,                                        color: palette.kw, fontWeight: 'bold', fontSize: '1.08em' },
+    { tag: t.heading3,                                        color: palette.fn, fontWeight: 'bold' },
+    { tag: t.emphasis,                                        fontStyle: 'italic' },
+    { tag: t.strong,                                          fontWeight: 'bold' },
+    { tag: t.strikethrough,                                   textDecoration: 'line-through' },
+    { tag: [t.link, t.url],                                   color: palette.bi, textDecoration: 'underline' },
+    { tag: t.monospace,                                       fontFamily: "monospace", color: palette.str },
+    { tag: t.content,                                         color: palette.base },
+    // Decorators / annotations
+    { tag: t.annotation,                                      color: palette.bi, fontWeight: '500' },
+    { tag: t.meta,                                            color: palette.cmt },
+    // Self / this
+    { tag: t.self,                                            color: palette.kw, fontWeight: '600' },
+    // Constants
+    { tag: t.constant(t.name),                                color: palette.num, fontWeight: '500' },
+    { tag: t.constant(t.variableName),                        color: palette.num },
+    // Diff colors
+    { tag: t.inserted,                                        color: palette.fn },
+    { tag: t.deleted,                                         color: palette.kw },
+    { tag: t.changed,                                         color: palette.num },
+    // Labels
+    { tag: t.labelName,                                       color: palette.bi, fontStyle: 'italic' },
+    // Invalid
+    { tag: t.invalid,                                         color: palette.kw, textDecoration: 'underline wavy' },
   ]))
 }
 
@@ -324,7 +413,7 @@ export default function CodeMirrorEditor({ node, onChange, onSave, externalPalet
   const [showPaletteMenu, setShowPaletteMenu] = useState(false)
   const [showFind, setShowFind] = useState(false)
   const [wordWrap, setWordWrap] = useState(false)
-  const [fontSize, setFontSize] = useState(13)
+  const [fontSize, setFontSize] = useState(15)
   const [toastMsg, setToastMsg] = useState('')
   const [cursor, setCursor] = useState({ line: 1, col: 1 })
   const [hasGhostText, setHasGhostText] = useState(false)
@@ -448,6 +537,7 @@ export default function CodeMirrorEditor({ node, onChange, onSave, externalPalet
     })
 
     const extensions = [
+      history(),
       lineNumbers(),
       highlightActiveLineGutter(),
       highlightActiveLine(),
@@ -455,7 +545,7 @@ export default function CodeMirrorEditor({ node, onChange, onSave, externalPalet
       bracketMatching(),
       closeBrackets(),
       ghostTextField,
-      autocompletion(),
+      autocompletion({ defaultKeymap: true, closeOnBlur: false }),
       search({ top: false }),
       keymap.of([
         {
@@ -482,7 +572,7 @@ export default function CodeMirrorEditor({ node, onChange, onSave, externalPalet
             return true
           },
         },
-        ...defaultKeymap, ...searchKeymap, ...completionKeymap, indentWithTab,
+        ...historyKeymap, ...defaultKeymap, ...searchKeymap, ...completionKeymap, indentWithTab,
         { key: 'Mod-s', run: () => { onSaveRef.current?.(); return true } },
       ]),
       indentOnInput(),
@@ -512,13 +602,13 @@ export default function CodeMirrorEditor({ node, onChange, onSave, externalPalet
     }
   }, [])
 
-  // Update theme dynamically
+  // Update theme dynamically — use bg+kw as a cheap change key so same-ID palettes also re-apply
   useEffect(() => {
     if (!viewRef.current) return
     viewRef.current.dispatch({
       effects: themeCompartment.reconfigure([buildTheme(palette), buildHighlight(palette)])
     })
-  }, [palette.id])
+  }, [palette.id, palette.bg, palette.kw])
 
   // Sync node content when node changes
   useEffect(() => {

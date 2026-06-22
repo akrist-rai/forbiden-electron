@@ -2422,19 +2422,33 @@ body {
   background:#ede8d5; border-top:3px solid #0a0a0a;
 }
 
+/* VS Code-style drag handle */
 .ide-bottom-resize {
-  height:5px; flex-shrink:0; cursor:ns-resize; position:relative; z-index:2;
-  transition:background .15s; display:flex; align-items:center; justify-content:center;
+  height: 8px; flex-shrink:0; cursor:ns-resize; position:relative; z-index:2;
+  display:flex; align-items:center; justify-content:center; gap:3px;
+  transition:background .15s;
+  /* grip dots */
 }
-.ide-bottom-resize::before {
-  content:''; width:24px; height:2px;
-  background:currentColor; opacity:.2; border-radius:1px;
-  transition:opacity .15s,width .15s;
+.ide-bottom-resize::before,
+.ide-bottom-resize::after {
+  content:'';
+  width:28px; height:2px; border-radius:2px;
+  background:currentColor; opacity:.18;
+  transition:opacity .15s, width .15s, transform .15s;
+  position:absolute;
 }
-.ide-bottom-resize:hover::before { opacity:.7; width:36px; }
-.theme-cyber .ide-bottom-resize { background:rgba(255,42,56,.07); color:#ff2a38; }
-.theme-cyber .ide-bottom-resize:hover { background:rgba(255,42,56,.18); }
-.theme-brutal .ide-bottom-resize { background:rgba(0,0,0,.1); color:#c8001a; }
+.ide-bottom-resize::before { transform:translateY(-2px); }
+.ide-bottom-resize::after  { transform:translateY(2px); }
+.ide-bottom-resize:hover::before,
+.ide-bottom-resize:hover::after { opacity:.6; width:40px; }
+.theme-cyber .ide-bottom-resize {
+  background: linear-gradient(180deg, rgba(255,42,56,.1) 0%, transparent 100%);
+  color:#ff2a38;
+}
+.theme-cyber .ide-bottom-resize:hover {
+  background: linear-gradient(180deg, rgba(255,42,56,.22) 0%, transparent 100%);
+}
+.theme-brutal .ide-bottom-resize { background:rgba(0,0,0,.12); color:#c8001a; }
 .theme-brutal .ide-bottom-resize:hover { background:rgba(200,0,26,.18); }
 
 /* Pinned tab dot indicator */
@@ -7678,24 +7692,34 @@ body {
   background: #02020e !important;
   border-top: none !important;
 }
-.theme-cyber .xterm-screen { padding: 4px !important; }
+.theme-cyber .xterm-screen { padding: 4px 2px 4px 4px !important; }
 
-/* Terminal cursor glow */
+/* Terminal cursor glow — uses palette prompt color */
 .theme-cyber .xterm-cursor-blink {
-  box-shadow: 0 0 8px rgba(255,42,56,.7) !important;
+  box-shadow: 0 0 10px rgba(16,185,129,.8) !important;
 }
 
-/* Terminal scrollbar */
-.theme-cyber .xterm-viewport::-webkit-scrollbar { width: 2px !important; }
+/* Terminal scrollbar — thin & styled */
+.theme-cyber .xterm-viewport::-webkit-scrollbar { width: 3px !important; }
+.theme-cyber .xterm-viewport::-webkit-scrollbar-track {
+  background: transparent !important;
+}
 .theme-cyber .xterm-viewport::-webkit-scrollbar-thumb {
-  background: rgba(255,42,56,.2) !important;
-  border-radius: 0 !important;
+  background: rgba(16,185,129,.25) !important;
+  border-radius: 2px !important;
+}
+.theme-cyber .xterm-viewport::-webkit-scrollbar-thumb:hover {
+  background: rgba(16,185,129,.5) !important;
 }
 
 /* xterm selection */
 .theme-cyber .xterm-selection div {
-  background: rgba(255,42,56,.22) !important;
+  background: rgba(16,185,129,.18) !important;
 }
+
+/* Smooth text rendering in terminal */
+.xterm { font-feature-settings: "liga" 0, "calt" 0; }
+.xterm canvas { image-rendering: pixelated; }
 
 
 /* ─────────────────────────────────────────────────────────────────
