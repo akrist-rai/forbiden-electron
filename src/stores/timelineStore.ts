@@ -30,7 +30,7 @@ interface TimelineState {
 
 export const useTimelineStore = create<TimelineState>()((set) => ({
   eventLog: [
-    { id: Date.now(), type: 'system', label: 'FORBIDEN IDE started', ts: Date.now(), icon: '⚡' },
+    { id: Date.now(), type: 'system', label: 'SANCTION IDE started', ts: Date.now(), icon: '⚡' },
   ],
   playheadPos: 400,
   activeVersionName: 'v1.4 (HEAD)',

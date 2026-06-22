@@ -427,8 +427,10 @@ export default function CodeMirrorEditor({ node, onChange, onSave, externalPalet
   const wordWrapRef = useRef(wordWrap)
   const fontSizeRef = useRef(fontSize)
   const paletteRef = useRef(palette)
-  const aiDebounceRef = useRef<any>(null)
-  const aiConfigRef = useRef<any>({ enabled: false })
+  const aiDebounceRef      = useRef<any>(null)
+  const aiConfigRef        = useRef<any>({ enabled: false })
+  const codeDebounceRef    = useRef<any>(null)
+  const cursorDebounceRef  = useRef<any>(null)
 
   // Keep refs current
   useEffect(() => { onChangeRef.current = onChange }, [onChange])
@@ -491,26 +493,22 @@ export default function CodeMirrorEditor({ node, onChange, onSave, externalPalet
 
     const updateListener = EditorView.updateListener.of((update) => {
       if (update.docChanged) {
-        onChangeRef.current(update.state.doc.toString())
-      }
-      if (update.selectionSet || update.docChanged) {
-        const head = update.state.selection.main.head
-        const line = update.state.doc.lineAt(head)
-        const lineNum = line.number
-        const colNum = head - line.from + 1
-        setCursor({ line: lineNum, col: colNum })
-        onCursorChangeRef.current?.(lineNum, colNum)
+        // Debounce onChange — avoids doc.toString() + React state write on every keystroke
+        clearTimeout(codeDebounceRef.current)
+        codeDebounceRef.current = setTimeout(() => {
+          if (viewRef.current) onChangeRef.current(viewRef.current.state.doc.toString())
+        }, 50)
 
-        // Reset AI ghost text debounce
+        // AI ghost text (separate debounce)
         clearTimeout(aiDebounceRef.current)
         const ghost = update.view.state.field(ghostTextField, false)
         if (ghost) setHasGhostText(false)
         const cfg = aiConfigRef.current
-        if (cfg.enabled && update.docChanged) {
+        if (cfg.enabled) {
           const view = update.view
-          const headPos = head
+          const headPos = update.state.selection.main.head
           aiDebounceRef.current = setTimeout(async () => {
-            if (view.state.selection.main.head !== headPos) return
+            if (!view.state || view.state.selection.main.head !== headPos) return
             const doc = view.state.doc.toString()
             const prefix = doc.slice(0, headPos)
             const suffix = doc.slice(headPos, headPos + 200)
@@ -533,6 +531,18 @@ export default function CodeMirrorEditor({ node, onChange, onSave, externalPalet
             } catch {}
           }, 1800)
         }
+      }
+      if (update.selectionSet || update.docChanged) {
+        const head = update.state.selection.main.head
+        const line = update.state.doc.lineAt(head)
+        const lineNum = line.number
+        const colNum  = head - line.from + 1
+        setCursor({ line: lineNum, col: colNum })  // local state, cheap
+        // Debounce the parent store write to avoid re-rendering the whole IDE on every keypress
+        clearTimeout(cursorDebounceRef.current)
+        cursorDebounceRef.current = setTimeout(() => {
+          onCursorChangeRef.current?.(lineNum, colNum)
+        }, 120)
       }
     })
 
@@ -709,16 +719,7 @@ export default function CodeMirrorEditor({ node, onChange, onSave, externalPalet
     }))
   }, [codeForMinimap])
 
-  // Keep minimap updated when editor changes
-  const handleChange = useCallback((code: string) => {
-    setCodeForMinimap(code)
-    onChange(code)
-  }, [onChange])
-
-  // Re-mount with new onChange that keeps minimap in sync
-  // Actually we already have updateListener tied to onChangeRef.
-  // We need onChangeRef to call handleChange not onChange directly.
-  // Let's update onChangeRef to call setCodeForMinimap too.
+  // Keep minimap in sync: update onChangeRef to also push to minimap
   useEffect(() => {
     onChangeRef.current = (code: string) => {
       setCodeForMinimap(code)

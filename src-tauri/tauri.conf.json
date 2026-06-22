@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2.json",
-  "productName": "FORBIDEN",
+  "productName": "SANCTION",
   "version": "2.2.0",
-  "identifier": "com.forbiden.ide",
+  "identifier": "com.sanction.ide",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5175",
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "FORBIDEN",
+        "title": "SANCTION",
         "width": 1440,
         "height": 900,
         "minWidth": 960,
@@ -31,7 +31,9 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["deb"],
+    "targets": [
+      "deb"
+    ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -40,7 +42,7 @@
       "icons/icon.ico"
     ],
     "externalBin": [
-      "binaries/forbiden-engine"
+      "binaries/sanction-engine"
     ]
   },
   "plugins": {

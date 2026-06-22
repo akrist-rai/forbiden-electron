@@ -37,14 +37,14 @@ export function useMenuEvents({
     api.on('menu:save-file',       handleMenuSaveFile)
     api.on('menu:run-active',      handleMenuRunActive)
     api.on('menu:toggle-terminal', handleMenuToggleTerm)
-    window.addEventListener('forbiden:open-folder', handleTitleBarFolder as EventListener)
+    window.addEventListener('sanction:open-folder', handleTitleBarFolder as EventListener)
 
     return () => {
       api.off?.('menu:open-folder',     handleMenuOpenFolder)
       api.off?.('menu:save-file',       handleMenuSaveFile)
       api.off?.('menu:run-active',      handleMenuRunActive)
       api.off?.('menu:toggle-terminal', handleMenuToggleTerm)
-      window.removeEventListener('forbiden:open-folder', handleTitleBarFolder as EventListener)
+      window.removeEventListener('sanction:open-folder', handleTitleBarFolder as EventListener)
     }
   }, [activeTabId, handleOpenFolderForExplorer, handleSaveActiveNode, handleRunActiveNode])
 }

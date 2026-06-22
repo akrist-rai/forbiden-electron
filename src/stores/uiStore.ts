@@ -179,7 +179,7 @@ export const useUIStore = create<UiState>()(
       setNotebookFloating: (v) => set((s) => ({ notebookFloating: upd(v, s.notebookFloating) })),
     }),
     {
-      name: 'forbiden-ui-v1',
+      name: 'sanction-ui-v1',
       partialize: (s) => ({
         themeMode: s.themeMode,
         globalFontScale: s.globalFontScale,

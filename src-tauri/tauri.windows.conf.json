@@ -1,7 +1,7 @@
 {
   "bundle": {
     "resources": {
-      "../engine/forbiden-engine.exe": "."
+      "../engine/sanction-engine.exe": "."
     }
   }
 }

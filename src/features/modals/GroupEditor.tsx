@@ -173,7 +173,7 @@ export default function GroupEditor({ group, nodes, onClose, onOpenNode }: Props
               <span>{members.length} functions</span>
               <span style={{opacity:.25}}>·</span>
               <span>{totalLines} total lines</span>
-              <span style={{marginLeft:'auto',opacity:.3}}>FORBIDEN // CLASS ASSEMBLY</span>
+              <span style={{marginLeft:'auto',opacity:.3}}>SANCTION // CLASS ASSEMBLY</span>
             </div>
           </div>
         </div>

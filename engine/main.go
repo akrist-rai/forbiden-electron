@@ -247,7 +247,7 @@ func handleRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tmp, err := os.CreateTemp("", fmt.Sprintf("forbiden_run_*.%s", ext))
+	tmp, err := os.CreateTemp("", fmt.Sprintf("sanction_run_*.%s", ext))
 	if err != nil {
 		jsonResp(w, map[string]any{"success": false, "error": err.Error()})
 		return

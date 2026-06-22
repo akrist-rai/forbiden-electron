@@ -77,7 +77,7 @@ func handleCodeRun(w http.ResponseWriter, r *http.Request) {
 		ext = "txt"
 	}
 
-	tmp, err := os.CreateTemp("", fmt.Sprintf("forbiden_run_*.%s", ext))
+	tmp, err := os.CreateTemp("", fmt.Sprintf("sanction_run_*.%s", ext))
 	if err != nil {
 		jsonResp(w, map[string]any{"logs": []any{}, "error": err.Error(), "ms": 0})
 		return

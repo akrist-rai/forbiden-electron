@@ -1,5 +1,5 @@
 // ══════════════════════════════════════════════════════════════
-//  FORBIDEN ENGINE  — language detection + execution bridge
+//  SANCTION ENGINE  — language detection + execution bridge
 //  Heavy ops run via Tauri IPC (Rust). PTY injection via Go WS.
 // ══════════════════════════════════════════════════════════════
 import { api } from './api'

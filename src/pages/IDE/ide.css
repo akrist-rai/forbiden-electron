@@ -1,7 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Bebas+Neue&family=Inter:wght@300;400;500;600;700;900&family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;0,800;1,400&family=Oswald:wght@400;700&family=Outfit:wght@300;400;600;800&family=Share+Tech+Mono&display=swap');
 
 /* ═══════════════════════════════════════════════════════════════════
-   FORBINDEN — Ephemeral-Inspired Redesign
+   SANCTION — Ephemeral-Inspired Redesign
    Heavy inspiration: void bg, red/lime/crt accents, scanlines, mono fonts
    ═══════════════════════════════════════════════════════════════════ */
 
@@ -884,7 +884,7 @@ body {
 /* ── ide-v2.css ───────────────────────────────────────────── */
 
 /* ══════════════════════════════════════════════════════
-   FORBIDEN IDE v2 — Manga Graph IDE
+   SANCTION IDE v2 — Manga Graph IDE
    Graph nodes = panels · Timeline = chapters · Code = deep read
    ══════════════════════════════════════════════════════ */
 
@@ -2422,34 +2422,42 @@ body {
   background:#ede8d5; border-top:3px solid #0a0a0a;
 }
 
-/* VS Code-style drag handle */
+/* Bottom panel resize divider — sits between ide-main-row and ide-bottom-panel */
 .ide-bottom-resize {
-  height: 8px; flex-shrink:0; cursor:ns-resize; position:relative; z-index:2;
-  display:flex; align-items:center; justify-content:center; gap:3px;
-  transition:background .15s;
-  /* grip dots */
+  height:6px; flex-shrink:0; cursor:ns-resize; position:relative; z-index:10;
+  display:flex; align-items:center; justify-content:center;
+  transition:background .12s;
+  -webkit-user-select:none; user-select:none;
 }
-.ide-bottom-resize::before,
-.ide-bottom-resize::after {
+.ide-bottom-resize::before {
   content:'';
-  width:28px; height:2px; border-radius:2px;
-  background:currentColor; opacity:.18;
-  transition:opacity .15s, width .15s, transform .15s;
-  position:absolute;
+  position:absolute; left:0; right:0; top:50%; transform:translateY(-50%);
+  height:1px; background:currentColor; opacity:.18;
+  transition:opacity .12s, height .12s;
 }
-.ide-bottom-resize::before { transform:translateY(-2px); }
-.ide-bottom-resize::after  { transform:translateY(2px); }
-.ide-bottom-resize:hover::before,
-.ide-bottom-resize:hover::after { opacity:.6; width:40px; }
-.theme-cyber .ide-bottom-resize {
-  background: linear-gradient(180deg, rgba(255,42,56,.1) 0%, transparent 100%);
-  color:#ff2a38;
+.ide-bottom-resize:hover { background:rgba(255,255,255,.04); }
+.ide-bottom-resize:hover::before { opacity:.55; height:2px; }
+.ide-bottom-resize:active { background:rgba(255,255,255,.07); }
+.theme-cyber .ide-bottom-resize { color:#ff2a38; }
+.theme-cyber .ide-bottom-resize:hover { background:rgba(255,42,56,.1); }
+.theme-brutal .ide-bottom-resize { color:#c8001a; }
+.theme-brutal .ide-bottom-resize:hover { background:rgba(200,0,26,.15); }
+
+/* Collapsed state — thin persistent strip when bottom panel is hidden */
+.ide-bottom-resize-collapsed {
+  height: 4px;
+  opacity: 0;
+  transition: opacity .18s, background .12s;
 }
-.theme-cyber .ide-bottom-resize:hover {
-  background: linear-gradient(180deg, rgba(255,42,56,.22) 0%, transparent 100%);
+.ide-bottom-resize-collapsed:hover {
+  opacity: 1;
 }
-.theme-brutal .ide-bottom-resize { background:rgba(0,0,0,.12); color:#c8001a; }
-.theme-brutal .ide-bottom-resize:hover { background:rgba(200,0,26,.18); }
+.ide-bottom-resize-collapsed::before {
+  opacity: 0;
+}
+.ide-bottom-resize-collapsed:hover::before {
+  opacity: 0.5;
+}
 
 /* Pinned tab dot indicator */
 .ide-tab-pin {
@@ -2576,7 +2584,7 @@ body {
 /* ── manga.css ────────────────────────────────────────────── */
 
 /* ══════════════════════════════════════════════════════
-   FORBIDEN — MANGA DESIGN SYSTEM
+   SANCTION — MANGA DESIGN SYSTEM
    Screentone · Panel ink · Speed lines · Impact type
    ══════════════════════════════════════════════════════ */
 
@@ -3547,7 +3555,7 @@ body {
 }
 
 .boot-copy::before {
-  content: 'FORBIDEN';
+  content: 'SANCTION';
   position: absolute;
   left: 34px;
   bottom: 12px;
@@ -5125,7 +5133,7 @@ body {
 
 
 /* ══════════════════════════════════════════════════════════════════
-   FORBIDEN — v3 REDESIGN
+   SANCTION — v3 REDESIGN
    Deeper void · bolder chrome · unified scrollbars · refined spacing
    ══════════════════════════════════════════════════════════════════ */
 
@@ -5560,14 +5568,6 @@ body {
   border-top: 1px solid rgba(255,42,56,.18) !important;
 }
 
-/* ── RESIZE HANDLES: consistent red tint ── */
-.theme-cyber .ide-bottom-resize {
-  background: rgba(255,42,56,.06) !important;
-  color: #ff2a38 !important;
-}
-.theme-cyber .ide-bottom-resize:hover {
-  background: rgba(255,42,56,.2) !important;
-}
 
 /* ── TIMELINE RESIZE ── */
 .theme-cyber .ide-timeline-resize-handle {
@@ -5617,7 +5617,7 @@ body {
 
 
 /* ══════════════════════════════════════════════════════════════════
-   FORBIDEN v3 — REDESIGN ROUND 2
+   SANCTION v3 — REDESIGN ROUND 2
    Git panel · Command palette · Board/Kanban · Manga/Node · Notes
    ══════════════════════════════════════════════════════════════════ */
 
@@ -6457,7 +6457,7 @@ body {
 
 
 /* ══════════════════════════════════════════════════════════════════
-   FORBIDEN v3 — EFFECTS & MOTION
+   SANCTION v3 — EFFECTS & MOTION
    Glitch · Chromatic · Shimmer · Micro-interactions · Animations
    ══════════════════════════════════════════════════════════════════ */
 
@@ -6944,7 +6944,7 @@ body {
 
 
 /* ══════════════════════════════════════════════════════════════════
-   FORBIDEN v3 — PASS 4
+   SANCTION v3 — PASS 4
    Dashboard red rebrand · Modified tabs · Settings · Workspace polish
    ══════════════════════════════════════════════════════════════════ */
 
@@ -7458,7 +7458,7 @@ body {
 
 
 /* ══════════════════════════════════════════════════════════════════
-   FORBIDEN v3 — PASS 5
+   SANCTION v3 — PASS 5
    Find bar · Manga hero · Stagger · Terminal · Micro-polish
    ══════════════════════════════════════════════════════════════════ */
 
@@ -8021,7 +8021,7 @@ body {
 
 
 /* ══════════════════════════════════════════════════════════════════
-   FORBIDEN v3 — PASS 6 (FINAL)
+   SANCTION v3 — PASS 6 (FINAL)
    Boot screen green cleanup · Auth page · Final micro-details
    ══════════════════════════════════════════════════════════════════ */
 
@@ -8208,7 +8208,7 @@ body {
 
 
 /* ══════════════════════════════════════════════════════════════════
-   FORBIDEN v3 — PASS 7
+   SANCTION v3 — PASS 7
    Autocomplete popup · Run button · Terminal polish · Extra effects
    ══════════════════════════════════════════════════════════════════ */
 
@@ -8687,7 +8687,7 @@ body {
 
 
 /* ══════════════════════════════════════════════════════════════════
-   FORBIDEN v3 — PASS 8
+   SANCTION v3 — PASS 8
    Remove ALL overlays from images (scan lines, dot tone, speed lines)
    ══════════════════════════════════════════════════════════════════ */
 
@@ -8734,7 +8734,7 @@ body {
 
 
 /* ══════════════════════════════════════════════════════════════════
-   FORBIDEN v3 — IMAGE CLEAN
+   SANCTION v3 — IMAGE CLEAN
    Remove every filter, veil, and overlay from images in cyber theme
    ══════════════════════════════════════════════════════════════════ */
 
@@ -8780,7 +8780,7 @@ body {
 
 
 /* ══════════════════════════════════════════════════════════════════
-   FORBIDEN v3 — RESTORE IMAGE EFFECTS + KILL IDE LINES
+   SANCTION v3 — RESTORE IMAGE EFFECTS + KILL IDE LINES
    ══════════════════════════════════════════════════════════════════ */
 
 /* ─── KILL all scan/dither/noise lines on the IDE canvas ─── */

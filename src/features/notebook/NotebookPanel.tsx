@@ -4,7 +4,7 @@ import { renderMd } from '../../lib/renderMd'
 import { runByLang } from '../../lib/engine'
 import CodeMirrorEditor from '../../components/CodeMirrorEditor'
 
-const NB_LS_KEY = 'forbiden-nb-v1'
+const NB_LS_KEY = 'sanction-nb-v1'
 
 const NB_TEMPLATES = {
   // ── CYBERSEC ──────────────────────────────────────────────────
@@ -17,7 +17,7 @@ for algo in ['md5','sha1','sha224','sha256','sha384','sha512']:
     print(f"{algo.upper():<10} {h}")` },
   '🔐 Base64 / Hex': { lang:'python', code:
 `import base64, binascii
-data = "FORBIDEN_OPERATOR"    # ← change this
+data = "SANCTION_OPERATOR"    # ← change this
 b64  = base64.b64encode(data.encode()).decode()
 hx   = binascii.hexlify(data.encode()).decode()
 print("[Base64]  encode:", b64)
@@ -295,7 +295,7 @@ else {
 const URL  = "https://httpbin.org/post"   // ← change
 const OPTS = {
   method: "POST",
-  headers: { "Content-Type":"application/json", "X-Operator":"forbiden" },
+  headers: { "Content-Type":"application/json", "X-Operator":"sanction" },
   body: JSON.stringify({ ping: true, ts: Date.now() }),
 }
 

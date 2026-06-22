@@ -117,7 +117,7 @@ export const useGraphStore = create<GraphState>()(
         }),
     }),
     {
-      name: 'forbiden-graph-v2',
+      name: 'sanction-graph-v2',
       // Don't persist physics velocities or ephemeral runtime state
       partialize: (s) => ({
         nodes: s.nodes.map(({ vx: _vx, vy: _vy, ...rest }) => ({ ...rest, vx: 0, vy: 0 })),

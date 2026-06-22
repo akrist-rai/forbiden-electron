@@ -34,7 +34,7 @@ fn get_platform() -> String {
 // ── Engine path resolution (desktop only) ─────────────────────
 
 fn resolve_engine_path(app: &tauri::App) -> PathBuf {
-    let bin_name = if cfg!(target_os = "windows") { "forbiden-engine.exe" } else { "forbiden-engine" };
+    let bin_name = if cfg!(target_os = "windows") { "sanction-engine.exe" } else { "sanction-engine" };
 
     if cfg!(debug_assertions) {
         let exe = std::env::current_exe().unwrap_or_default();

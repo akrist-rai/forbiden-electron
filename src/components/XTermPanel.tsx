@@ -49,18 +49,18 @@ interface TermTab {
 // ─── Defaults ─────────────────────────────────────────────────────────────────
 
 const DEFAULT_PALETTE: TermPalette = {
-  id: 'forbiden-dark',
-  name: 'FORBIDEN Dark',
+  id: 'sanction-dark',
+  name: 'SANCTION Dark',
   bg: '#0d0d0d',
   text: '#cccccc',
-  prompt: '#10b981',
+  prompt: '#ff2a38',
   dim: '#444444',
-  error: '#ff435a',
+  error: '#ff6b6b',
   warn: '#ffc410',
-  info: '#28f1c3',
+  info: '#ff6040',
   border: '#1e1e1e',
-  cursor: '#10b981',
-  selection: 'rgba(255,255,255,0.1)',
+  cursor: '#ff2a38',
+  selection: 'rgba(255,42,56,0.18)',
 }
 
 const FONT_FAMILY = "'JetBrains Mono', 'Fira Code', monospace"
@@ -229,20 +229,24 @@ const XTermPanel: React.FC<XTermPanelProps> = ({ cwd, palette, onCwdChange, onAc
 
   useEffect(() => {
     if (!wrapperRef.current) return
+    let rafId: number
     const ro = new ResizeObserver(() => {
-      if (!activeId) return
-      const tab = tabsRef.current.get(activeId)
-      if (!tab?.fitAddon || !tab.terminal) return
-      try {
-        tab.fitAddon.fit()
-        const { cols, rows } = tab.terminal
-        if (tab.ws && tab.ws.readyState === WebSocket.OPEN) {
-          tab.ws.send(JSON.stringify({ type: 'resize', cols, rows }))
-        }
-      } catch {}
+      cancelAnimationFrame(rafId)
+      rafId = requestAnimationFrame(() => {
+        if (!activeId) return
+        const tab = tabsRef.current.get(activeId)
+        if (!tab?.fitAddon || !tab.terminal) return
+        try {
+          tab.fitAddon.fit()
+          const { cols, rows } = tab.terminal
+          if (tab.ws && tab.ws.readyState === WebSocket.OPEN) {
+            tab.ws.send(JSON.stringify({ type: 'resize', cols, rows }))
+          }
+        } catch {}
+      })
     })
     ro.observe(wrapperRef.current)
-    return () => ro.disconnect()
+    return () => { ro.disconnect(); cancelAnimationFrame(rafId) }
   }, [activeId])
 
   useEffect(() => {

@@ -13,10 +13,10 @@ export interface JsLog {
   ts: number
 }
 
-// Default FORBINDEN terminal palette — matches TERM_PALETTES[1] in IDE
+// Default SANCTION terminal palette — matches TERM_PALETTES[1] in IDE
 const DEFAULT_TERM_PALETTE: TermPalette = {
-  id: 'forbinden',
-  name: 'FORBINDEN',
+  id: 'sanction',
+  name: 'SANCTION',
   bg: '#080810',
   text: '#c0c8d8',
   prompt: '#10b981',
@@ -67,13 +67,13 @@ export const useTerminalStore = create<TerminalState>()(
   persist(
     (set) => ({
       termCwd: '~',
-      termLines: [{ c: '#28f1c3', t: '[FORBIDEN] System boot v2.2.0' }],
+      termLines: [{ c: '#28f1c3', t: '[SANCTION] System boot v2.2.0' }],
       termInput: '',
       termPalette: DEFAULT_TERM_PALETTE,
       showTermPalette: false,
       activePtyId: null,
       jsLogs: [
-        { type: 'header', val: '// FORBIDEN JS Runtime ready', ts: Date.now() },
+        { type: 'header', val: '// SANCTION JS Runtime ready', ts: Date.now() },
         { type: 'info', val: '// Use ▶ on any node or type JS in the REPL below', ts: Date.now() },
       ],
       replInput: '',
@@ -106,7 +106,7 @@ export const useTerminalStore = create<TerminalState>()(
       setMdFontSize: (size) => set({ mdFontSize: size }),
     }),
     {
-      name: 'forbiden-terminal-v1',
+      name: 'sanction-terminal-v1',
       partialize: (s) => ({ termPalette: s.termPalette }),
     }
   )

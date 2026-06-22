@@ -11,12 +11,12 @@ import (
 
 func configDir() string {
 	if d := os.Getenv("XDG_CONFIG_HOME"); d != "" {
-		return filepath.Join(d, "forbiden")
+		return filepath.Join(d, "sanction")
 	}
 	if h := os.Getenv("HOME"); h != "" {
-		return filepath.Join(h, ".config", "forbiden")
+		return filepath.Join(h, ".config", "sanction")
 	}
-	return filepath.Join("/tmp", "forbiden")
+	return filepath.Join("/tmp", "sanction")
 }
 
 func workspaceFile() string { return filepath.Join(configDir(), "workspace.json") }
@@ -100,11 +100,11 @@ func handleWorkspaceEnsureDefault(w http.ResponseWriter, r *http.Request) {
 	if info, err := os.Stat(docs); err == nil && info.IsDir() {
 		base = docs
 	}
-	ws := filepath.Join(base, "FORBIDEN")
+	ws := filepath.Join(base, "SANCTION")
 	os.MkdirAll(ws, 0755)
 	mainJS := filepath.Join(ws, "main.js")
 	if _, err := os.Stat(mainJS); os.IsNotExist(err) {
-		os.WriteFile(mainJS, []byte("// FORBIDEN entry point\nconsole.log('ready')\n"), 0644)
+		os.WriteFile(mainJS, []byte("// SANCTION entry point\nconsole.log('ready')\n"), 0644)
 	}
 	jsonResp(w, map[string]any{"success": true, "path": ws})
 }

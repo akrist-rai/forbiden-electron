@@ -46,7 +46,7 @@ interface Props {
   setHoveredNodeId: (id: string | null) => void
   draggingNodeRef: React.RefObject<any>
   lastMousePos: React.RefObject<{ x: number; y: number }>
-  transform: { x: number; y: number; scale: number }
+  transformRef: React.RefObject<{ x: number; y: number; scale: number }>
   setNodeColorPicker: (picker: any) => void
   handleNodeClickInMode: (id: string) => void
   openNodeInEditor: (id: string) => void
@@ -60,7 +60,7 @@ interface Props {
 
 function MangaNodeInner({
   node, groups, brutal, isJoinSelected, edgeMode, hoveredNodeId, setHoveredNodeId,
-  draggingNodeRef, lastMousePos, transform, setNodeColorPicker, handleNodeClickInMode, openNodeInEditor,
+  draggingNodeRef, lastMousePos, transformRef, setNodeColorPicker, handleNodeClickInMode, openNodeInEditor,
   nodeRunState, onRun, onCtxMenu, wakePhysicsRef, onMountEl, onUnmountEl,
 }: Props) {
   const nodeElRef = useRef<HTMLDivElement>(null)
@@ -88,8 +88,7 @@ function MangaNodeInner({
       ref={nodeElRef}
       className="mn-node"
       style={{
-        left: node.x - W / 2,
-        top: node.y - H / 2,
+        transform: `translate(${node.x - W/2}px,${node.y - H/2}px)`,
         width: W, height: H,
         opacity: dimmed ? 0.22 : 1,
         zIndex: isJoinSelected || isHovered ? 10 : 1,
@@ -109,16 +108,17 @@ function MangaNodeInner({
       onPointerMove={e => {
         if (!draggingNodeRef.current || draggingNodeRef.current.id !== node.id) return
         e.stopPropagation()
-        const dx = (e.clientX - lastMousePos.current.x) / transform.scale
-        const dy = (e.clientY - lastMousePos.current.y) / transform.scale
+        const dx = (e.clientX - lastMousePos.current.x) / (transformRef.current?.scale ?? 1)
+        const dy = (e.clientY - lastMousePos.current.y) / (transformRef.current?.scale ?? 1)
         if (Math.abs(dx) > 1 || Math.abs(dy) > 1) draggingNodeRef.current.hasDragged = true
         draggingNodeRef.current.x += dx
         draggingNodeRef.current.y += dy
         lastMousePos.current = { x: e.clientX, y: e.clientY }
         // Direct DOM update — bypasses React reconciliation for zero-latency drag
         if (nodeElRef.current) {
-          nodeElRef.current.style.left = (draggingNodeRef.current.x - W / 2) + 'px'
-          nodeElRef.current.style.top  = (draggingNodeRef.current.y - H / 2) + 'px'
+          const nx = draggingNodeRef.current.x - W / 2
+          const ny = draggingNodeRef.current.y - H / 2
+          nodeElRef.current.style.transform = `translate(${nx}px,${ny}px)`
         }
       }}
       onPointerUp={e => {

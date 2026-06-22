@@ -54,7 +54,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       setReplaceLoading: (loading) => set({ replaceLoading: loading }),
     }),
     {
-      name: 'forbiden-workspace-v1',
+      name: 'sanction-workspace-v1',
       partialize: (s) => ({
         explorerRoot: s.explorerRoot,
         recentFiles: s.recentFiles,

@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/schema/acl/capability.json",
   "identifier": "mobile",
-  "description": "FORBIDEN mobile (Android) capabilities",
+  "description": "SANCTION mobile (Android) capabilities",
   "platforms": ["android"],
   "windows": ["main"],
   "permissions": [

@@ -1,6 +1,6 @@
 // @ts-nocheck
 import './ide.css'
-import { useState, useEffect, useRef, useMemo, useCallback, startTransition } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback, startTransition } from 'react'
 import { useWorkspace } from '../../hooks/useWorkspace'
 import { useUIStore } from '../../stores/uiStore'
 import { useEditorStore } from '../../stores/editorStore'
@@ -35,6 +35,7 @@ import GitPanelV2 from '../../components/GitPanelV2'
 import { ConsolePanel } from '../../components/ConsolePanel'
 import { Icons as I } from '../../components/Icons'
 import { highlightCode } from '../../lib/highlight'
+import { sounds } from '../../lib/sounds'
 import { api } from '../../lib/api'
 import { ACCENTS, TL_TRACKS, TL_COL } from '../../constants/accents'
 import { PALETTES, PALETTE_LIGHT_IDS, TERM_PALETTES } from '../../constants/palettes'
@@ -403,7 +404,7 @@ function renderMd(raw) {
 //  PERSISTENCE
 // ══════════════════════════════════════════════════════════════
 
-const LS_KEY    = 'forbiden-ide-v1'
+const LS_KEY    = 'sanction-ide-v1'
 function loadSaved() {
   try {
     const raw = localStorage.getItem(LS_KEY)
@@ -712,6 +713,15 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
   const unregisterNodeEl = useCallback((id: string) => { nodeElsRef.current.delete(id) }, [])
   const canvasInputRef = useRef(null)
   const folderInputRef = useRef(null)
+  const canvasGraphTransformEl = useRef<HTMLDivElement>(null)
+  const liveTransformRef = useRef({ ...transform })
+  const edgePathElsRef   = useRef<Map<string, SVGPathElement>>(new Map())
+  const isDraggingCanvasRef = useRef(false)
+  const applyLiveTransform = () => {
+    const el = canvasGraphTransformEl.current; if (!el) return
+    const { x, y, scale } = liveTransformRef.current
+    el.style.transform = `translate(${x}px,${y}px) scale(${scale})`
+  }
 
   // ── Unified floating panel system ──────────────────────────────
   const W = typeof window!=='undefined' ? window.innerWidth  : 1400
@@ -720,28 +730,94 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
   const panelDragRef = useRef(null)
   const tlDragRef    = useRef<any>(null)
 
+  // Sync liveTransformRef when store transform changes (zoom actions, external setTransform)
+  useEffect(() => { liveTransformRef.current = { ...transform }; applyLiveTransform() }, [transform])
+  // CSS variables for panel sizes — updated imperatively during drag, synced here on store changes
+  useLayoutEffect(() => { document.documentElement.style.setProperty('--ide-bottom-h', bottomH + 'px') }, [bottomH])
+  useLayoutEffect(() => { document.documentElement.style.setProperty('--ide-editor-w', editorW + 'px') }, [editorW])
+  useLayoutEffect(() => { document.documentElement.style.setProperty('--ide-sidebar-w', sidebarW + 'px') }, [sidebarW])
+  const bottomHRef = useRef(bottomH)
+  useEffect(() => { bottomHRef.current = bottomH }, [bottomH])
+
   // ── Split-pane drag (editor/sidebar width) ──────────────────
   useEffect(() => {
     const onMove = (e) => {
       const d = splitDragRef.current; if (!d) return
       const dx = e.clientX - d.sx
-      if (d.side === 'editor')  setEditorW(w  => Math.max(240, Math.min(window.innerWidth*0.85, d.startW - dx)))
-      if (d.side === 'sidebar') setSidebarW(w => Math.max(160, Math.min(480, d.startW + dx)))
+      if (d.side === 'editor') {
+        const w = Math.max(240, Math.min(window.innerWidth*0.85, d.startW - dx))
+        d.pendingW = w
+        document.documentElement.style.setProperty('--ide-editor-w', w + 'px')
+      }
+      if (d.side === 'sidebar') {
+        const w = Math.max(160, Math.min(480, d.startW + dx))
+        d.pendingW = w
+        document.documentElement.style.setProperty('--ide-sidebar-w', w + 'px')
+      }
     }
-    const onUp = () => { splitDragRef.current=null; document.body.style.userSelect=''; document.body.style.cursor='' }
+    const onUp = () => {
+      const d = splitDragRef.current
+      if (d?.pendingW != null) {
+        if (d.side === 'editor') setEditorW(d.pendingW)
+        if (d.side === 'sidebar') setSidebarW(d.pendingW)
+      }
+      splitDragRef.current = null
+      document.body.style.userSelect = ''
+      document.body.style.cursor = ''
+    }
     document.addEventListener('mousemove', onMove)
     document.addEventListener('mouseup', onUp)
     return () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp) }
   }, [])
 
-  // ── Timeline panel drag (height) ────────────────────────────
+  // ── Timeline panel drag (height) — VS Code-style drag-from-bottom ──────────
   useEffect(() => {
     const onMove = (e) => {
       const d = tlDragRef.current; if (!d) return
-      const dy = e.clientY - d.sy
-      setBottomH(h => Math.max(120, Math.min(window.innerHeight*0.65, d.startH - dy)))
+      const dy = e.clientY - d.sy  // negative = dragged up
+      if (Math.abs(dy) > 3) d.hasMoved = true
+      if (!d.wasOpen) {
+        // Closed → dragging up opens the panel
+        const openH = Math.max(0, -dy)
+        if (openH > 30 && !d.opened) {
+          d.opened = true
+          document.documentElement.style.setProperty('--ide-bottom-h', openH + 'px')
+          setBottomOpen(true)
+        } else if (d.opened) {
+          d.pendingH = Math.max(60, Math.min(window.innerHeight * 0.65, openH))
+          document.documentElement.style.setProperty('--ide-bottom-h', d.pendingH + 'px')
+        }
+      } else {
+        // Open → resize
+        const h = Math.max(60, Math.min(window.innerHeight * 0.65, d.startH - dy))
+        d.pendingH = h
+        document.documentElement.style.setProperty('--ide-bottom-h', h + 'px')
+      }
     }
-    const onUp = () => { tlDragRef.current=null; document.body.style.userSelect=''; document.body.style.cursor='' }
+    const onUp = () => {
+      const d = tlDragRef.current
+      if (d) {
+        if (!d.wasOpen) {
+          if (!d.opened && !d.hasMoved) {
+            // Pure click → open at stored height
+            document.documentElement.style.setProperty('--ide-bottom-h', bottomHRef.current + 'px')
+            setBottomOpen(true)
+          } else if (d.opened && d.pendingH != null && d.pendingH >= 60) {
+            setBottomH(d.pendingH)
+          } else if (d.opened) {
+            setBottomOpen(false)  // released before reaching min height
+          }
+        } else {
+          if (d.pendingH != null) {
+            if (d.pendingH < 80) setBottomOpen(false)
+            else setBottomH(d.pendingH)
+          }
+        }
+      }
+      tlDragRef.current = null
+      document.body.style.userSelect = ''
+      document.body.style.cursor = ''
+    }
     document.addEventListener('mousemove', onMove)
     document.addEventListener('mouseup', onUp)
     return () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp) }
@@ -752,8 +828,8 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
   // eventLog, addEvent → timelineStore (above)
 
   const refreshGit = useCallback(async () => {
-    if (api?.git && (window as any).__forbiddenCwd) {
-      const cwd = (window as any).__forbiddenCwd
+    if (api?.git && (window as any).__sanctionCwd) {
+      const cwd = (window as any).__sanctionCwd
       setGitLoading(true)
       try {
         const [status, log, branch] = await Promise.all([
@@ -781,7 +857,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
   }, [eventLog])
 
   const handleAiCommitMsg = async () => {
-    const cwd = (window as any).__forbiddenCwd
+    const cwd = (window as any).__sanctionCwd
     if (!cwd || !api?.git) return
     const activeKey = aiProvider === 'ollama' ? (aiKeys['ollama'] || 'http://localhost:11434') : (aiKeys[aiProvider] || '')
     if (aiProvider !== 'ollama' && !activeKey) {
@@ -807,9 +883,9 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
   const handleGitCommit = async () => {
     if (!gitCommitMsg.trim()) return
     const msg = gitCommitMsg.trim()
-    if (api?.git && (window as any).__forbiddenCwd) {
+    if (api?.git && (window as any).__sanctionCwd) {
       setGitLoading(true)
-      const result = await api.git.commit((window as any).__forbiddenCwd, msg).catch((e:any) => ({ success:false, error: e.message }))
+      const result = await api.git.commit((window as any).__sanctionCwd, msg).catch((e:any) => ({ success:false, error: e.message }))
       setGitLoading(false)
       if (result.success) {
         addEvent('commit', `Commit: ${msg.slice(0,40)}`)
@@ -909,7 +985,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
       const folder = savedRes?.path || (defaultRes.success ? defaultRes.path : null)
       if (!folder) return
       setExplorerRoot(folder)
-      ;(window as any).__forbiddenCwd = folder
+      ;(window as any).__sanctionCwd = folder
       setTermCwd(folder)
       setSidebarMode('files')
     })()
@@ -955,13 +1031,10 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
   useEffect(() => {
     let rafId: number
     let idleFrames = 0
-    let lastRenderMs = 0
     let wasDragging = false
 
     const tick = (now: number) => {
       const isDragging = !!draggingNodeRef.current
-      // React re-renders at 30fps for edge SVG. Node positions are DOM-direct (see below).
-      const shouldRender = now - lastRenderMs >= 1000 / 30
 
       let updated = false
       const nds = nodesRef.current, eds = edgesRef.current
@@ -1041,24 +1114,32 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
         }
       }
 
-      // ── Direct DOM: update ALL node positions — bypasses React memo for 60fps physics ──
+      // ── Direct DOM: update ALL node positions via CSS transform ──
       const els = nodeElsRef.current
       for (let i = 0; i < nds.length; i++) {
         const n = nds[i], el = els.get(n.id)
         if (!el) continue
         const W = n.isMain ? 108 : 90, H = n.isMain ? 44 : 36
-        el.style.left = (n.x - W/2) + 'px'
-        el.style.top  = (n.y - H/2) + 'px'
+        el.style.transform = `translate(${n.x - W/2}px,${n.y - H/2}px)`
       }
 
-      // ── React render only for SVG edges (30fps) or on drag end ──
-      if (wasDragging && !isDragging) {
-        forceRender(); lastRenderMs = now
-      } else if (updated && shouldRender) {
-        forceRender(); lastRenderMs = now
+      // ── Direct DOM: update edge SVG paths — no React re-render needed ──
+      const edgeEls = edgePathElsRef.current
+      for (let i = 0; i < eds.length; i++) {
+        const ed = eds[i]
+        const src = nodeMap.get(ed.source), tgt = nodeMap.get(ed.target)
+        if (!src || !tgt) continue
+        const pathEl = edgeEls.get(ed.id)
+        if (!pathEl) continue
+        const dx2 = tgt.x - src.x, dy2 = tgt.y - src.y
+        const len2 = Math.sqrt(dx2*dx2 + dy2*dy2) || 1
+        const bend = Math.min(len2 * 0.38, 72)
+        pathEl.setAttribute('d', `M ${src.x} ${src.y} C ${src.x+bend},${src.y} ${tgt.x-bend},${tgt.y} ${tgt.x},${tgt.y}`)
       }
 
-      if (updated || !updated) idleFrames = updated ? 0 : idleFrames + 1
+      // ── React render only on drag end or when physics fully settles ──
+      idleFrames = updated ? 0 : idleFrames + 1
+      if ((wasDragging && !isDragging) || idleFrames === 8) forceRender()
       wasDragging = isDragging
 
       if (updated || isDragging || idleFrames < 8) {
@@ -1082,7 +1163,10 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
     if (!el) return
     const handler = e => {
       e.preventDefault()
-      setTransform(p => ({...p, scale: Math.min(3.0, Math.max(0.3, p.scale*(e.deltaY>0?.92:1.08)))}))
+      const t = liveTransformRef.current
+      liveTransformRef.current = { ...t, scale: Math.min(3.0, Math.max(0.3, t.scale*(e.deltaY>0?.92:1.08))) }
+      applyLiveTransform()
+      setTransform(liveTransformRef.current)
     }
     el.addEventListener('wheel', handler, { passive:false })
     return () => el.removeEventListener('wheel', handler)
@@ -1093,8 +1177,9 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
     if (!api?.dialog) return
     const folder = await api.dialog.openFolder()
     if (!folder) return
+    sounds.openFolder()
     setExplorerRoot(folder)
-    ;(window as any).__forbiddenCwd = folder
+    ;(window as any).__sanctionCwd = folder
     setTermCwd(folder)
     setSidebarMode('files')
     setSidebarOpen(true)
@@ -1140,7 +1225,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
       const folder = e.detail
       if (!folder) return
       setExplorerRoot(folder)
-      ;(window as any).__forbiddenCwd = folder
+      ;(window as any).__sanctionCwd = folder
       setTermCwd(folder)
       setSidebarMode('files')
       setSidebarOpen(true)
@@ -1158,13 +1243,13 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
     api.on('menu:save-file', handleMenuSaveFile)
     api.on('menu:run-active', handleMenuRunActive)
     api.on('menu:toggle-terminal', handleMenuToggleTerm)
-    window.addEventListener('forbiden:open-folder', handleTitleBarFolder)
+    window.addEventListener('sanction:open-folder', handleTitleBarFolder)
     return () => {
       api.off?.('menu:open-folder', handleMenuOpenFolder)
       api.off?.('menu:save-file', handleMenuSaveFile)
       api.off?.('menu:run-active', handleMenuRunActive)
       api.off?.('menu:toggle-terminal', handleMenuToggleTerm)
-      window.removeEventListener('forbiden:open-folder', handleTitleBarFolder)
+      window.removeEventListener('sanction:open-folder', handleTitleBarFolder)
     }
   }, [activeTabId, handleOpenFolderForExplorer, addEvent])
 
@@ -1211,17 +1296,22 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
     if (edgeMode) return
     if (e.target.closest('.mn-node')) return
     setNodeColorPicker(null)
+    isDraggingCanvasRef.current = true
     setIsDraggingCanvas(true)
     lastMousePos.current = { x:e.clientX, y:e.clientY }
     e.currentTarget.setPointerCapture(e.pointerId)
   }
   const handleCanvasPtrMove = e => {
-    if (!isDraggingCanvas) return
-    const dx=e.clientX-lastMousePos.current.x, dy=e.clientY-lastMousePos.current.y
-    setTransform(p=>({...p, x:p.x+dx, y:p.y+dy}))
+    if (!isDraggingCanvasRef.current) return
+    const dx = e.clientX - lastMousePos.current.x
+    const dy = e.clientY - lastMousePos.current.y
+    liveTransformRef.current = { ...liveTransformRef.current, x: liveTransformRef.current.x+dx, y: liveTransformRef.current.y+dy }
+    applyLiveTransform()
     lastMousePos.current = { x:e.clientX, y:e.clientY }
   }
   const handleCanvasPtrUp = e => {
+    if (isDraggingCanvasRef.current) setTransform(liveTransformRef.current)
+    isDraggingCanvasRef.current = false
     setIsDraggingCanvas(false)
     const dr = draggingNodeRef.current
     if (dr?.hasDragged) wsHook.savePositions([{id:dr.id,x:dr.x,y:dr.y}]).catch(()=>{})
@@ -1264,6 +1354,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
     if (res.success) {
       nodesRef.current = nodesRef.current.map(n => n.id === id ? { ...n, code, modified: false } : n)
       forceRender({})
+      sounds.save()
     }
   }, [forceRender, formatOnSave])
 
@@ -1386,7 +1477,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
     const tempId='n'+Date.now()
 
     // Determine absolute filepath — use workspace folder if available
-    const workspaceFolder = (window as any).__forbiddenCwd
+    const workspaceFolder = (window as any).__sanctionCwd
     const absolutePath = workspaceFolder ? `${workspaceFolder}/${label}` : null
 
     nodesRef.current=[...nodesRef.current,{
@@ -1395,6 +1486,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
       vx:0, vy:0, themeIdx:isDocType||isMd?11:newNodeColor, classId:null, code, modified:false,
     }]
     setShowCreateNode(false); setNewNodeName(''); forceRender({}); wakePhysicsRef.current()
+    sounds.node()
     openNodeInEditor(tempId)
     addEvent('node-create', `Created ${label}`, {nodeId:tempId})
 
@@ -1594,6 +1686,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
     if (!node) return
     const lang = detectLang(node.label || '')
     if (lang === 'md' || lang === 'unknown') return
+    sounds.run()
     setNodeRunState(s => ({...s, [nodeId]: {status:'running', ms:0}}))
     addEvent('run-ok', `RUN ${node.label}`, {nodeId})
 
@@ -1606,11 +1699,13 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
       const ms = Date.now() - t0
       if (res.success) {
         setNodeRunState(s => ({...s, [nodeId]: {status: 'ok', ms}}))
+        sounds.success()
         return
       }
       // Real terminal error (not stale session) — show and bail
       if (res.error !== 'no active terminal') {
         setNodeRunState(s => ({...s, [nodeId]: {status: 'error', ms}}))
+        sounds.error()
         setBottomTab('console')
         setJsLogs(l => [...l,
           {type:'header', val:node.label, ts:Date.now(), nodeId},
@@ -1631,6 +1726,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
     })
     const result = await runByLang(lang, node.code || '', compileStdin)
     setNodeRunState(s => ({...s, [nodeId]: {status: result.error?'error':'ok', ms: result.ms}}))
+    if (result.error) sounds.error(); else sounds.success()
     addEvent(result.error?'run-err':'run-ok', `${result.error?'FAIL':'OK'} ${node.label} (${result.ms}ms)`, {nodeId})
     setJsLogs(l => [
       ...l,
@@ -1728,6 +1824,14 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
     el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
   }, [searchResultIdx])
 
+  // Sound: zen mode transition
+  const zenModeRef = useRef(zenMode)
+  useEffect(() => {
+    if (zenMode === zenModeRef.current) return
+    zenModeRef.current = zenMode
+    if (zenMode) sounds.zenOn(); else sounds.zenOff()
+  }, [zenMode])
+
   // Project-wide search debounced effect
   useEffect(() => {
     clearTimeout(projectSearchDebounce.current)
@@ -1778,9 +1882,9 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
     else if (action === 'sidebar') { setSidebarOpen(v => !v) }
     else if (action === 'edge-add') { setEdgeMode(m => m === 'join' ? null : 'join') }
     else if (action === 'edge-cut') { setEdgeMode(m => m === 'cut' ? null : 'cut') }
-    else if (action === 'zoom-in') { setTransform(p => ({...p, scale: Math.min(3.0, p.scale * 1.25)})) }
-    else if (action === 'zoom-out') { setTransform(p => ({...p, scale: Math.max(0.3, p.scale * 0.8)})) }
-    else if (action === 'zoom-reset') { setTransform(p => ({...p, scale: 1})) }
+    else if (action === 'zoom-in') { liveTransformRef.current={...liveTransformRef.current,scale:Math.min(3.0,liveTransformRef.current.scale*1.25)}; applyLiveTransform(); setTransform(liveTransformRef.current) }
+    else if (action === 'zoom-out') { liveTransformRef.current={...liveTransformRef.current,scale:Math.max(0.3,liveTransformRef.current.scale*0.8)}; applyLiveTransform(); setTransform(liveTransformRef.current) }
+    else if (action === 'zoom-reset') { liveTransformRef.current={...liveTransformRef.current,scale:1}; applyLiveTransform(); setTransform(liveTransformRef.current) }
     else if (action === 'open-folder') { handleOpenFolderForExplorer() }
     else if (action === 'save') { if (activeTabId) saveNodeToDisk(activeTabId) }
     else if (action === 'zen') { setZenMode(v => !v) }
@@ -1900,7 +2004,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
 
       {/* ═══════ TOPBAR ═══════ */}
       <div className="ide-topbar">
-        <span className="ide-logo">FOR<span className="ide-logo-accent">BID</span>EN<span style={{color:'#ff2a38',animation:'fblink 1.1s infinite',fontSize:'1.1rem'}}>_</span></span>
+        <span className="ide-logo">SANC<span className="ide-logo-accent">TI</span>ON<span style={{color:'#ff2a38',animation:'fblink 1.1s infinite',fontSize:'1.1rem'}}>_</span></span>
         <div className="ide-topbar-sep"/>
 
         {/* Active file breadcrumb + language badge */}
@@ -2006,7 +2110,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
 
         {/* ── SIDEBAR PANE (fixed, collapsible) ── */}
         {sidebarOpen && (<>
-          <div className="ide-sidebar-pane" style={{width:sidebarW}}>
+          <div className="ide-sidebar-pane" style={{width:'var(--ide-sidebar-w)'}}>
             <div className="ide-sidebar-header">
               <div className="ide-sidebar-mode-icon">
                 {sideIconDefs.find(d=>d.key===sidebarMode)?.icon}
@@ -2050,7 +2154,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
               {/* ── SOURCE CONTROL (git) ── */}
               {sidebarMode==='git' && (
                 <GitPanelV2
-                  cwd={explorerRoot || (window as any).__forbiddenCwd || termCwd}
+                  cwd={explorerRoot || (window as any).__sanctionCwd || termCwd}
                   brutal={brutal}
                   onOpenFile={(filepath: string) => {
                     const name = filepath.split('/').pop() || filepath
@@ -2458,7 +2562,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
               {edgeMode==='cut'&&<span className="v-pulse red"/>}CUT
             </button>
             <div className="ide-topbar-sep"/>
-            <button className="ide-mode-btn" onClick={()=>setTransform({x:300,y:220,scale:1})}>RESET</button>
+            <button className="ide-mode-btn" onClick={()=>{liveTransformRef.current={x:300,y:220,scale:1};applyLiveTransform();setTransform({x:300,y:220,scale:1})}}>RESET</button>
             {edgeMode==='join'&&joinFirstNode && (
               <div style={{fontFamily:"'Share Tech Mono',monospace",fontSize:'11px',color:'#10b981',marginLeft:6}}>
                 → {nodesRef.current.find(n=>n.id===joinFirstNode)?.label}
@@ -2478,8 +2582,9 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
           >
             {/* Transform container */}
             <div
+              ref={canvasGraphTransformEl}
               className="ide-canvas-graph-transform"
-              style={{transform:`translate(${transform.x}px,${transform.y}px) scale(${transform.scale})`}}
+              style={{transform:`translate(${liveTransformRef.current.x}px,${liveTransformRef.current.y}px) scale(${liveTransformRef.current.scale})`}}
             >
               <div className="ide-canvas-graph">
                 {/* Edges SVG */}
@@ -2540,6 +2645,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
                         <g key={e.id}>
                           <path
                             className="edge-path"
+                            ref={el => { if (el) edgePathElsRef.current.set(e.id, el as unknown as SVGPathElement); else edgePathElsRef.current.delete(e.id) }}
                             d={`M ${src.x} ${src.y} C ${c1x},${c1y} ${c2x},${c2y} ${tgt.x},${tgt.y}`}
                             stroke={isHov&&edgeMode==='cut'?'#ff435a':`url(#grad-${e.id})`}
                             strokeWidth={isHov?3:brutal?2:1.5}
@@ -2604,7 +2710,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
                     setHoveredNodeId={setHoveredNodeId}
                     draggingNodeRef={draggingNodeRef}
                     lastMousePos={lastMousePos}
-                    transform={transform}
+                    transformRef={liveTransformRef}
                     setNodeColorPicker={setNodeColorPicker}
                     handleNodeClickInMode={handleNodeClickInMode}
                     openNodeInEditor={openNodeInEditor}
@@ -2622,7 +2728,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
 
           {/* Canvas decorations (not transformed) */}
           <div className="ide-canvas-chapter" style={{pointerEvents:'none'}}>CHAPTER {nodeCount} · {activeVersionName}</div>
-          <div className="ide-canvas-watermark">FORBIDEN</div>
+          <div className="ide-canvas-watermark">SANCTION</div>
           <GraphMinimap nodes={visibleNodes}/>
         </div>
 
@@ -2633,7 +2739,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
             onMouseDown={e=>{e.preventDefault();document.body.style.userSelect='none';document.body.style.cursor='ew-resize';
               splitDragRef.current={side:'editor',sx:e.clientX,startW:editorW}}}/>
           {/* Editor pane */}
-          <div className="ide-editor-pane" style={{width:editorW,flexShrink:0}}>
+          <div className="ide-editor-pane" style={{width:'var(--ide-editor-w)',flexShrink:0}}>
             {/* Drag bar */}
             <div style={{height:20,flexShrink:0,display:'flex',alignItems:'center',
               justifyContent:'space-between',padding:'0 8px',
@@ -2840,7 +2946,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
               {/* ── Hero text ── */}
               <div className="idw-hero">
                 <div className="idw-hero-tag" style={{color:brutal?'#f2c12e':'#ff2a38',borderColor:brutal?'rgba(242,193,46,.55)':'rgba(255,42,56,.55)'}}>
-                  FORBIDEN <span style={{opacity:.45}}>//</span> NGO
+                  SANCTION <span style={{opacity:.45}}>//</span> NGO
                 </div>
                 <div className="idw-hero-chapter">
                   CHAPTER {nodeCount} · {edgeCount>0?`${edgeCount} LINKS`:'ORIGIN'}
@@ -3091,13 +3197,14 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
         </>
       )}
 
+      {/* ── BOTTOM PANEL RESIZE DIVIDER ── always rendered for VS Code-style drag-to-open */}
+      <div className={`ide-bottom-resize${bottomOpen?'':' ide-bottom-resize-collapsed'}`}
+        onMouseDown={e=>{e.preventDefault();document.body.style.userSelect='none';document.body.style.cursor='ns-resize';
+          tlDragRef.current={sy:e.clientY,startH:bottomOpen?bottomH:0,wasOpen:bottomOpen}}}/>
+
       {/* ── BOTTOM PANEL (Timeline / Console / Git) ── */}
       {bottomOpen && (
-        <div className="ide-bottom-panel" style={{height:bottomH}}>
-          {/* Resize drag handle */}
-          <div className="ide-bottom-resize"
-            onMouseDown={e=>{e.preventDefault();document.body.style.userSelect='none';document.body.style.cursor='ns-resize';
-              tlDragRef.current={sy:e.clientY,startH:bottomH}}}/>
+        <div className="ide-bottom-panel" style={{height:'var(--ide-bottom-h)'}}>
           {/* Tab bar */}
           <div className="ide-bottom-tabbar">
             {[
@@ -3170,7 +3277,7 @@ function IDE({ initialTheme = 'cyber', initialAvatar = 0 }) {
       {/* ═══════ STATUS BAR ═══════ */}
       {/* ═══════ STATUS BAR ═══════ */}
       <div className="ide-status-bar">
-        <div className="ide-status-badge" style={{background:brutal?'#c8001a':'#ff2a38',color:'#fff'}}>FORBIDEN</div>
+        <div className="ide-status-badge" style={{background:brutal?'#c8001a':'#ff2a38',color:'#fff'}}>SANCTION</div>
         <span style={{color:brutal?'#10b981':'#28f1c3'}}>● LOCAL</span>
         {gitBranch && (
           <span

@@ -6,10 +6,10 @@ type Setter<T> = T | ((prev: T) => T)
 const upd = <T>(val: Setter<T>, prev: T): T =>
   typeof val === 'function' ? (val as (p: T) => T)(prev) : val
 
-// Default FORBINDEN palette — matches PALETTES[0] in IDE
+// Default SANCTION palette — matches PALETTES[0] in IDE
 const DEFAULT_PALETTE: Palette = {
-  id: 'forbinden',
-  name: 'FORBINDEN',
+  id: 'sanction',
+  name: 'SANCTION',
   bg: '#0b0b0f',
   base: '#c0c8d8',
   lineNum: '#2e2e42',
@@ -98,7 +98,7 @@ export const useEditorStore = create<EditorState>()(
       setEditorCursorPos: (pos) => set({ editorCursorPos: pos }),
     }),
     {
-      name: 'forbiden-editor-v1',
+      name: 'sanction-editor-v1',
       partialize: (s) => ({
         openTabs: s.openTabs,
         activeTabId: s.activeTabId,

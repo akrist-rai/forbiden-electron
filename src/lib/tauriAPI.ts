@@ -1,5 +1,5 @@
 // ══════════════════════════════════════════════════════════════════════════════
-//  FORBIDEN API BRIDGE
+//  SANCTION API BRIDGE
 //  All heavy ops (FS, git, run, AI, workspace) go to the Go engine via HTTP.
 //  Tauri is used only for: engine URL discovery, window management, dialogs.
 // ══════════════════════════════════════════════════════════════════════════════

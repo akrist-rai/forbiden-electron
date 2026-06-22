@@ -50,15 +50,15 @@ type MenuItem = { label: string; action?: () => void; separator?: boolean; disab
 
 function buildFileMenu(recentWorkspaces: string[]): MenuItem[] {
   return [
-    { label: 'Open Folder…', action: () => api?.dialog?.openFolder().then((p: string) => p && window.dispatchEvent(new CustomEvent('forbiden:open-folder', { detail: p }))) },
+    { label: 'Open Folder…', action: () => api?.dialog?.openFolder().then((p: string) => p && window.dispatchEvent(new CustomEvent('sanction:open-folder', { detail: p }))) },
     { label: 'Open Files…',  action: () => api?.dialog?.openFiles() },
-    { label: 'Save File',    action: () => window.dispatchEvent(new CustomEvent('forbiden:save-file')) },
+    { label: 'Save File',    action: () => window.dispatchEvent(new CustomEvent('sanction:save-file')) },
     { separator: true, label: '' },
     ...(recentWorkspaces.length > 0 ? [
       { label: '─── Recent ───', disabled: true, separator: false },
       ...recentWorkspaces.map(p => ({
         label: p.split('/').pop() || p,
-        action: () => window.dispatchEvent(new CustomEvent('forbiden:open-folder', { detail: p })),
+        action: () => window.dispatchEvent(new CustomEvent('sanction:open-folder', { detail: p })),
       })),
       { separator: true, label: '' },
     ] : []),
@@ -81,24 +81,24 @@ const STATIC_MENUS: Record<string, MenuItem[]> = {
     { label: 'Reload',          action: () => window.location.reload() },
     { label: 'Toggle DevTools', action: () => api?.window?.toggleDevTools?.() },
     { separator: true, label: '' },
-    { label: 'Zoom In',         action: () => window.dispatchEvent(new CustomEvent('forbiden:zoom-in')) },
-    { label: 'Zoom Out',        action: () => window.dispatchEvent(new CustomEvent('forbiden:zoom-out')) },
-    { label: 'Reset Zoom',      action: () => window.dispatchEvent(new CustomEvent('forbiden:zoom-reset')) },
+    { label: 'Zoom In',         action: () => window.dispatchEvent(new CustomEvent('sanction:zoom-in')) },
+    { label: 'Zoom Out',        action: () => window.dispatchEvent(new CustomEvent('sanction:zoom-out')) },
+    { label: 'Reset Zoom',      action: () => window.dispatchEvent(new CustomEvent('sanction:zoom-reset')) },
     { separator: true, label: '' },
-    { label: 'Toggle Sidebar',  action: () => window.dispatchEvent(new CustomEvent('forbiden:toggle-sidebar')) },
-    { label: 'Toggle Terminal', action: () => window.dispatchEvent(new CustomEvent('forbiden:toggle-terminal')) },
+    { label: 'Toggle Sidebar',  action: () => window.dispatchEvent(new CustomEvent('sanction:toggle-sidebar')) },
+    { label: 'Toggle Terminal', action: () => window.dispatchEvent(new CustomEvent('sanction:toggle-terminal')) },
   ],
   Run: [
-    { label: 'Run Active File', action: () => window.dispatchEvent(new CustomEvent('forbiden:run-active')) },
-    { label: 'Open Terminal',   action: () => window.dispatchEvent(new CustomEvent('forbiden:toggle-terminal')) },
+    { label: 'Run Active File', action: () => window.dispatchEvent(new CustomEvent('sanction:run-active')) },
+    { label: 'Open Terminal',   action: () => window.dispatchEvent(new CustomEvent('sanction:toggle-terminal')) },
   ],
   Help: [
-    { label: 'About FORBIDEN', action: () => alert('FORBIDEN Graph IDE\nVersion 2.2.0\n\nBuilt with Electron + React + Vite') },
+    { label: 'About SANCTION', action: () => alert('SANCTION Graph IDE\nVersion 2.2.0\n\nBuilt with Electron + React + Vite') },
   ],
 }
 
 export default function TitleBar({
-  title = 'FORBIDEN',
+  title = 'SANCTION',
   brutal = false,
   onOpenFolder,
   onSettings,
@@ -263,7 +263,7 @@ export default function TitleBar({
           letterSpacing: '.12em',
           color: text,
         }}>
-          FOR<span style={{ color: red }}>BID</span>EN
+          SANC<span style={{ color: red }}>TI</span>ON
         </span>
         <span style={{ marginLeft: 6, color: red, fontSize: '8px', opacity: 0.7, lineHeight: 1 }}>◆</span>
       </div>

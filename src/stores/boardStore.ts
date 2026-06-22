@@ -69,7 +69,7 @@ export const useBoardStore = create<BoardState>()(
       setNewCardTitle: (title) => set({ newCardTitle: title }),
     }),
     {
-      name: 'forbiden-board-v1',
+      name: 'sanction-board-v1',
       partialize: (s) => ({ cols: s.cols, cards: s.cards }),
     }
   )

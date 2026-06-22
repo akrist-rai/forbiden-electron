@@ -63,7 +63,7 @@ export const useAiStore = create<AiState>()(
       },
     }),
     {
-      name: 'forbiden-ai-v1',
+      name: 'sanction-ai-v1',
       partialize: (s) => ({
         aiProvider: s.aiProvider,
         aiKeys: s.aiKeys,

@@ -505,7 +505,7 @@ func handleFsFormat(w http.ResponseWriter, r *http.Request) {
 		jsonResp(w, map[string]any{"success": false, "error": "No formatter"})
 		return
 	}
-	tmp, err := os.CreateTemp("", "forbiden_fmt_*."+ext)
+	tmp, err := os.CreateTemp("", "sanction_fmt_*."+ext)
 	if err != nil {
 		jsonResp(w, map[string]any{"success": false, "error": err.Error()})
 		return
